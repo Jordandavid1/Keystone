@@ -1,0 +1,6 @@
+{
+  "plan": "plan.v1",
+  "promptAnatomy": ["role", "task", "context", "constraints", "outputFormat", "reasoning"],
+  "authorityDecisions": ["approve", "deny", "replan"],
+  "jobStates": ["created", "validating", "planning", "authorizing", "queued", "running", "validating_output", "retry_pending", "replan_required", "completed", "failed", "cancelled", "rejected"]
+}

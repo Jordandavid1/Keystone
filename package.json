@@ -1,0 +1,14 @@
+{
+  "name": "keystone",
+  "version": "2.0.0-alpha.0",
+  "private": true,
+  "description": "KEYSTONE prompt-intelligence and authoritative creative orchestration platform.",
+  "author": "Jordan Maxwell",
+  "license": "MIT",
+  "workspaces": ["apps/*", "packages/*", "services/*"],
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "test:identity": "node --test tests/identity.test.js",
+    "dev:api": "python -m uvicorn apps.api.src.main:app --reload --port 8000"
+  }
+}

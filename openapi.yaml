@@ -1,0 +1,399 @@
+openapi: 3.1.0
+info:
+  title: KEYSTONE API
+  version: 0.1.0-alpha
+  description: Public API contract for KEYSTONE, the authoritative prompting and creative orchestration application.
+servers:
+  - url: /v1
+security:
+  - bearerAuth: []
+paths:
+  /auth/register:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Register account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/RegisterRequest'}
+      responses:
+        '201':
+          description: Account created
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AuthResponse'}
+  /auth/login:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/LoginRequest'}
+      responses:
+        '200':
+          description: Authenticated
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AuthResponse'}
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Refresh access token
+      responses:
+        '200': {description: Token refreshed}
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout
+      responses:
+        '204': {description: Logged out}
+  /account:
+    get:
+      tags: [Account]
+      summary: Get current account
+      responses:
+        '200':
+          description: Account
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Account'}
+  /account/usage:
+    get:
+      tags: [Account]
+      summary: Get usage summary
+      responses:
+        '200': {description: Usage summary}
+  /account/subscription:
+    get:
+      tags: [Account]
+      summary: Get subscription
+      responses:
+        '200': {description: Subscription summary}
+  /projects:
+    get:
+      tags: [Projects]
+      summary: List projects
+      responses:
+        '200': {description: Project list}
+    post:
+      tags: [Projects]
+      summary: Create project
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ProjectCreate'}
+      responses:
+        '201':
+          description: Project created
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Project'}
+  /projects/{project_id}:
+    parameters:
+      - {$ref: '#/components/parameters/ProjectId'}
+    get:
+      tags: [Projects]
+      summary: Get project
+      responses:
+        '200': {description: Project}
+    patch:
+      tags: [Projects]
+      summary: Update project
+      responses:
+        '200': {description: Project updated}
+    delete:
+      tags: [Projects]
+      summary: Archive/delete project
+      responses:
+        '204': {description: Project removed}
+  /sessions:
+    get:
+      tags: [Sessions]
+      summary: List sessions
+      responses:
+        '200': {description: Session list}
+    post:
+      tags: [Sessions]
+      summary: Create session
+      responses:
+        '201': {description: Session created}
+  /sessions/{session_id}:
+    parameters:
+      - {$ref: '#/components/parameters/SessionId'}
+    get:
+      tags: [Sessions]
+      summary: Get session
+      responses:
+        '200': {description: Session}
+  /sessions/{session_id}/messages:
+    parameters:
+      - {$ref: '#/components/parameters/SessionId'}
+    get:
+      tags: [Sessions]
+      summary: List messages
+      responses:
+        '200': {description: Messages}
+    post:
+      tags: [Sessions]
+      summary: Submit request to KEYSTONE
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/MessageCreate'}
+      responses:
+        '202':
+          description: Request accepted
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/MessageAccepted'}
+  /assets/upload:
+    post:
+      tags: [Assets]
+      summary: Upload asset
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: {type: string, format: binary}
+                project_id: {type: string, format: uuid}
+      responses:
+        '201':
+          description: Asset uploaded
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Asset'}
+  /assets:
+    get:
+      tags: [Assets]
+      summary: List assets
+      responses:
+        '200': {description: Asset list}
+  /assets/{asset_id}:
+    parameters:
+      - {$ref: '#/components/parameters/AssetId'}
+    get:
+      tags: [Assets]
+      summary: Get asset
+      responses:
+        '200':
+          description: Asset
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Asset'}
+    delete:
+      tags: [Assets]
+      summary: Delete asset
+      responses:
+        '204': {description: Deleted}
+  /jobs/{job_id}:
+    parameters:
+      - {$ref: '#/components/parameters/JobId'}
+    get:
+      tags: [Jobs]
+      summary: Get job
+      responses:
+        '200':
+          description: Job
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Job'}
+  /jobs/{job_id}/events:
+    parameters:
+      - {$ref: '#/components/parameters/JobId'}
+    get:
+      tags: [Jobs]
+      summary: Stream job lifecycle events
+      responses:
+        '200':
+          description: text/event-stream
+          content:
+            text/event-stream:
+              schema: {type: string}
+  /jobs/{job_id}/cancel:
+    parameters:
+      - {$ref: '#/components/parameters/JobId'}
+    post:
+      tags: [Jobs]
+      summary: Cancel job
+      responses:
+        '202': {description: Cancellation requested}
+  /jobs/{job_id}/retry:
+    parameters:
+      - {$ref: '#/components/parameters/JobId'}
+    post:
+      tags: [Jobs]
+      summary: Retry eligible failed job
+      responses:
+        '202': {description: Retry accepted}
+  /jobs/{job_id}/feedback:
+    parameters:
+      - {$ref: '#/components/parameters/JobId'}
+    post:
+      tags: [Feedback]
+      summary: Submit user feedback
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/UserFeedback'}
+      responses:
+        '201': {description: Feedback stored}
+  /capabilities:
+    get:
+      tags: [Capabilities]
+      summary: List customer-visible enabled capabilities
+      responses:
+        '200':
+          description: Capabilities
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  capabilities:
+                    type: array
+                    items: {$ref: '#/components/schemas/PublicCapability'}
+  /health:
+    get:
+      tags: [System]
+      security: []
+      summary: Liveness
+      responses:
+        '200': {description: Healthy}
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    ProjectId: {name: project_id, in: path, required: true, schema: {type: string, format: uuid}}
+    SessionId: {name: session_id, in: path, required: true, schema: {type: string, format: uuid}}
+    AssetId: {name: asset_id, in: path, required: true, schema: {type: string, format: uuid}}
+    JobId: {name: job_id, in: path, required: true, schema: {type: string, format: uuid}}
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: {type: string, format: email}
+        password: {type: string, minLength: 12}
+        display_name: {type: string}
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: {type: string, format: email}
+        password: {type: string}
+    AuthResponse:
+      type: object
+      required: [access_token, token_type, account]
+      properties:
+        access_token: {type: string}
+        token_type: {type: string, const: bearer}
+        account: {$ref: '#/components/schemas/Account'}
+    Account:
+      type: object
+      required: [id, email, plan, credits]
+      properties:
+        id: {type: string, format: uuid}
+        email: {type: string, format: email}
+        display_name: {type: [string, 'null']}
+        plan: {type: string}
+        credits: {type: string}
+    ProjectCreate:
+      type: object
+      required: [name]
+      properties:
+        name: {type: string, minLength: 1, maxLength: 160}
+        description: {type: string, maxLength: 2000}
+    Project:
+      allOf:
+        - {$ref: '#/components/schemas/ProjectCreate'}
+        - type: object
+          required: [id, status, created_at]
+          properties:
+            id: {type: string, format: uuid}
+            status: {type: string, enum: [active, archived]}
+            created_at: {type: string, format: date-time}
+    MessageCreate:
+      type: object
+      required: [content]
+      properties:
+        content: {type: string, minLength: 1}
+        assets:
+          type: array
+          items: {type: string, format: uuid}
+        intent_hint: {type: [string, 'null'], enum: [create, edit, animate, analyze, null]}
+        preferences: {type: object, additionalProperties: true}
+    MessageAccepted:
+      type: object
+      required: [request_id, message_id, status]
+      properties:
+        request_id: {type: string, format: uuid}
+        message_id: {type: string, format: uuid}
+        job_id: {type: [string, 'null'], format: uuid}
+        status: {type: string}
+    Asset:
+      type: object
+      required: [id, media_type, mime_type, byte_size, status, created_at]
+      properties:
+        id: {type: string, format: uuid}
+        media_type: {type: string, enum: [image, video, audio, document, other]}
+        mime_type: {type: string}
+        byte_size: {type: integer, minimum: 0}
+        width: {type: [integer, 'null']}
+        height: {type: [integer, 'null']}
+        duration_seconds: {type: [number, 'null']}
+        status: {type: string, enum: [uploading, available, processing, failed, deleted]}
+        created_at: {type: string, format: date-time}
+    Job:
+      type: object
+      required: [id, state, stage, attempt, created_at, updated_at]
+      properties:
+        id: {type: string, format: uuid}
+        state: {type: string, enum: [created, validating, planning, authorizing, queued, running, validating_output, retry_pending, replan_required, completed, failed, cancelled, rejected]}
+        stage: {type: string}
+        attempt: {type: integer, minimum: 0}
+        progress: {type: number, minimum: 0, maximum: 1}
+        output_asset_ids:
+          type: array
+          items: {type: string, format: uuid}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+    UserFeedback:
+      type: object
+      properties:
+        accepted: {type: [boolean, 'null']}
+        rating: {type: [number, 'null'], minimum: 0, maximum: 5}
+        selected_asset_id: {type: [string, 'null'], format: uuid}
+        regeneration_requested: {type: boolean, default: false}
+        tags:
+          type: array
+          items: {type: string}
+        comment: {type: [string, 'null'], maxLength: 4000}
+    PublicCapability:
+      type: object
+      required: [id, available]
+      properties:
+        id: {type: string}
+        available: {type: boolean}
+        label: {type: string}
+        accepts:
+          type: array
+          items: {type: string}
+        produces:
+          type: array
+          items: {type: string}
