@@ -1,0 +1,2697 @@
+{
+  "plan": "plan.v1",
+  "promptAnatomy": [
+    "role",
+    "task",
+    "context",
+    "constraints",
+    "outputFormat",
+    "reasoning"
+  ],
+  "authorityDecisions": [
+    "approve",
+    "deny",
+    "replan"
+  ],
+  "jobStates": [
+    "created",
+    "validating",
+    "planning",
+    "authorizing",
+    "queued",
+    "running",
+    "validating_output",
+    "retry_pending",
+    "replan_required",
+    "completed",
+    "failed",
+    "cancelled",
+    "rejected"
+  ],
+  "contractVersion": "2.0.0",
+  "schemas": {
+    "PromptIntent": {
+      "description": "Provider-neutral creative and analytical intent representation (Bible \u00a77).",
+      "properties": {
+        "objective": {
+          "description": "Primary natural language creative objective",
+          "minLength": 1,
+          "title": "Objective",
+          "type": "string"
+        },
+        "subject": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Main visual subject or entity",
+          "title": "Subject"
+        },
+        "environment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Setting, backdrop, or spatial context",
+          "title": "Environment"
+        },
+        "visual_style": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Aesthetic, rendering, or artistic style",
+          "title": "Visual Style"
+        },
+        "composition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Framing, layout, and subject placement",
+          "title": "Composition"
+        },
+        "camera": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Lens, focal length, angle, and shot distance",
+          "title": "Camera"
+        },
+        "lighting": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Lighting setup, color temperature, and mood",
+          "title": "Lighting"
+        },
+        "mood": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Emotional tone and atmospheric feel",
+          "title": "Mood"
+        },
+        "motion": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Camera or subject motion dynamics for video/animation",
+          "title": "Motion"
+        },
+        "constraints": {
+          "description": "Negative prompts and unwanted elements",
+          "items": {
+            "type": "string"
+          },
+          "title": "Constraints",
+          "type": "array"
+        },
+        "references": {
+          "description": "Asset IDs or reference image URIs",
+          "items": {
+            "type": "string"
+          },
+          "title": "References",
+          "type": "array"
+        },
+        "metadata": {
+          "additionalProperties": true,
+          "description": "Extensible contextual metadata",
+          "title": "Metadata",
+          "type": "object"
+        }
+      },
+      "required": [
+        "objective"
+      ],
+      "title": "PromptIntent",
+      "type": "object"
+    },
+    "ParameterSpec": {
+      "description": "Detailed specification for a capability parameter (Bible \u00a78).",
+      "properties": {
+        "type": {
+          "description": "Parameter data type (string, number, integer, boolean, array, object)",
+          "title": "Type",
+          "type": "string"
+        },
+        "required": {
+          "default": false,
+          "description": "Whether this parameter is mandatory",
+          "title": "Required",
+          "type": "boolean"
+        },
+        "default": {
+          "anyOf": [
+            {},
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Default parameter value if omitted",
+          "title": "Default"
+        },
+        "minimum": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Inclusive minimum value for numeric parameters",
+          "title": "Minimum"
+        },
+        "maximum": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Inclusive maximum value for numeric parameters",
+          "title": "Maximum"
+        },
+        "enum": {
+          "anyOf": [
+            {
+              "items": {},
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Permitted enumeration values",
+          "title": "Enum"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Customer-facing or cognitive documentation",
+          "title": "Description"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "ParameterSpec",
+      "type": "object"
+    },
+    "CapabilityManifest": {
+      "$defs": {
+        "ParameterSpec": {
+          "description": "Detailed specification for a capability parameter (Bible \u00a78).",
+          "properties": {
+            "type": {
+              "description": "Parameter data type (string, number, integer, boolean, array, object)",
+              "title": "Type",
+              "type": "string"
+            },
+            "required": {
+              "default": false,
+              "description": "Whether this parameter is mandatory",
+              "title": "Required",
+              "type": "boolean"
+            },
+            "default": {
+              "anyOf": [
+                {},
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Default parameter value if omitted",
+              "title": "Default"
+            },
+            "minimum": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Inclusive minimum value for numeric parameters",
+              "title": "Minimum"
+            },
+            "maximum": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Inclusive maximum value for numeric parameters",
+              "title": "Maximum"
+            },
+            "enum": {
+              "anyOf": [
+                {
+                  "items": {},
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Permitted enumeration values",
+              "title": "Enum"
+            },
+            "description": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Customer-facing or cognitive documentation",
+              "title": "Description"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "title": "ParameterSpec",
+          "type": "object"
+        }
+      },
+      "description": "Provider capability declaration manifest (Bible \u00a78).",
+      "properties": {
+        "schema_version": {
+          "default": "1.0",
+          "description": "Manifest schema version",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "capability_id": {
+          "description": "Globally unique capability identifier e.g. creative.image_generation",
+          "title": "Capability Id",
+          "type": "string"
+        },
+        "provider_id": {
+          "description": "Provider adapter identifier e.g. comfy.flux_schnell",
+          "title": "Provider Id",
+          "type": "string"
+        },
+        "provider_version": {
+          "description": "Semantic version of the underlying provider adapter",
+          "title": "Provider Version",
+          "type": "string"
+        },
+        "capability_type": {
+          "description": "Category: cognition, generation, transformation, analysis",
+          "title": "Capability Type",
+          "type": "string"
+        },
+        "description": {
+          "description": "Human and machine-readable description of capability",
+          "title": "Description",
+          "type": "string"
+        },
+        "accepts": {
+          "description": "List of accepted input modalities or MIME types",
+          "items": {
+            "type": "string"
+          },
+          "title": "Accepts",
+          "type": "array"
+        },
+        "produces": {
+          "description": "List of produced output modalities or MIME types",
+          "items": {
+            "type": "string"
+          },
+          "title": "Produces",
+          "type": "array"
+        },
+        "parameters": {
+          "additionalProperties": {
+            "$ref": "#/$defs/ParameterSpec"
+          },
+          "description": "Parameter schema dictionary",
+          "title": "Parameters",
+          "type": "object"
+        },
+        "prompt_profile": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Associated prompt profile identifier",
+          "title": "Prompt Profile"
+        },
+        "workflow_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Internal workflow graph template identifier",
+          "title": "Workflow Id"
+        },
+        "required_harnesses": {
+          "description": "Harness IDs executed for this capability",
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Harnesses",
+          "type": "array"
+        },
+        "estimated_resource_class": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Resource class: gpu_t4, cpu_standard, etc.",
+          "title": "Estimated Resource Class"
+        },
+        "enabled": {
+          "default": true,
+          "description": "Whether this capability is currently operational",
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "metadata": {
+          "additionalProperties": true,
+          "description": "Provider-specific configuration metadata",
+          "title": "Metadata",
+          "type": "object"
+        }
+      },
+      "required": [
+        "capability_id",
+        "provider_id",
+        "provider_version",
+        "capability_type",
+        "description",
+        "accepts",
+        "produces"
+      ],
+      "title": "CapabilityManifest",
+      "type": "object"
+    },
+    "PromptCompilationRequest": {
+      "$defs": {
+        "CapabilityManifest": {
+          "description": "Provider capability declaration manifest (Bible \u00a78).",
+          "properties": {
+            "schema_version": {
+              "default": "1.0",
+              "description": "Manifest schema version",
+              "title": "Schema Version",
+              "type": "string"
+            },
+            "capability_id": {
+              "description": "Globally unique capability identifier e.g. creative.image_generation",
+              "title": "Capability Id",
+              "type": "string"
+            },
+            "provider_id": {
+              "description": "Provider adapter identifier e.g. comfy.flux_schnell",
+              "title": "Provider Id",
+              "type": "string"
+            },
+            "provider_version": {
+              "description": "Semantic version of the underlying provider adapter",
+              "title": "Provider Version",
+              "type": "string"
+            },
+            "capability_type": {
+              "description": "Category: cognition, generation, transformation, analysis",
+              "title": "Capability Type",
+              "type": "string"
+            },
+            "description": {
+              "description": "Human and machine-readable description of capability",
+              "title": "Description",
+              "type": "string"
+            },
+            "accepts": {
+              "description": "List of accepted input modalities or MIME types",
+              "items": {
+                "type": "string"
+              },
+              "title": "Accepts",
+              "type": "array"
+            },
+            "produces": {
+              "description": "List of produced output modalities or MIME types",
+              "items": {
+                "type": "string"
+              },
+              "title": "Produces",
+              "type": "array"
+            },
+            "parameters": {
+              "additionalProperties": {
+                "$ref": "#/$defs/ParameterSpec"
+              },
+              "description": "Parameter schema dictionary",
+              "title": "Parameters",
+              "type": "object"
+            },
+            "prompt_profile": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Associated prompt profile identifier",
+              "title": "Prompt Profile"
+            },
+            "workflow_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Internal workflow graph template identifier",
+              "title": "Workflow Id"
+            },
+            "required_harnesses": {
+              "description": "Harness IDs executed for this capability",
+              "items": {
+                "type": "string"
+              },
+              "title": "Required Harnesses",
+              "type": "array"
+            },
+            "estimated_resource_class": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Resource class: gpu_t4, cpu_standard, etc.",
+              "title": "Estimated Resource Class"
+            },
+            "enabled": {
+              "default": true,
+              "description": "Whether this capability is currently operational",
+              "title": "Enabled",
+              "type": "boolean"
+            },
+            "metadata": {
+              "additionalProperties": true,
+              "description": "Provider-specific configuration metadata",
+              "title": "Metadata",
+              "type": "object"
+            }
+          },
+          "required": [
+            "capability_id",
+            "provider_id",
+            "provider_version",
+            "capability_type",
+            "description",
+            "accepts",
+            "produces"
+          ],
+          "title": "CapabilityManifest",
+          "type": "object"
+        },
+        "GenerationAttempt": {
+          "description": "Historical record of an individual workflow generation attempt (Bible \u00a716).",
+          "properties": {
+            "attempt_id": {
+              "description": "Unique attempt UUID",
+              "title": "Attempt Id",
+              "type": "string"
+            },
+            "job_id": {
+              "description": "Associated parent Job UUID",
+              "title": "Job Id",
+              "type": "string"
+            },
+            "provider_id": {
+              "description": "Provider adapter utilized",
+              "title": "Provider Id",
+              "type": "string"
+            },
+            "capability_id": {
+              "description": "Target capability ID",
+              "title": "Capability Id",
+              "type": "string"
+            },
+            "prompt_hash": {
+              "description": "SHA-256 hash of the compiled prompt",
+              "title": "Prompt Hash",
+              "type": "string"
+            },
+            "workflow_version": {
+              "description": "ComfyUI or model workflow graph version",
+              "title": "Workflow Version",
+              "type": "string"
+            },
+            "started_at": {
+              "format": "date-time",
+              "title": "Started At",
+              "type": "string"
+            },
+            "completed_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Completed At"
+            },
+            "success": {
+              "default": false,
+              "title": "Success",
+              "type": "boolean"
+            },
+            "output_asset_ids": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Output Asset Ids",
+              "type": "array"
+            },
+            "metrics": {
+              "additionalProperties": {
+                "type": "number"
+              },
+              "title": "Metrics",
+              "type": "object"
+            },
+            "failure_code": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Failure Code"
+            }
+          },
+          "required": [
+            "attempt_id",
+            "job_id",
+            "provider_id",
+            "capability_id",
+            "prompt_hash",
+            "workflow_version"
+          ],
+          "title": "GenerationAttempt",
+          "type": "object"
+        },
+        "HarnessResult": {
+          "description": "KHF evaluation and validation verdict (Bible \u00a713).",
+          "properties": {
+            "harness_id": {
+              "description": "Unique harness identifier e.g. khf.technical_output",
+              "title": "Harness Id",
+              "type": "string"
+            },
+            "harness_version": {
+              "description": "Semantic version of the executing harness",
+              "title": "Harness Version",
+              "type": "string"
+            },
+            "phase": {
+              "description": "Execution phase during which the harness evaluated",
+              "enum": [
+                "input",
+                "proposal",
+                "pre-execution",
+                "post-execution",
+                "benchmark"
+              ],
+              "title": "Phase",
+              "type": "string"
+            },
+            "verdict": {
+              "description": "Evaluation outcome verdict",
+              "enum": [
+                "pass",
+                "warn",
+                "fail"
+              ],
+              "title": "Verdict",
+              "type": "string"
+            },
+            "score": {
+              "anyOf": [
+                {
+                  "maximum": 1.0,
+                  "minimum": 0.0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Normalized quantitative score",
+              "title": "Score"
+            },
+            "reason_codes": {
+              "description": "Standardized failure or warning codes",
+              "items": {
+                "type": "string"
+              },
+              "title": "Reason Codes",
+              "type": "array"
+            },
+            "evidence": {
+              "additionalProperties": true,
+              "description": "Diagnostic evidence and measurement data",
+              "title": "Evidence",
+              "type": "object"
+            },
+            "runtime_ms": {
+              "anyOf": [
+                {
+                  "minimum": 0.0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Harness evaluation duration in milliseconds",
+              "title": "Runtime Ms"
+            }
+          },
+          "required": [
+            "harness_id",
+            "harness_version",
+            "phase",
+            "verdict"
+          ],
+          "title": "HarnessResult",
+          "type": "object"
+        },
+        "ParameterSpec": {
+          "description": "Detailed specification for a capability parameter (Bible \u00a78).",
+          "properties": {
+            "type": {
+              "description": "Parameter data type (string, number, integer, boolean, array, object)",
+              "title": "Type",
+              "type": "string"
+            },
+            "required": {
+              "default": false,
+              "description": "Whether this parameter is mandatory",
+              "title": "Required",
+              "type": "boolean"
+            },
+            "default": {
+              "anyOf": [
+                {},
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Default parameter value if omitted",
+              "title": "Default"
+            },
+            "minimum": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Inclusive minimum value for numeric parameters",
+              "title": "Minimum"
+            },
+            "maximum": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Inclusive maximum value for numeric parameters",
+              "title": "Maximum"
+            },
+            "enum": {
+              "anyOf": [
+                {
+                  "items": {},
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Permitted enumeration values",
+              "title": "Enum"
+            },
+            "description": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Customer-facing or cognitive documentation",
+              "title": "Description"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "title": "ParameterSpec",
+          "type": "object"
+        },
+        "PromptIntent": {
+          "description": "Provider-neutral creative and analytical intent representation (Bible \u00a77).",
+          "properties": {
+            "objective": {
+              "description": "Primary natural language creative objective",
+              "minLength": 1,
+              "title": "Objective",
+              "type": "string"
+            },
+            "subject": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Main visual subject or entity",
+              "title": "Subject"
+            },
+            "environment": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Setting, backdrop, or spatial context",
+              "title": "Environment"
+            },
+            "visual_style": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Aesthetic, rendering, or artistic style",
+              "title": "Visual Style"
+            },
+            "composition": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Framing, layout, and subject placement",
+              "title": "Composition"
+            },
+            "camera": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Lens, focal length, angle, and shot distance",
+              "title": "Camera"
+            },
+            "lighting": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Lighting setup, color temperature, and mood",
+              "title": "Lighting"
+            },
+            "mood": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Emotional tone and atmospheric feel",
+              "title": "Mood"
+            },
+            "motion": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Camera or subject motion dynamics for video/animation",
+              "title": "Motion"
+            },
+            "constraints": {
+              "description": "Negative prompts and unwanted elements",
+              "items": {
+                "type": "string"
+              },
+              "title": "Constraints",
+              "type": "array"
+            },
+            "references": {
+              "description": "Asset IDs or reference image URIs",
+              "items": {
+                "type": "string"
+              },
+              "title": "References",
+              "type": "array"
+            },
+            "metadata": {
+              "additionalProperties": true,
+              "description": "Extensible contextual metadata",
+              "title": "Metadata",
+              "type": "object"
+            }
+          },
+          "required": [
+            "objective"
+          ],
+          "title": "PromptIntent",
+          "type": "object"
+        }
+      },
+      "description": "Request envelope passed to domain PromptCompilers (Bible \u00a79).",
+      "properties": {
+        "request_id": {
+          "description": "Unique compilation request identifier",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "target_capability": {
+          "description": "Capability ID for which the prompt is compiled",
+          "title": "Target Capability",
+          "type": "string"
+        },
+        "target_provider": {
+          "description": "Provider ID handling target execution",
+          "title": "Target Provider",
+          "type": "string"
+        },
+        "intent": {
+          "$ref": "#/$defs/PromptIntent",
+          "description": "Provider-neutral intent representation"
+        },
+        "user_context": {
+          "additionalProperties": true,
+          "description": "User preferences, style guidelines",
+          "title": "User Context",
+          "type": "object"
+        },
+        "workflow_context": {
+          "additionalProperties": true,
+          "description": "Session and project context",
+          "title": "Workflow Context",
+          "type": "object"
+        },
+        "capability": {
+          "$ref": "#/$defs/CapabilityManifest",
+          "description": "Target capability manifest"
+        },
+        "harness_feedback": {
+          "description": "Prior attempt harness feedback",
+          "items": {
+            "$ref": "#/$defs/HarnessResult"
+          },
+          "title": "Harness Feedback",
+          "type": "array"
+        },
+        "previous_attempts": {
+          "description": "Prior execution history",
+          "items": {
+            "$ref": "#/$defs/GenerationAttempt"
+          },
+          "title": "Previous Attempts",
+          "type": "array"
+        }
+      },
+      "required": [
+        "request_id",
+        "target_capability",
+        "target_provider",
+        "intent",
+        "capability"
+      ],
+      "title": "PromptCompilationRequest",
+      "type": "object"
+    },
+    "CompiledPrompt": {
+      "description": "Authoritative compiled prompt artifact (Bible \u00a79).",
+      "properties": {
+        "compiler_version": {
+          "description": "Semantic version of compiler",
+          "title": "Compiler Version",
+          "type": "string"
+        },
+        "target_capability": {
+          "description": "Capability ID",
+          "title": "Target Capability",
+          "type": "string"
+        },
+        "target_provider": {
+          "description": "Target provider ID",
+          "title": "Target Provider",
+          "type": "string"
+        },
+        "positive_prompt": {
+          "description": "Fully compiled positive prompt string",
+          "title": "Positive Prompt",
+          "type": "string"
+        },
+        "negative_prompt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Fully compiled negative prompt string",
+          "title": "Negative Prompt"
+        },
+        "parameters": {
+          "additionalProperties": true,
+          "description": "Compiled provider parameter dictionary",
+          "title": "Parameters",
+          "type": "object"
+        },
+        "provenance": {
+          "additionalProperties": true,
+          "description": "Compilation metadata, hash, and inputs",
+          "title": "Provenance",
+          "type": "object"
+        },
+        "prompt_hash": {
+          "description": "Deterministic SHA-256 hash of compiled prompt & parameters",
+          "title": "Prompt Hash",
+          "type": "string"
+        }
+      },
+      "required": [
+        "compiler_version",
+        "target_capability",
+        "target_provider",
+        "positive_prompt",
+        "prompt_hash"
+      ],
+      "title": "CompiledPrompt",
+      "type": "object"
+    },
+    "ProposedAction": {
+      "description": "Structured action proposed by Qwen cognition (Bible \u00a710, \u00a712).",
+      "properties": {
+        "action_type": {
+          "description": "Action category: generate, edit, animate, transform, analyze",
+          "title": "Action Type",
+          "type": "string"
+        },
+        "capability": {
+          "description": "Target capability identifier e.g. creative.image_generation",
+          "title": "Capability",
+          "type": "string"
+        },
+        "parameters": {
+          "additionalProperties": true,
+          "description": "Proposed workflow parameter dictionary",
+          "title": "Parameters",
+          "type": "object"
+        },
+        "rationale": {
+          "default": "",
+          "description": "Cognitive rationale and justification",
+          "title": "Rationale",
+          "type": "string"
+        },
+        "estimated_credits": {
+          "default": 1,
+          "description": "Estimated credit cost for pre-execution hold",
+          "minimum": 0,
+          "title": "Estimated Credits",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "action_type",
+        "capability"
+      ],
+      "title": "ProposedAction",
+      "type": "object"
+    },
+    "CognitiveResult": {
+      "$defs": {
+        "PromptIntent": {
+          "description": "Provider-neutral creative and analytical intent representation (Bible \u00a77).",
+          "properties": {
+            "objective": {
+              "description": "Primary natural language creative objective",
+              "minLength": 1,
+              "title": "Objective",
+              "type": "string"
+            },
+            "subject": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Main visual subject or entity",
+              "title": "Subject"
+            },
+            "environment": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Setting, backdrop, or spatial context",
+              "title": "Environment"
+            },
+            "visual_style": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Aesthetic, rendering, or artistic style",
+              "title": "Visual Style"
+            },
+            "composition": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Framing, layout, and subject placement",
+              "title": "Composition"
+            },
+            "camera": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Lens, focal length, angle, and shot distance",
+              "title": "Camera"
+            },
+            "lighting": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Lighting setup, color temperature, and mood",
+              "title": "Lighting"
+            },
+            "mood": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Emotional tone and atmospheric feel",
+              "title": "Mood"
+            },
+            "motion": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Camera or subject motion dynamics for video/animation",
+              "title": "Motion"
+            },
+            "constraints": {
+              "description": "Negative prompts and unwanted elements",
+              "items": {
+                "type": "string"
+              },
+              "title": "Constraints",
+              "type": "array"
+            },
+            "references": {
+              "description": "Asset IDs or reference image URIs",
+              "items": {
+                "type": "string"
+              },
+              "title": "References",
+              "type": "array"
+            },
+            "metadata": {
+              "additionalProperties": true,
+              "description": "Extensible contextual metadata",
+              "title": "Metadata",
+              "type": "object"
+            }
+          },
+          "required": [
+            "objective"
+          ],
+          "title": "PromptIntent",
+          "type": "object"
+        },
+        "ProposedAction": {
+          "description": "Structured action proposed by Qwen cognition (Bible \u00a710, \u00a712).",
+          "properties": {
+            "action_type": {
+              "description": "Action category: generate, edit, animate, transform, analyze",
+              "title": "Action Type",
+              "type": "string"
+            },
+            "capability": {
+              "description": "Target capability identifier e.g. creative.image_generation",
+              "title": "Capability",
+              "type": "string"
+            },
+            "parameters": {
+              "additionalProperties": true,
+              "description": "Proposed workflow parameter dictionary",
+              "title": "Parameters",
+              "type": "object"
+            },
+            "rationale": {
+              "default": "",
+              "description": "Cognitive rationale and justification",
+              "title": "Rationale",
+              "type": "string"
+            },
+            "estimated_credits": {
+              "default": 1,
+              "description": "Estimated credit cost for pre-execution hold",
+              "minimum": 0,
+              "title": "Estimated Credits",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "action_type",
+            "capability"
+          ],
+          "title": "ProposedAction",
+          "type": "object"
+        }
+      },
+      "description": "Complete cognition output produced by Qwen runtime (Bible \u00a710).",
+      "properties": {
+        "reasoning_id": {
+          "description": "Unique reasoning session identifier",
+          "title": "Reasoning Id",
+          "type": "string"
+        },
+        "intent": {
+          "$ref": "#/$defs/PromptIntent",
+          "description": "Inferred and structured creative intent"
+        },
+        "proposed_actions": {
+          "description": "Proposed execution actions",
+          "items": {
+            "$ref": "#/$defs/ProposedAction"
+          },
+          "minItems": 1,
+          "title": "Proposed Actions",
+          "type": "array"
+        },
+        "confidence": {
+          "description": "Cognitive model confidence score",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "observations": {
+          "additionalProperties": true,
+          "description": "Extracted structural observations",
+          "title": "Observations",
+          "type": "object"
+        }
+      },
+      "required": [
+        "reasoning_id",
+        "intent",
+        "proposed_actions",
+        "confidence"
+      ],
+      "title": "CognitiveResult",
+      "type": "object"
+    },
+    "AuthorityDecision": {
+      "description": "Authoritative decision rendered by AuthorityEngine (Bible \u00a712).",
+      "properties": {
+        "decision_id": {
+          "description": "Unique decision UUID",
+          "title": "Decision Id",
+          "type": "string"
+        },
+        "request_id": {
+          "description": "Associated request UUID",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "decision": {
+          "description": "Authority outcome verdict",
+          "enum": [
+            "approve",
+            "deny",
+            "replan"
+          ],
+          "title": "Decision",
+          "type": "string"
+        },
+        "capability_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Approved capability ID",
+          "title": "Capability Id"
+        },
+        "provider_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Approved provider ID",
+          "title": "Provider Id"
+        },
+        "sanitized_arguments": {
+          "additionalProperties": true,
+          "description": "Sanitized arguments with bounds enforced",
+          "title": "Sanitized Arguments",
+          "type": "object"
+        },
+        "reason_codes": {
+          "description": "Policy violation or approval codes",
+          "items": {
+            "type": "string"
+          },
+          "title": "Reason Codes",
+          "type": "array"
+        },
+        "policy_bundle_version": {
+          "default": "1.0.0",
+          "description": "Active policy bundle version",
+          "title": "Policy Bundle Version",
+          "type": "string"
+        },
+        "capability_registry_version": {
+          "default": "1.0.0",
+          "description": "Active capability registry version",
+          "title": "Capability Registry Version",
+          "type": "string"
+        },
+        "harness_bundle_version": {
+          "default": "1.0.0",
+          "description": "Active harness bundle version",
+          "title": "Harness Bundle Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "decision_id",
+        "request_id",
+        "decision"
+      ],
+      "title": "AuthorityDecision",
+      "type": "object"
+    },
+    "ExecutionEnvelope": {
+      "description": "Cryptographically signed, short-expiry execution token delivered to workers (Bible \u00a712).",
+      "properties": {
+        "envelope_id": {
+          "description": "Unique envelope UUID",
+          "title": "Envelope Id",
+          "type": "string"
+        },
+        "decision_id": {
+          "description": "Authorizing decision UUID",
+          "title": "Decision Id",
+          "type": "string"
+        },
+        "job_id": {
+          "description": "Job UUID",
+          "title": "Job Id",
+          "type": "string"
+        },
+        "user_id": {
+          "description": "User UUID owning the job",
+          "title": "User Id",
+          "type": "string"
+        },
+        "capability_id": {
+          "description": "Capability ID",
+          "title": "Capability Id",
+          "type": "string"
+        },
+        "provider_id": {
+          "description": "Provider ID",
+          "title": "Provider Id",
+          "type": "string"
+        },
+        "workflow_id": {
+          "description": "Workflow graph identifier",
+          "title": "Workflow Id",
+          "type": "string"
+        },
+        "workflow_version": {
+          "description": "Workflow template version",
+          "title": "Workflow Version",
+          "type": "string"
+        },
+        "compiled_prompt_id": {
+          "description": "Hash or UUID of compiled prompt",
+          "title": "Compiled Prompt Id",
+          "type": "string"
+        },
+        "arguments": {
+          "additionalProperties": true,
+          "description": "Immutable execution arguments",
+          "title": "Arguments",
+          "type": "object"
+        },
+        "input_asset_ids": {
+          "description": "IDs of input assets in Cloud Storage",
+          "items": {
+            "type": "string"
+          },
+          "title": "Input Asset Ids",
+          "type": "array"
+        },
+        "issued_at": {
+          "format": "date-time",
+          "title": "Issued At",
+          "type": "string"
+        },
+        "expires_at": {
+          "description": "Strict short expiration timestamp (typically 15 min)",
+          "format": "date-time",
+          "title": "Expires At",
+          "type": "string"
+        },
+        "nonce": {
+          "description": "Single-use cryptographic nonce",
+          "title": "Nonce",
+          "type": "string"
+        },
+        "signature": {
+          "description": "HMAC-SHA256 signature generated by KEYSTONE master authority",
+          "title": "Signature",
+          "type": "string"
+        }
+      },
+      "required": [
+        "envelope_id",
+        "decision_id",
+        "job_id",
+        "user_id",
+        "capability_id",
+        "provider_id",
+        "workflow_id",
+        "workflow_version",
+        "compiled_prompt_id",
+        "expires_at",
+        "nonce",
+        "signature"
+      ],
+      "title": "ExecutionEnvelope",
+      "type": "object"
+    },
+    "HarnessResult": {
+      "description": "KHF evaluation and validation verdict (Bible \u00a713).",
+      "properties": {
+        "harness_id": {
+          "description": "Unique harness identifier e.g. khf.technical_output",
+          "title": "Harness Id",
+          "type": "string"
+        },
+        "harness_version": {
+          "description": "Semantic version of the executing harness",
+          "title": "Harness Version",
+          "type": "string"
+        },
+        "phase": {
+          "description": "Execution phase during which the harness evaluated",
+          "enum": [
+            "input",
+            "proposal",
+            "pre-execution",
+            "post-execution",
+            "benchmark"
+          ],
+          "title": "Phase",
+          "type": "string"
+        },
+        "verdict": {
+          "description": "Evaluation outcome verdict",
+          "enum": [
+            "pass",
+            "warn",
+            "fail"
+          ],
+          "title": "Verdict",
+          "type": "string"
+        },
+        "score": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Normalized quantitative score",
+          "title": "Score"
+        },
+        "reason_codes": {
+          "description": "Standardized failure or warning codes",
+          "items": {
+            "type": "string"
+          },
+          "title": "Reason Codes",
+          "type": "array"
+        },
+        "evidence": {
+          "additionalProperties": true,
+          "description": "Diagnostic evidence and measurement data",
+          "title": "Evidence",
+          "type": "object"
+        },
+        "runtime_ms": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Harness evaluation duration in milliseconds",
+          "title": "Runtime Ms"
+        }
+      },
+      "required": [
+        "harness_id",
+        "harness_version",
+        "phase",
+        "verdict"
+      ],
+      "title": "HarnessResult",
+      "type": "object"
+    },
+    "QualityDimensions": {
+      "description": "Multidimensional visual and technical evaluation scores (Bible \u00a714).",
+      "properties": {
+        "prompt_adherence": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Adherence"
+        },
+        "technical_quality": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Technical Quality"
+        },
+        "composition": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Composition"
+        },
+        "visual_consistency": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Visual Consistency"
+        },
+        "identity_consistency": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Identity Consistency"
+        },
+        "temporal_consistency": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Temporal Consistency"
+        },
+        "artifact_score": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Artifact Score"
+        },
+        "user_satisfaction": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "User Satisfaction"
+        }
+      },
+      "title": "QualityDimensions",
+      "type": "object"
+    },
+    "QualityScore": {
+      "$defs": {
+        "QualityDimensions": {
+          "description": "Multidimensional visual and technical evaluation scores (Bible \u00a714).",
+          "properties": {
+            "prompt_adherence": {
+              "anyOf": [
+                {
+                  "maximum": 1.0,
+                  "minimum": 0.0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Prompt Adherence"
+            },
+            "technical_quality": {
+              "anyOf": [
+                {
+                  "maximum": 1.0,
+                  "minimum": 0.0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Technical Quality"
+            },
+            "composition": {
+              "anyOf": [
+                {
+                  "maximum": 1.0,
+                  "minimum": 0.0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Composition"
+            },
+            "visual_consistency": {
+              "anyOf": [
+                {
+                  "maximum": 1.0,
+                  "minimum": 0.0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Visual Consistency"
+            },
+            "identity_consistency": {
+              "anyOf": [
+                {
+                  "maximum": 1.0,
+                  "minimum": 0.0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Identity Consistency"
+            },
+            "temporal_consistency": {
+              "anyOf": [
+                {
+                  "maximum": 1.0,
+                  "minimum": 0.0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Temporal Consistency"
+            },
+            "artifact_score": {
+              "anyOf": [
+                {
+                  "maximum": 1.0,
+                  "minimum": 0.0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Artifact Score"
+            },
+            "user_satisfaction": {
+              "anyOf": [
+                {
+                  "maximum": 1.0,
+                  "minimum": 0.0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "User Satisfaction"
+            }
+          },
+          "title": "QualityDimensions",
+          "type": "object"
+        }
+      },
+      "description": "Aggregated quality evaluation result (Bible \u00a714).",
+      "properties": {
+        "evaluator": {
+          "description": "Evaluator name e.g. qwen_semantic_critic or technical_validator",
+          "title": "Evaluator",
+          "type": "string"
+        },
+        "evaluator_version": {
+          "description": "Semantic version of the evaluator",
+          "title": "Evaluator Version",
+          "type": "string"
+        },
+        "dimensions": {
+          "$ref": "#/$defs/QualityDimensions",
+          "description": "Fine-grained quality dimension scores"
+        },
+        "overall": {
+          "description": "Overall weighted quality score",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Overall",
+          "type": "number"
+        },
+        "confidence": {
+          "description": "Evaluator confidence score",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "evidence": {
+          "additionalProperties": true,
+          "description": "Supporting telemetry and visual critique",
+          "title": "Evidence",
+          "type": "object"
+        }
+      },
+      "required": [
+        "evaluator",
+        "evaluator_version",
+        "dimensions",
+        "overall",
+        "confidence"
+      ],
+      "title": "QualityScore",
+      "type": "object"
+    },
+    "RetryPolicy": {
+      "description": "Bounded retry policy to prevent runaway execution (Bible \u00a714).",
+      "properties": {
+        "max_attempts": {
+          "default": 3,
+          "description": "Maximum execution attempts",
+          "maximum": 10,
+          "minimum": 1,
+          "title": "Max Attempts",
+          "type": "integer"
+        },
+        "max_total_runtime_seconds": {
+          "default": 300,
+          "description": "Maximum cumulative job runtime",
+          "minimum": 1,
+          "title": "Max Total Runtime Seconds",
+          "type": "integer"
+        },
+        "max_estimated_cost": {
+          "default": 10.0,
+          "description": "Maximum total credit/monetary budget",
+          "minimum": 0.0,
+          "title": "Max Estimated Cost",
+          "type": "number"
+        }
+      },
+      "title": "RetryPolicy",
+      "type": "object"
+    },
+    "GenerationAttempt": {
+      "description": "Historical record of an individual workflow generation attempt (Bible \u00a716).",
+      "properties": {
+        "attempt_id": {
+          "description": "Unique attempt UUID",
+          "title": "Attempt Id",
+          "type": "string"
+        },
+        "job_id": {
+          "description": "Associated parent Job UUID",
+          "title": "Job Id",
+          "type": "string"
+        },
+        "provider_id": {
+          "description": "Provider adapter utilized",
+          "title": "Provider Id",
+          "type": "string"
+        },
+        "capability_id": {
+          "description": "Target capability ID",
+          "title": "Capability Id",
+          "type": "string"
+        },
+        "prompt_hash": {
+          "description": "SHA-256 hash of the compiled prompt",
+          "title": "Prompt Hash",
+          "type": "string"
+        },
+        "workflow_version": {
+          "description": "ComfyUI or model workflow graph version",
+          "title": "Workflow Version",
+          "type": "string"
+        },
+        "started_at": {
+          "format": "date-time",
+          "title": "Started At",
+          "type": "string"
+        },
+        "completed_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Completed At"
+        },
+        "success": {
+          "default": false,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "output_asset_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Output Asset Ids",
+          "type": "array"
+        },
+        "metrics": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Metrics",
+          "type": "object"
+        },
+        "failure_code": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Failure Code"
+        }
+      },
+      "required": [
+        "attempt_id",
+        "job_id",
+        "provider_id",
+        "capability_id",
+        "prompt_hash",
+        "workflow_version"
+      ],
+      "title": "GenerationAttempt",
+      "type": "object"
+    },
+    "PromptAnatomy": {
+      "description": "Six-part prompt anatomy preserved from KEYSTONE baseline (Bible \u00a72 Invariant 13, \u00a76).",
+      "properties": {
+        "role": {
+          "description": "Assigned cognitive role and persona",
+          "title": "Role",
+          "type": "string"
+        },
+        "task": {
+          "description": "Specific objective or generation task",
+          "title": "Task",
+          "type": "string"
+        },
+        "context": {
+          "description": "Background, assets, and project context",
+          "items": {
+            "type": "string"
+          },
+          "title": "Context",
+          "type": "array"
+        },
+        "constraints": {
+          "description": "Hard negative and operational boundaries",
+          "items": {
+            "type": "string"
+          },
+          "title": "Constraints",
+          "type": "array"
+        },
+        "outputFormat": {
+          "description": "Target output schema or syntax format",
+          "title": "Outputformat",
+          "type": "string"
+        },
+        "reasoning": {
+          "description": "Reasoning directives and trade-off considerations",
+          "title": "Reasoning",
+          "type": "string"
+        }
+      },
+      "required": [
+        "role",
+        "task",
+        "outputFormat",
+        "reasoning"
+      ],
+      "title": "PromptAnatomy",
+      "type": "object"
+    },
+    "UserFeedback": {
+      "description": "Customer-submitted evaluation and rating (Bible \u00a716).",
+      "properties": {
+        "job_id": {
+          "title": "Job Id",
+          "type": "string"
+        },
+        "user_id": {
+          "title": "User Id",
+          "type": "string"
+        },
+        "rating": {
+          "anyOf": [
+            {
+              "maximum": 5.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rating"
+        },
+        "accepted": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Accepted"
+        },
+        "regeneration_requested": {
+          "default": false,
+          "title": "Regeneration Requested",
+          "type": "boolean"
+        },
+        "selected_asset_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Selected Asset Id"
+        },
+        "feedback_tags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Feedback Tags",
+          "type": "array"
+        },
+        "comment": {
+          "anyOf": [
+            {
+              "maxLength": 4000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Comment"
+        }
+      },
+      "required": [
+        "job_id",
+        "user_id"
+      ],
+      "title": "UserFeedback",
+      "type": "object"
+    },
+    "PromptRevisionRequest": {
+      "$defs": {
+        "CompiledPrompt": {
+          "description": "Authoritative compiled prompt artifact (Bible \u00a79).",
+          "properties": {
+            "compiler_version": {
+              "description": "Semantic version of compiler",
+              "title": "Compiler Version",
+              "type": "string"
+            },
+            "target_capability": {
+              "description": "Capability ID",
+              "title": "Target Capability",
+              "type": "string"
+            },
+            "target_provider": {
+              "description": "Target provider ID",
+              "title": "Target Provider",
+              "type": "string"
+            },
+            "positive_prompt": {
+              "description": "Fully compiled positive prompt string",
+              "title": "Positive Prompt",
+              "type": "string"
+            },
+            "negative_prompt": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Fully compiled negative prompt string",
+              "title": "Negative Prompt"
+            },
+            "parameters": {
+              "additionalProperties": true,
+              "description": "Compiled provider parameter dictionary",
+              "title": "Parameters",
+              "type": "object"
+            },
+            "provenance": {
+              "additionalProperties": true,
+              "description": "Compilation metadata, hash, and inputs",
+              "title": "Provenance",
+              "type": "object"
+            },
+            "prompt_hash": {
+              "description": "Deterministic SHA-256 hash of compiled prompt & parameters",
+              "title": "Prompt Hash",
+              "type": "string"
+            }
+          },
+          "required": [
+            "compiler_version",
+            "target_capability",
+            "target_provider",
+            "positive_prompt",
+            "prompt_hash"
+          ],
+          "title": "CompiledPrompt",
+          "type": "object"
+        },
+        "PromptIntent": {
+          "description": "Provider-neutral creative and analytical intent representation (Bible \u00a77).",
+          "properties": {
+            "objective": {
+              "description": "Primary natural language creative objective",
+              "minLength": 1,
+              "title": "Objective",
+              "type": "string"
+            },
+            "subject": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Main visual subject or entity",
+              "title": "Subject"
+            },
+            "environment": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Setting, backdrop, or spatial context",
+              "title": "Environment"
+            },
+            "visual_style": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Aesthetic, rendering, or artistic style",
+              "title": "Visual Style"
+            },
+            "composition": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Framing, layout, and subject placement",
+              "title": "Composition"
+            },
+            "camera": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Lens, focal length, angle, and shot distance",
+              "title": "Camera"
+            },
+            "lighting": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Lighting setup, color temperature, and mood",
+              "title": "Lighting"
+            },
+            "mood": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Emotional tone and atmospheric feel",
+              "title": "Mood"
+            },
+            "motion": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Camera or subject motion dynamics for video/animation",
+              "title": "Motion"
+            },
+            "constraints": {
+              "description": "Negative prompts and unwanted elements",
+              "items": {
+                "type": "string"
+              },
+              "title": "Constraints",
+              "type": "array"
+            },
+            "references": {
+              "description": "Asset IDs or reference image URIs",
+              "items": {
+                "type": "string"
+              },
+              "title": "References",
+              "type": "array"
+            },
+            "metadata": {
+              "additionalProperties": true,
+              "description": "Extensible contextual metadata",
+              "title": "Metadata",
+              "type": "object"
+            }
+          },
+          "required": [
+            "objective"
+          ],
+          "title": "PromptIntent",
+          "type": "object"
+        },
+        "QualityDimensions": {
+          "description": "Multidimensional visual and technical evaluation scores (Bible \u00a714).",
+          "properties": {
+            "prompt_adherence": {
+              "anyOf": [
+                {
+                  "maximum": 1.0,
+                  "minimum": 0.0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Prompt Adherence"
+            },
+            "technical_quality": {
+              "anyOf": [
+                {
+                  "maximum": 1.0,
+                  "minimum": 0.0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Technical Quality"
+            },
+            "composition": {
+              "anyOf": [
+                {
+                  "maximum": 1.0,
+                  "minimum": 0.0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Composition"
+            },
+            "visual_consistency": {
+              "anyOf": [
+                {
+                  "maximum": 1.0,
+                  "minimum": 0.0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Visual Consistency"
+            },
+            "identity_consistency": {
+              "anyOf": [
+                {
+                  "maximum": 1.0,
+                  "minimum": 0.0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Identity Consistency"
+            },
+            "temporal_consistency": {
+              "anyOf": [
+                {
+                  "maximum": 1.0,
+                  "minimum": 0.0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Temporal Consistency"
+            },
+            "artifact_score": {
+              "anyOf": [
+                {
+                  "maximum": 1.0,
+                  "minimum": 0.0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Artifact Score"
+            },
+            "user_satisfaction": {
+              "anyOf": [
+                {
+                  "maximum": 1.0,
+                  "minimum": 0.0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "User Satisfaction"
+            }
+          },
+          "title": "QualityDimensions",
+          "type": "object"
+        },
+        "QualityScore": {
+          "description": "Aggregated quality evaluation result (Bible \u00a714).",
+          "properties": {
+            "evaluator": {
+              "description": "Evaluator name e.g. qwen_semantic_critic or technical_validator",
+              "title": "Evaluator",
+              "type": "string"
+            },
+            "evaluator_version": {
+              "description": "Semantic version of the evaluator",
+              "title": "Evaluator Version",
+              "type": "string"
+            },
+            "dimensions": {
+              "$ref": "#/$defs/QualityDimensions",
+              "description": "Fine-grained quality dimension scores"
+            },
+            "overall": {
+              "description": "Overall weighted quality score",
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "title": "Overall",
+              "type": "number"
+            },
+            "confidence": {
+              "description": "Evaluator confidence score",
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "title": "Confidence",
+              "type": "number"
+            },
+            "evidence": {
+              "additionalProperties": true,
+              "description": "Supporting telemetry and visual critique",
+              "title": "Evidence",
+              "type": "object"
+            }
+          },
+          "required": [
+            "evaluator",
+            "evaluator_version",
+            "dimensions",
+            "overall",
+            "confidence"
+          ],
+          "title": "QualityScore",
+          "type": "object"
+        }
+      },
+      "description": "Input to Qwen when executing a bounded quality retry (Bible \u00a716).",
+      "properties": {
+        "original_intent": {
+          "$ref": "#/$defs/PromptIntent"
+        },
+        "previous_prompt": {
+          "$ref": "#/$defs/CompiledPrompt"
+        },
+        "quality_scores": {
+          "items": {
+            "$ref": "#/$defs/QualityScore"
+          },
+          "title": "Quality Scores",
+          "type": "array"
+        },
+        "failure_codes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Failure Codes",
+          "type": "array"
+        },
+        "immutable_constraints": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Immutable Constraints",
+          "type": "array"
+        },
+        "attempt_number": {
+          "minimum": 1,
+          "title": "Attempt Number",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "original_intent",
+        "previous_prompt",
+        "quality_scores",
+        "attempt_number"
+      ],
+      "title": "PromptRevisionRequest",
+      "type": "object"
+    },
+    "PromptRevisionProposal": {
+      "description": "Qwen revision proposal for next retry attempt (Bible \u00a716).",
+      "properties": {
+        "preserve": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Preserve",
+          "type": "array"
+        },
+        "change": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Change",
+          "type": "array"
+        },
+        "parameter_suggestions": {
+          "additionalProperties": true,
+          "title": "Parameter Suggestions",
+          "type": "object"
+        },
+        "reasoning_summary": {
+          "title": "Reasoning Summary",
+          "type": "string"
+        },
+        "confidence": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        }
+      },
+      "required": [
+        "reasoning_summary",
+        "confidence"
+      ],
+      "title": "PromptRevisionProposal",
+      "type": "object"
+    }
+  }
+}

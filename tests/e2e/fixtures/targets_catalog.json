@@ -1,0 +1,59 @@
+{
+  "catalog": [
+    {
+      "id": "target_huggingface",
+      "name": "Hugging Face Spaces/Hub",
+      "url": "https://huggingface.co/spaces/stabilityai/stable-diffusion-studio",
+      "category": "diffusion_canvas",
+      "domain": "software",
+      "htmlFixture": "hf_space_sample.html",
+      "deconstructFixture": "hf_space_deconstruct.json",
+      "summary": "Interactive Gradio prompt canvas with diffusion parameter sliders and model card viewport"
+    },
+    {
+      "id": "target_higgsfield",
+      "name": "Higgsfield Cinema AI",
+      "url": "https://higgsfield.ai/studio/motion-director",
+      "category": "video_motion_ai",
+      "domain": "creative",
+      "htmlFixture": "higgsfield_sample.html",
+      "summary": "Cinematic camera motion controller, motion curve acceleration timeline, and 1080p preview viewport"
+    },
+    {
+      "id": "target_zencreator",
+      "name": "ZenCreator Pro",
+      "url": "https://zencreator.io/studio/graph-pipeline",
+      "category": "creator_studio_workflow",
+      "domain": "orchestration",
+      "htmlFixture": "zencreator_sample.html",
+      "summary": "Multi-track creator studio node editor with visual prompt, filter, and upscaler pipelines"
+    },
+    {
+      "id": "target_venice",
+      "name": "Venice AI",
+      "url": "https://venice.ai/app/ephemeral-session",
+      "category": "privacy_first_generative",
+      "domain": "research",
+      "htmlFixture": "venice_sample.html",
+      "summary": "Privacy-first zero-log generative shell with client-side encryption and decentralized enclave stream"
+    },
+    {
+      "id": "target_adobe",
+      "name": "Adobe Firefly",
+      "url": "https://firefly.adobe.com/app/generative-fill",
+      "category": "creative_tooling_pipeline",
+      "domain": "design",
+      "htmlFixture": "adobe_sample.html",
+      "summary": "Enterprise generative fill brush palette, photorealistic style presets, and 4-variant comparator"
+    },
+    {
+      "id": "target_grok",
+      "name": "Grok Multimodal Reasoning",
+      "url": "https://x.ai/grok/deep-think",
+      "category": "multimodal_reasoning_ux",
+      "domain": "software",
+      "htmlFixture": "grok_sample.html",
+      "summary": "Multimodal inquiry workbench with interactive thinking trees, trace inspection, and synthesis cards"
+    }
+  ]
+}

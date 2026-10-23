@@ -1,0 +1,217 @@
+{
+  "sourceUrl": "https://huggingface.co/spaces/stabilityai/stable-diffusion-studio",
+  "appName": "Promptist HF Studio",
+  "inferredDomain": "software",
+  "componentTree": {
+    "rootNodeId": "root_container",
+    "nodes": {
+      "root_container": {
+        "id": "root_container",
+        "name": "WorkspaceLayout",
+        "category": "container",
+        "props": { "theme": "theme-dark" },
+        "childrenIds": ["panel_input", "panel_display"],
+        "designTokenBindings": { "background": "var(--color-background)" }
+      },
+      "panel_input": {
+        "id": "panel_input",
+        "name": "PromptPanel",
+        "category": "input",
+        "props": { "heading": "Prompt Formulation" },
+        "childrenIds": ["prompt_input", "slider_guidance", "slider_steps", "btn_generate"],
+        "designTokenBindings": { "surface": "var(--color-surface)" }
+      },
+      "prompt_input": {
+        "id": "prompt_input",
+        "name": "TextArea",
+        "category": "input",
+        "props": { "placeholder": "Enter high-concept creative prompt..." },
+        "childrenIds": [],
+        "designTokenBindings": { "border": "var(--color-border)" }
+      },
+      "slider_guidance": {
+        "id": "slider_guidance",
+        "name": "RangeSlider",
+        "category": "input",
+        "props": { "min": 1.0, "max": 20.0, "step": 0.5, "default": 7.5 },
+        "childrenIds": [],
+        "designTokenBindings": {}
+      },
+      "slider_steps": {
+        "id": "slider_steps",
+        "name": "RangeSlider",
+        "category": "input",
+        "props": { "min": 10, "max": 150, "step": 1, "default": 50 },
+        "childrenIds": [],
+        "designTokenBindings": {}
+      },
+      "btn_generate": {
+        "id": "btn_generate",
+        "name": "PrimaryButton",
+        "category": "action",
+        "props": { "label": "Generate Artwork" },
+        "childrenIds": [],
+        "designTokenBindings": { "primary": "var(--color-primary)" }
+      },
+      "panel_display": {
+        "id": "panel_display",
+        "name": "CanvasPanel",
+        "category": "display",
+        "props": { "heading": "Interactive Canvas" },
+        "childrenIds": ["output_canvas", "metadata_viewer"],
+        "designTokenBindings": {}
+      },
+      "output_canvas": {
+        "id": "output_canvas",
+        "name": "CanvasViewport",
+        "category": "display",
+        "props": { "width": 512, "height": 512 },
+        "childrenIds": [],
+        "designTokenBindings": {}
+      },
+      "metadata_viewer": {
+        "id": "metadata_viewer",
+        "name": "MetadataCard",
+        "category": "feedback",
+        "props": { "modelId": "stabilityai/stable-diffusion-2-1" },
+        "childrenIds": [],
+        "designTokenBindings": { "accent": "var(--color-accent)" }
+      }
+    },
+    "hierarchy": [
+      { "id": "root_container", "depth": 0, "parentId": null },
+      { "id": "panel_input", "depth": 1, "parentId": "root_container" },
+      { "id": "prompt_input", "depth": 2, "parentId": "panel_input" },
+      { "id": "slider_guidance", "depth": 2, "parentId": "panel_input" },
+      { "id": "slider_steps", "depth": 2, "parentId": "panel_input" },
+      { "id": "btn_generate", "depth": 2, "parentId": "panel_input" },
+      { "id": "panel_display", "depth": 1, "parentId": "root_container" },
+      { "id": "output_canvas", "depth": 2, "parentId": "panel_display" },
+      { "id": "metadata_viewer", "depth": 2, "parentId": "panel_display" }
+    ]
+  },
+  "designTokens": {
+    "colorRoles": {
+      "primary": "#ff9d00",
+      "secondary": "#2b3137",
+      "surface": "#ffffff",
+      "background": "#0b0f19",
+      "border": "#e1e4e8",
+      "textPrimary": "#24292e",
+      "textMuted": "#586069",
+      "accent": "#0969da"
+    },
+    "typography": {
+      "fontFamilies": {
+        "body": "-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif",
+        "heading": "SF Pro Display, -apple-system, sans-serif",
+        "mono": "ui-monospace, SFMono-Regular, SF Mono, Menlo, monospace"
+      },
+      "fontSizeScale": {
+        "xs": "0.75rem",
+        "sm": "0.875rem",
+        "base": "1rem",
+        "lg": "1.125rem",
+        "xl": "1.25rem",
+        "2xl": "1.5rem"
+      },
+      "lineHeightScale": {
+        "tight": "1.25",
+        "normal": "1.5",
+        "relaxed": "1.75"
+      },
+      "fontWeights": {
+        "regular": 400,
+        "medium": 500,
+        "semibold": 600,
+        "bold": 700
+      }
+    },
+    "spacingScale": {
+      "xs": "4px",
+      "sm": "8px",
+      "md": "16px",
+      "lg": "24px",
+      "xl": "32px",
+      "2xl": "48px"
+    },
+    "elevation": {
+      "low": "0 1px 3px rgba(0,0,0,0.12)",
+      "medium": "0 4px 6px rgba(0,0,0,0.16)",
+      "high": "0 10px 24px rgba(0,0,0,0.24)"
+    },
+    "borderRadius": {
+      "sm": "4px",
+      "md": "8px",
+      "lg": "16px",
+      "full": "9999px"
+    },
+    "breakpoints": {
+      "sm": "640px",
+      "md": "768px",
+      "lg": "1024px",
+      "xl": "1280px"
+    }
+  },
+  "apiContracts": [
+    {
+      "endpoint": "/api/predict",
+      "method": "POST",
+      "operationId": "runInference",
+      "parameters": [],
+      "requestBodySchema": {
+        "type": "object",
+        "properties": {
+          "prompt": { "type": "string" },
+          "guidance_scale": { "type": "number", "default": 7.5 },
+          "steps": { "type": "integer", "default": 50 }
+        },
+        "required": ["prompt"]
+      },
+      "responseBodySchema": {
+        "type": "object",
+        "properties": {
+          "image_base64": { "type": "string" },
+          "inference_ms": { "type": "number" }
+        }
+      },
+      "authRequirements": {
+        "type": "none"
+      }
+    }
+  ],
+  "workflowPatterns": [
+    {
+      "id": "wf_creative_diffusion",
+      "patternType": "inference_pipeline",
+      "triggerEvent": "submit_prompt",
+      "steps": [
+        {
+          "sequence": 1,
+          "action": "validate_parameters",
+          "inputArtifacts": ["prompt_input", "guidance_scale", "steps"],
+          "outputArtifacts": ["validated_request"],
+          "latencyBenchmarkMs": 5
+        },
+        {
+          "sequence": 2,
+          "action": "execute_model_inference",
+          "inputArtifacts": ["validated_request"],
+          "outputArtifacts": ["image_tensor"],
+          "latencyBenchmarkMs": 1420
+        },
+        {
+          "sequence": 3,
+          "action": "render_to_canvas",
+          "inputArtifacts": ["image_tensor"],
+          "outputArtifacts": ["canvas_viewport"],
+          "latencyBenchmarkMs": 15
+        }
+      ],
+      "errorRecovery": {
+        "retryPolicy": "exponential_backoff_max_3",
+        "fallbackState": "render_error_notification"
+      }
+    }
+  ]
+}

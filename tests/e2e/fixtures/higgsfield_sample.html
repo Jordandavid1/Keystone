@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Higgsfield AI - Cinema Motion Studio</title>
+  <style>
+    :root {
+      --color-primary: #7928ca;
+      --color-secondary: #0070f3;
+      --color-surface: #111111;
+      --color-background: #000000;
+      --color-border: #333333;
+      --color-text-primary: #ffffff;
+      --color-text-muted: #888888;
+      --color-accent: #ff0080;
+    }
+  </style>
+</head>
+<body class="higgsfield-studio">
+  <header class="studio-nav">
+    <div class="logo">Higgsfield Cinema AI</div>
+    <div class="maintainer">contact: alex.motion@higgsfield.ai | tel: +1-415-555-0144</div>
+  </header>
+  <main class="timeline-workspace">
+    <section class="prompt-director" data-category="input">
+      <input type="text" id="camera_motion_prompt" placeholder="Pan right 45 degrees with cinematic shallow depth of field..." />
+      <div class="curve-editor">
+        <label>Motion Acceleration</label>
+        <input type="range" id="motion_curve" min="0" max="100" value="65" />
+      </div>
+      <button id="btn_render_clip" data-category="action">Render Motion Sequence</button>
+    </section>
+    <section class="video-preview" data-category="display">
+      <video id="motion_viewport" width="720" height="480" controls></video>
+      <div class="render-stats">FPS: 24 | Duration: 4.5s | Resolution: 1080p</div>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ZenCreator Pro - Multi-Track Creative Studio</title>
+  <style>
+    :root {
+      --color-primary: #10b981;
+      --color-secondary: #1f2937;
+      --color-surface: #1e293b;
+      --color-background: #0f172a;
+      --color-border: #334155;
+      --color-text-primary: #f8fafc;
+      --color-text-muted: #94a3b8;
+      --color-accent: #38bdf8;
+    }
+  </style>
+</head>
+<body class="zencreator-app">
+  <header class="app-topbar">
+    <span class="brand">ZenCreator Pro v3.0</span>
+    <span class="user-info">admin: studio-lead@zencreator.io | support: +44-20-7946-0912</span>
+  </header>
+  <main class="node-graph-workspace">
+    <section class="node-palette" data-category="input">
+      <div class="node-item" data-type="prompt-node">Prompt Generator Node</div>
+      <div class="node-item" data-type="filter-node">Style Filter Node</div>
+      <div class="node-item" data-type="upscaler-node">Ultra HD Upscaler</div>
+      <button id="btn_compile_graph" data-category="action">Execute Workflow Pipeline</button>
+    </section>
+    <section class="node-canvas" data-category="display">
+      <div id="svg_graph_canvas">Graph Nodes Connected: 4</div>
+      <div id="asset_manifest" data-category="feedback">Rendered Asset Tree: [Scene_1.png, Scene_2.png]</div>
+    </section>
+  </main>
+</body>
+</html>

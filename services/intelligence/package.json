@@ -1,0 +1,23 @@
+{
+  "name": "@keystone/intelligence",
+  "version": "2.0.0-alpha.0",
+  "private": true,
+  "description": "KEYSTONE Additive UX & Architecture Intelligence Service with Firecrawl, PII Vault, and Aikido Prompt Defense",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "node --test"
+  },
+  "keywords": [
+    "keystone",
+    "intelligence",
+    "firecrawl",
+    "pii-vault",
+    "aikido-defense",
+    "prompt-injection"
+  ],
+  "author": "Jordan Maxwell",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

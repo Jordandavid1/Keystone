@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Venice AI - Privacy-First Generative Intelligence</title>
+  <style>
+    :root {
+      --color-primary: #e02424;
+      --color-secondary: #111928;
+      --color-surface: #1f2a37;
+      --color-background: #000000;
+      --color-border: #374151;
+      --color-text-primary: #ffffff;
+      --color-text-muted: #9ca3af;
+      --color-accent: #f05252;
+    }
+  </style>
+</head>
+<body class="venice-privacy-mode">
+  <header class="privacy-badge-bar">
+    <div class="logo">Venice.ai Ephemeral Core</div>
+    <div class="security-status">Zero Logs Active | Direct Decentralized Enclave</div>
+    <div class="maintainer">privacy-officer@venice.ai</div>
+  </header>
+  <main class="anonymous-prompt-shell">
+    <section class="ephemeral-input" data-category="input">
+      <textarea id="ephemeral_prompt" placeholder="Ask unrestricted questions with client-side encryption..."></textarea>
+      <div class="toggle-group">
+        <label>Anonymize Persona</label>
+        <input type="checkbox" id="chk_anonymize" checked />
+      </div>
+      <button id="btn_query_enclave" data-category="action">Query Decentralized Node</button>
+    </section>
+    <section class="enclave-stream" data-category="display">
+      <div id="sanitized_terminal_output">Awaiting cryptographic session handshake...</div>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,26 @@
+{
+  "ddlStatements": {
+    "createDataset": "CREATE SCHEMA IF NOT EXISTS `keystone_intelligence` OPTIONS (location = 'US', labels = [(\"datacloud\", \"antigravity\"), (\"service\", \"keystone_intelligence\")]);",
+    "createEmbeddingModel": "CREATE OR REPLACE MODEL `keystone_intelligence.embedding_model` REMOTE WITH CONNECTION DEFAULT OPTIONS (ENDPOINT = 'text-embedding-005');",
+    "createGenerativeModel": "CREATE OR REPLACE MODEL `keystone_intelligence.generative_model` REMOTE WITH CONNECTION DEFAULT OPTIONS (ENDPOINT = 'gemini-2.5-flash');",
+    "createTableScrapedArchitectures": "CREATE TABLE IF NOT EXISTS `keystone_intelligence.scraped_architectures` (pattern_id STRING NOT NULL, source_url STRING NOT NULL, app_name STRING NOT NULL, inferred_domain STRING, component_summary STRING NOT NULL, component_tree JSON, design_tokens JSON, api_contracts JSON, workflow_patterns JSON, sha256_hash STRING NOT NULL, vault_token_ref STRING, structural_embedding ARRAY<FLOAT64>, extracted_at TIMESTAMP NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP()) PARTITION BY DATE(extracted_at) CLUSTER BY inferred_domain, app_name;"
+  },
+  "validQueries": {
+    "tvfEmbeddingInFrom": "SELECT base.pattern_id, emb.embedding FROM `keystone_intelligence.scraped_architectures` base, AI.GENERATE_EMBEDDING(MODEL `keystone_intelligence.embedding_model`, (SELECT base.component_summary AS content), STRUCT('RETRIEVAL_DOCUMENT' AS task_type, 768 AS output_dimensionality)) emb;",
+    "vectorSearchInFrom": "SELECT base.pattern_id, distance FROM VECTOR_SEARCH(TABLE `keystone_intelligence.scraped_architectures`, 'structural_embedding', (SELECT embedding FROM query_emb), top_k => 5, distance_type => 'COSINE');",
+    "aiGenerateInSelect": "SELECT pattern_id, AI.GENERATE(CONCAT('Summarize: ', component_summary), endpoint => 'gemini-2.5-flash', output_schema => 'role STRING, task STRING, context ARRAY<STRING>, constraints ARRAY<STRING>, outputFormat STRING, reasoning STRING') AS synthesis FROM `keystone_intelligence.scraped_architectures`;",
+    "aiClassifyInSelect": "SELECT pattern_id, AI.CLASSIFY(component_summary, categories => ['software', 'creative', 'research', 'analytics', 'marketing', 'orchestration']) AS domain FROM `keystone_intelligence.scraped_architectures`;"
+  },
+  "invalidQueries": {
+    "tvfEmbeddingInSelect": "SELECT pattern_id, AI.GENERATE_EMBEDDING(MODEL `keystone_intelligence.embedding_model`, (SELECT component_summary AS content)) AS embedding FROM `keystone_intelligence.scraped_architectures`;",
+    "vectorSearchInSelect": "SELECT pattern_id, VECTOR_SEARCH(TABLE `keystone_intelligence.scraped_architectures`, 'structural_embedding', query_table) FROM `keystone_intelligence.scraped_architectures`;",
+    "unquotedOutputSchema": "SELECT pattern_id, AI.GENERATE('prompt', endpoint => 'gemini-2.5-flash', output_schema => role STRING) FROM `keystone_intelligence.scraped_architectures`;"
+  },
+  "attributionCommands": {
+    "validBqQuery": "bq query --use_legacy_sql=false --label datacloud:antigravity \"SELECT count(*) FROM keystone_intelligence.scraped_architectures\"",
+    "validBqMk": "bq mk --dataset --label datacloud:antigravity keystone_intelligence",
+    "validBqShow": "bq show keystone_intelligence.scraped_architectures",
+    "invalidBqQueryMissingLabel": "bq query --use_legacy_sql=false \"SELECT 1\"",
+    "invalidBqShowWithLabel": "bq show --label datacloud:antigravity keystone_intelligence"
+  }
+}

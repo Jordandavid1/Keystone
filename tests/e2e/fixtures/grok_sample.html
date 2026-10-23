@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Grok - Multimodal Reasoning & Discovery</title>
+  <style>
+    :root {
+      --color-primary: #1d9bf0;
+      --color-secondary: #16181c;
+      --color-surface: #202327;
+      --color-background: #000000;
+      --color-border: #2f3336;
+      --color-text-primary: #e7e9ea;
+      --color-text-muted: #71767b;
+      --color-accent: #00ba7c;
+    }
+  </style>
+</head>
+<body class="grok-reasoning-shell">
+  <header class="grok-topbar">
+    <div class="logo">Grok-3 Thinking Engine</div>
+    <div class="user-meta">user: researcher@xai-enterprise.org</div>
+  </header>
+  <main class="multimodal-reasoning-layout">
+    <section class="prompt-workbench" data-category="input">
+      <textarea id="query_input" placeholder="Formulate complex systemic inquiry with multimodal evidence..."></textarea>
+      <div class="mode-selector">
+        <label>Think Mode Depth</label>
+        <input type="range" id="think_depth" min="1" max="5" value="3" />
+      </div>
+      <button id="btn_reason" data-category="action">Execute Deep Thinking Trace</button>
+    </section>
+    <section class="thought-trace-stream" data-category="display">
+      <div class="thinking-tree-node">1. Deconstruct architectural graph</div>
+      <div class="thinking-tree-node">2. Correlate vector clusters</div>
+      <div class="thinking-tree-node">3. Verify constraint boundaries</div>
+      <div id="final_synthesis" data-category="feedback">Synthesized authoritative technical architecture report.</div>
+    </section>
+  </main>
+</body>
+</html>

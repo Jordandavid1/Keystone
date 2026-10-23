@@ -1,0 +1,22 @@
+{
+  "comfyui": {
+    "host": "127.0.0.1",
+    "port": 8188,
+    "preview_method": "none",
+    "gpu_only": true
+  },
+  "harness": {
+    "host": "127.0.0.1",
+    "port": 8189,
+    "auth_scheme": "HMAC-SHA256",
+    "master_secret_env": "KEYSTONE_DEV_SECRET",
+    "nonce_cache_size": 100000,
+    "token_expiry_seconds": 900
+  },
+  "models": {
+    "wan_i2v": "Wan2.1-I2V-14B-720P",
+    "wan_t2v": "Wan2.1-T2V-14B",
+    "facefusion": "inswapper_128.onnx",
+    "upscale": "RealESRGAN_x4plus.pth"
+  }
+}

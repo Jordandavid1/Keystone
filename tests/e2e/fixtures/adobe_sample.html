@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Adobe Firefly - Creative Generative Studio</title>
+  <style>
+    :root {
+      --color-primary: #fa0f00;
+      --color-secondary: #2c2c2c;
+      --color-surface: #323232;
+      --color-background: #1e1e1e;
+      --color-border: #464646;
+      --color-text-primary: #f5f5f5;
+      --color-text-muted: #b0b0b0;
+      --color-accent: #1473e6;
+    }
+  </style>
+</head>
+<body class="adobe-firefly-studio">
+  <header class="cc-header">
+    <div class="logo">Adobe Firefly Enterprise</div>
+    <div class="enterprise-id">account: creative-ops@enterprise-corp.com | toll-free: 1-800-555-0182</div>
+  </header>
+  <main class="creative-canvas-suite">
+    <section class="generative-palette" data-category="input">
+      <div class="brush-selector">
+        <label>Generative Fill Brush Size</label>
+        <input type="range" id="brush_size" min="5" max="200" value="45" />
+      </div>
+      <textarea id="firefly_prompt" placeholder="Describe the object to expand into the scene..."></textarea>
+      <div class="style-presets">
+        <button class="preset-chip active">Photo Realistic</button>
+        <button class="preset-chip">Vector Art</button>
+      </div>
+      <button id="btn_firefly_generate" data-category="action">Generate Variations</button>
+    </section>
+    <section class="multi-variant-viewer" data-category="display">
+      <div class="variant-grid">
+        <div class="variant-card">Variation 1</div>
+        <div class="variant-card">Variation 2</div>
+        <div class="variant-card">Variation 3</div>
+        <div class="variant-card">Variation 4</div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
