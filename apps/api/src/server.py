@@ -27,6 +27,11 @@ from apps.api.src.routers.sessions import router as sessions_router
 from apps.api.src.routers.assets import router as assets_router
 from apps.api.src.routers.jobs import router as jobs_router
 from apps.api.src.routers.planning import router as planning_router
+from apps.api.src.routers.authority import router as authority_router
+from apps.api.src.routers.workers import router as workers_router
+from apps.api.src.routers.creative import router as creative_router
+from apps.api.src.routers.billing import router as billing_router
+from apps.api.src.routers.admin import router as admin_router
 from apps.api.src.db.session import init_db
 
 # 3. Import canonical Pydantic v2 contract models
@@ -101,6 +106,14 @@ app.openapi_tags = [
     {
         "name": "Planning",
         "description": "Deterministic plan.v1 generation and PromptCompiler execution across 13 playbooks (F10)"
+    },
+    {
+        "name": "Authority",
+        "description": "Authority Decision Engine, policy enforcement, and execution envelopes (F15, F18)"
+    },
+    {
+        "name": "Workers",
+        "description": "Kaggle Worker Bridge, dynamic tunnel registration, and heartbeat monitoring (F17)"
     }
 ]
 
@@ -121,6 +134,17 @@ app.include_router(jobs_router)
 
 # Mount Milestone M2 Planning Router (/v1/planning)
 app.include_router(planning_router)
+
+# Mount Milestone M3 Cognition & Authority Routers
+app.include_router(authority_router)
+app.include_router(workers_router)
+
+# Mount Milestone M4 Creative Tool Fabric Router
+app.include_router(creative_router)
+
+# Mount Milestone M5 Billing & Admin Routers
+app.include_router(billing_router)
+app.include_router(admin_router)
 
 
 # ============================================================================

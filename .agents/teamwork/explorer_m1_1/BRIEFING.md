@@ -1,51 +1,51 @@
-# BRIEFING — 2026-10-22T19:09:00Z
+# BRIEFING — 2026-10-23T06:48:00Z
 
 ## Mission
-Investigate and design technical strategy for Milestone M1 (F05: Relational Data Models & Repositories, F06: Authentication & Tenant Isolation).
+Investigate and design the complete architectural and implementation blueprint for Milestone M1 (Wave 1: Vertical Shell), covering relational data models, auth/tenant isolation, asset storage/lineage, job state machine, REST API routers, and e2e test suite.
 
 ## 🔒 My Identity
 - Archetype: explorer
 - Roles: investigation, synthesis
 - Working directory: c:\Users\Lesia Eden\Downloads\keystone-cowork\.agents\teamwork\explorer_m1_1
-- Original parent: 661c3644-1362-4a2d-916f-7dafadffdf24
-- Milestone: M1
+- Original parent: 6f59f58e-8034-400a-bd25-c869a10728f4
+- Milestone: M1 (Wave 1: Vertical Shell)
 
 ## 🔒 Key Constraints
-- Read-only investigation — do NOT implement
-- All pre-built files preserved with 0 diffs
-- Write only to your folder; read any folder
-- .agents/teamwork/ holds only metadata
+- Read-only investigation — do NOT implement / do NOT modify source files
+- All findings, blueprint, and handoff must be written to `.agents/teamwork/explorer_m1_1/`
+- Communicate with parent via `send_message`
+- Provide exhaustive, production-grade blueprints with exact signatures, schemas, state transitions, and test vectors
 
 ## Current Parent
-- Conversation ID: 661c3644-1362-4a2d-916f-7dafadffdf24
-- Updated: 2026-10-22T19:03:00Z
+- Conversation ID: 6f59f58e-8034-400a-bd25-c869a10728f4
+- Updated: not yet
 
 ## Investigation State
 - **Explored paths**:
-  - `KEYSTONE_BIBLE.md` (§17, §18, §19, §21, §22, §27, §28, §31, §32)
-  - `infrastructure/migrations/versions/0001_core.sql` (12 tables)
-  - `infrastructure/migrations/versions/0002_keystone_full_schema.sql` (11 tables, 23 total)
-  - `apps/api/src/main.py` (pre-built baseline, preserved)
-  - `apps/api/src/server.py` (additive FastAPI server)
-  - `packages/contracts/src/models.py` (Pydantic v2 contracts)
-  - Python runtime: Python 3.14 with SQLAlchemy 2.1.5, FastAPI 0.146.0, Pydantic 2.14.1, Cryptography 50.0.2, aiosqlite available; asyncpg not installed in global environment
-  - Test suites: `npm test` (3/3 pass), `tests/e2e/` (194/194 pass), total 197/197 passing
+  - `KEYSTONE_BIBLE.md` (§16, §17, §19, §21, §22, §27, §28, §33)
+  - `ORIGINAL_REQUEST.md` and `PROJECT.md`
+  - `infrastructure/migrations/versions/0001_core.sql` and `0002_keystone_full_schema.sql`
+  - `apps/api/src/server.py` and `packages/contracts/src/models.py`
+  - `apps/api/src/db/`, `repositories/`, `auth/`, `storage/`, `lineage/`, `jobs/`, `routers/`
+  - `tests/e2e_v2/test_m1_core_shell.py`, `test_m1_challenger_adversarial.py`, `test_m1_retest_vulnerabilities.py`
 - **Key findings**:
-  - Full 23-table schema is completely defined across 0001_core.sql and 0002_keystone_full_schema.sql.
-  - SQLAlchemy 2.0 ORM mappings must represent all 23 tables (or core 6 + dependencies) using UUID primary keys and `DateTime(timezone=True)`.
-  - Database engine must support async PostgreSQL via `postgresql+asyncpg` when configured, and `sqlite+aiosqlite` for local dev/testing without external Docker dependencies.
-  - Tenant isolation must be strictly enforced via constructor injection in repositories (`tenant_id: UUID`) ensuring all queries are automatically filtered by `user_id` / `owner_id`.
-  - Auth must support PBKDF2-HMAC-SHA256 password hashing (via `cryptography`), Bearer tokens (HMAC-SHA256 signed with expiration and jti), and API keys (`ks_live_<prefix>_<secret>` stored as SHA-256 hashes).
-- **Unexplored areas**: None for M1 scope.
+  - All 23 tables defined across `0001_core.sql` (12) and `0002_keystone_full_schema.sql` (11).
+  - Cross-dialect `UniversalUUID` enables transparent execution on both SQLite (`CHAR(36)`) and Cloud SQL PostgreSQL (`UUID`).
+  - Strict tenant isolation enforced in repositories with `deleted_at.is_(None)` soft-delete filtering.
+  - Security suite enforces PBKDF2 (600k iterations), stateless JWTs, API key hashing, and 15-minute HMAC-SHA256 signed URLs.
+  - Lineage DAG strictly enforces 8 relationship types, anti-self-parenting, and cycle prevention.
+  - Job state machine deterministically validates 13 states, locks 4 terminal states, and bounds retries.
+  - Empirical test execution confirms 71/71 tests passing in `tests/e2e_v2/`.
+- **Unexplored areas**: None for M1. Scope complete.
 
 ## Key Decisions Made
-- Architected `apps/api/src/db/` for database engine, ORM models, and repositories.
-- Designed `BaseRepository` enforcing mandatory `tenant_id` scoping on every query.
-- Designed `apps/api/src/auth/` for PBKDF2 password hashing, Bearer token signing/verification, and API key SHA-256 hash lookup.
-- Designed additive mounting in `apps/api/src/server.py` across 5 domain routers (`/v1/auth`, `/v1/projects`, `/v1/sessions`, `/v1/assets`, `/v1/jobs`).
+- Formulated clean modular package layout (`packages/database`, `packages/security`, `services/assets`, `services/jobs`) with re-export compatibility bridge to `apps/api/src/` to prevent regressions while enforcing monorepo boundaries.
+- Authored comprehensive technical specification `m1_vertical_shell_blueprint.md`.
+- Authored 5-component handoff report `handoff.md`.
 
 ## Artifact Index
-- DISPATCH.md — incoming dispatch record
-- BRIEFING.md — situational awareness and memory
-- progress.md — liveness heartbeat
-- handoff.md — final handoff report
+- `DISPATCH.md` — Inbound instructions from orchestrator
+- `BRIEFING.md` — Situational awareness and persistent memory
+- `progress.md` — Heartbeat and step tracking
+- `m1_vertical_shell_blueprint.md` — Comprehensive architectural specification and blueprint for M1
+- `handoff.md` — 5-component handoff report for builder/orchestrator

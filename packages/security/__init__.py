@@ -14,6 +14,12 @@ from packages.security.vault import (
     scrub_plaintext
 )
 
+from packages.security.secret_scanner import (
+    ProprietaryPolicyService,
+    proprietary_service,
+    COPYRIGHT_STATEMENT
+)
+
 __all__ = [
     "AikidoDefenseService",
     "quarantine",
@@ -21,5 +27,8 @@ __all__ = [
     "post_sanitize",
     "EdgePiiScrubber",
     "PiiVault",
-    "scrub_plaintext"
+    "scrub_plaintext",
+    "ProprietaryPolicyService",
+    "proprietary_service",
+    "COPYRIGHT_STATEMENT"
 ]

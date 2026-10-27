@@ -1,0 +1,49 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: keystone-api
+  labels:
+    cloud.googleapis.com/location: us-central1
+    app.kubernetes.io/name: keystone-api
+    app.kubernetes.io/part-of: keystone
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "1"
+        autoscaling.knative.dev/maxScale: "10"
+        run.googleapis.com/cpu-throttling: "false"
+        run.googleapis.com/execution-environment: gen2
+    spec:
+      containerConcurrency: 80
+      timeoutSeconds: 300
+      containers:
+        - name: keystone-api
+          image: gcr.io/keystone-sovereign/keystone-api:latest
+          ports:
+            - name: http1
+              containerPort: 8000
+          resources:
+            limits:
+              cpu: "4000m"
+              memory: "16Gi"
+          env:
+            - name: PORT
+              value: "8000"
+            - name: KEYSTONE_COGNITION_CHECKPOINT
+              value: "huihui-ai/Huihui-Qwen3.8-27B-abliterated"
+            - name: KEYSTONE_ENVELOPE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: keystone-envelope-secret
+                  key: latest
+            - name: STRIPE_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: keystone-stripe-secret
+                  key: latest
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: keystone-database-url
+                  key: latest

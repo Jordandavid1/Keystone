@@ -106,7 +106,49 @@ A pre-existing full scrape of `zencreator.pro` is already on disk under `.firecr
 Docs:
 - `docs/zencreator-recon.md` (this file).
 
-## 9. Git state at handoff
+## 9. Client code
+
+`scripts/zencreator_client.py` is a stdlib-only client (no new dependency) for the photo, video and NSFW-capable tools:
+
+| Tool | Wrapper |
+|---|---|
+| `by_prompt` | `generate_image`, `generate_nsfw_image` |
+| `by_ref` | `generate_from_reference` |
+| `photoshoot` | `run_photoshoot` |
+| `facegen` | `generate_face` |
+| `carousel` | `generate_carousel` |
+| `image_editor` | `edit_image` |
+| `upscaler` | `upscale_image` |
+| `faceswap` | `face_swap` |
+| `collaber` | `collab_image` |
+| `text_to_video` | `text_to_video`, `generate_nsfw_video` |
+| `videogen` | `image_to_video` |
+| `video2video` | `video_to_video` |
+| `lipsync` | `lipsync` |
+| `video_upscaler` | `upscale_video` |
+| `video_merger` | `merge_videos` |
+| `couplegen` | `couple_video` |
+
+Shared core: `start_generation`, `get_generation`, `wait`, `get_result`, `run`, `upload_asset`, plus metadata reads (`list_tools`, `get_tool`, `get_balance`, `list_templates`, `list_loras`, `list_photoshoot_categories`, `list_transactions`). Errors raise `ZenCreatorError` carrying `status` and the API's `code`. `run_any_llm` is not wrapped (out of scope: text, not photo/video).
+
+Constants: `NSFW_IMAGE_MODELS`, `UNCENSORED_IMAGE_MODELS`, `CENSORED_IMAGE_MODELS`, `NSFW_VIDEO_MODELS`, `NSFW_VIDEO_MODES`, `LIPSYNC_MODELS`, and the ratio/resolution/tier/duration enums taken from the live schemas.
+
+Usage:
+
+```python
+from scripts.zencreator_client import ZenCreatorClient, output_urls
+
+client = ZenCreatorClient()          # reads ZC_API_KEY
+result = client.run("by_prompt", {"positive_prompt": "...", "model": "FLUX_KLEIN_NSFW"})
+print(output_urls(result))
+```
+
+CLI: `tools`, `balance`, `image`, `nsfw-image`, `t2v`, `nsfw-video` (each generation subcommand takes `--wait`).
+
+Tests: `tests/test_zencreator_client.py`, 20 cases, offline via a stubbed transport. Payload shapes are checked against the live tool schemas; the result envelope fixture is a real recorded response. **The client has not been exercised against the live API end to end** — the probe key was removed from `.env` after the earlier manual run, so every call now 401s by design.
+
+## 10. Git state at handoff
 
 - New tracked doc: `docs/zencreator-recon.md`.
+- New code: `scripts/zencreator_client.py`, `tests/test_zencreator_client.py`.
 - Untouched by this session but pre-existing extra work in the tree: `.agents/teamwork/*`, `KAGGLE_SETUP/scripts/probe_hardware.py`, `apps/api/src/server.py`, `packages/contracts/src/models.py`, and `keystone.db` show modifications in the working tree.

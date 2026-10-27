@@ -63,21 +63,32 @@ Orchestrate the end-to-end Phase 1 build of KEYSTONE preserving all pre-built co
 | explorer_m0_2 | teamwork_preview_explorer | M0 Wave 0: 23-Table DDL & Alembic migration design | completed | 0018eb0e-0348-4137-8507-8c82039b5ab3 |
 | explorer_m0_3 | teamwork_preview_explorer | M0 Wave 0: Invariant guards & additive integration | completed | 5d43a0f1-7f17-474c-be5c-937bd35c555a |
 | worker_m0 | teamwork_preview_worker | M0 Wave 0: Implementation (contracts, DDL, server, invariants) | completed | 8ac77b78-ca7e-4650-9ba9-5c20f6a8c62e |
-| reviewer_m0_1 | teamwork_preview_reviewer | M0 Review: Contracts & API Server | in-progress | cea0462d-a946-4e65-b148-b8061145b2c6 |
-| reviewer_m0_2 | teamwork_preview_reviewer | M0 Review: Database DDL & Invariants | in-progress | 8f3f8fc9-9329-44f0-a5a1-223800683595 |
-| challenger_m0_1 | teamwork_preview_challenger | M0 Stress-Test: Contracts & API Server | in-progress | f0ec0b1e-109c-4c04-a9f3-3bafad6bd4cd |
-| challenger_m0_2 | teamwork_preview_challenger | M0 Stress-Test: DDL & Ledger Trigger | in-progress | 71c1042b-2151-4cae-9006-48d9f8ba32cd |
+| reviewer_m0_1 | teamwork_preview_reviewer | M0 Review: Contracts & API Server | completed (APPROVE) | cea0462d-a946-4e65-b148-b8061145b2c6 |
+| reviewer_m0_2 | teamwork_preview_reviewer | M0 Review: Database DDL & Invariants | completed (APPROVE) | 8f3f8fc9-9329-44f0-a5a1-223800683595 |
+| challenger_m0_1 | teamwork_preview_challenger | M0 Stress-Test: Contracts & API Server | completed (APPROVE) | f0ec0b1e-109c-4c04-a9f3-3bafad6bd4cd |
+| challenger_m0_2 | teamwork_preview_challenger | M0 Stress-Test: DDL & Ledger Trigger | completed (APPROVE) | 71c1042b-2151-4cae-9006-48d9f8ba32cd |
 | auditor_m0_1 | teamwork_preview_auditor | M0 Forensic Integrity Audit | completed (CLEAN) | c23954bd-6f9b-46f2-9b54-fa826a60d27e |
+| explorer_m1_1 | teamwork_preview_explorer | M1 Wave 1: Vertical Shell & Domain Architecture | completed | 157d6af0-6ffd-4c9a-8d22-d9cd22185702 |
+| auditor_m2_final | teamwork_preview_auditor | M1 & M2 Forensic Integrity Audit & Verification | completed (CLEAN) | caef6512-c0ad-434b-b334-57025c7f50ce |
+| explorer_m3_1 | teamwork_preview_explorer | M3 Wave 3: Cognition & Authority Architecture Blueprint | concluded (replaced) | cd3324cb-531d-4afd-b59b-d927633f9d39 |
+| explorer_m3_2 | teamwork_preview_explorer | M3 Wave 3: Cognition & Authority Architecture Blueprint | completed | 9c51cc47-b9cf-4d68-963a-08a5788888ce |
+| worker_m3_impl | teamwork_preview_worker | M3 Wave 3: Cognition & Authority Implementation | completed | f70fe9f2-969b-4a9e-983a-6b8cb6c74f75 |
+| reviewer_m3_1 | teamwork_preview_reviewer | M3 Review: Authority & Harness Engines | completed (APPROVE) | 69fc3231-a6c5-4b92-b47a-c5bfb1181016 |
+| challenger_m3_1 | teamwork_preview_challenger | M3 Adversarial Stress: Replay & Envelopes | completed (REJECT: 4 fixes) | cf0e8803-233f-46a3-9fe2-027925ce31b0 |
+| auditor_m3_1 | teamwork_preview_auditor | M3 Forensic Integrity Audit | completed (CLEAN) | 96bcb80d-a02b-4714-83cc-931e530960db |
+| worker_m3_remediate | teamwork_preview_worker | M3 Remediation: 4 Evaluator fixes & 91 adversarial tests | completed | 6c3438f0-ad80-4f69-834f-4a2d871d2825 |
+| challenger_m3_retest | teamwork_preview_challenger | M3 Retest: 91-test adversarial suite & edge cases | running | 6f30c060-3278-4581-ae02-25c4ce9a9eee |
+| auditor_m3_final | teamwork_preview_auditor | M3 Final Forensic Integrity Audit & Verification | running | 65594f0d-8ae7-4307-9a40-81f6dca2bdd8 |
 
 ## Succession Status
-- Succession required: no
-- Spawn count: 13 / 16
-- Pending subagents: cea0462d-a946-4e65-b148-b8061145b2c6, 8f3f8fc9-9329-44f0-a5a1-223800683595, f0ec0b1e-109c-4c04-a9f3-3bafad6bd4cd, 71c1042b-2151-4cae-9006-48d9f8ba32cd
+- Succession required: no (orchestrator_2 continuing directly; max agent limit 128)
+- Spawn count: 27 / 128
+- Pending subagents: 6f30c060-3278-4581-ae02-25c4ce9a9eee, 65594f0d-8ae7-4307-9a40-81f6dca2bdd8
 - Predecessor: none
-- Successor: not yet spawned
+- Successor: none
 
 ## Active Timers
-- Heartbeat cron: 6f59f58e-8034-400a-bd25-c869a10728f4/task-12
+- Heartbeat cron: 6f59f58e-8034-400a-bd25-c869a10728f4/task-543
 - Safety timer: none
 - On succession: kill all timers before spawning successor
 - On context truncation: run `manage_task(Action="list")` — re-create if missing

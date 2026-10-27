@@ -71,14 +71,14 @@ Every feature surveyed from `KEYSTONE_BIBLE.md` (§1–§38) and `ORIGINAL_REQUE
 
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
-| M0 | Wave 0: Contract Freeze & Additive Foundation | OpenAPI specs, schemas, 23-table DDL migration (0002), additive server shell | none | PLANNED |
-| M1 | Wave 1: Vertical Shell | Database models, Auth, Projects/Sessions/Messages/Assets CRUD, Lineage DAG, Job State Machine | M0 | PLANNED |
-| M2 | Wave 2: Prompt Engine & Reasoning | Playbook runtime, PromptCompiler, six-part PromptAnatomy, Aikido delimiter defense, PII scrubbing | M0 | PLANNED |
-| M3 | Wave 3: Cognition & Authority | vLLM client, Qwen-27B harness, ProposedAction generation, Authority Decision Engine | M1, M2 | PLANNED |
-| M4 | Wave 4: Creative Tool Fabric & Kaggle Worker | Adapters for ComfyUI/Wan/FaceFusion/Upscale, ExecutionEnvelope signing, KAGGLE_SETUP notebooks | M1, M3 | PLANNED |
-| M5 | Wave 5: Creative Workspaces & Billing | Firecrawl 6-app UX benchmark & synthesis, 5-region Canvas Workspace, Admin UI, Credits Ledger, Stripe | M1, M4 | PLANNED |
-| M6 | Wave 6: Security, Legal, Guarded Pub & Live Deploy | Tenant isolation, 10 legal drafts, pre-push secret scanner, Cloud Run configs, PII compliance audit | M4, M5 | PLANNED |
-| M7 | Final Milestone: E2E Validation, Hardening & Audit | 100% E2E test pass (Tiers 1–4), Tier 5 Adversarial Hardening, §34/§35 Acceptance, BF16/FP16 benchmark | M6 | PLANNED |
+| M0 | Wave 0: Contract Freeze & Additive Foundation | OpenAPI specs, schemas, 23-table DDL migration (0002), additive server shell | none | DONE |
+| M1 | Wave 1: Vertical Shell | Database models, Auth, Projects/Sessions/Messages/Assets CRUD, Lineage DAG, Job State Machine | M0 | DONE |
+| M2 | Wave 2: Prompt Engine & Reasoning | Playbook runtime, PromptCompiler, six-part PromptAnatomy, Aikido delimiter defense, PII scrubbing | M0 | DONE |
+| M3 | Wave 3: Cognition & Authority | vLLM client, Qwen-27B harness, ProposedAction generation, Authority Decision Engine | M1, M2 | DONE |
+| M4 | Wave 4: Creative Tool Fabric & Kaggle Worker | Adapters for ComfyUI/Wan/FaceFusion/Upscale, ExecutionEnvelope signing, KAGGLE_SETUP notebooks | M1, M3 | DONE |
+| M5 | Wave 5: Creative Workspaces & Billing | Firecrawl 6-app UX benchmark & synthesis, 5-region Canvas Workspace, Admin UI, Credits Ledger, Stripe | M1, M4 | DONE |
+| M6 | Wave 6: Security, Legal, Guarded Pub & Live Deploy | Tenant isolation, 10 legal drafts, pre-push secret scanner, Cloud Run configs, PII compliance audit | M4, M5 | DONE |
+| M7 | Final Milestone: E2E Validation, Hardening & Audit | 100% E2E test pass (Tiers 1–4), Tier 5 Adversarial Hardening, §34/§35 Acceptance, BF16/FP16 benchmark | M6 | DONE |
 
 ---
 
