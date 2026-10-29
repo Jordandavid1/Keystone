@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KEYSTONE — Multimodal Creative Intelligence Workspace</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/workspace/styles.css" />
+</head>
+<body>
+  <div id="workspaceShell" class="workspace-shell" role="application" aria-label="KEYSTONE Creative Workspace">
+
+    <!-- ==================================================================
+         REGION 1: TOP BAR (Bible §25: Identity, Search/Command, Credits)
+         ================================================================== -->
+    <header class="region-topbar" role="banner">
+      <div class="brand-cluster">
+        <div class="brand-mark" aria-hidden="true">K</div>
+        <div>
+          <span class="brand-title">KEYSTONE</span>
+        </div>
+        <span class="brand-badge" title="Pinned Qwen 3.8 27B Abliterated + Authority Engine">v2.0 Alpha</span>
+
+        <button id="projectSelectBtn" class="project-selector" aria-label="Active Project">
+          <span>📁</span>
+          <span id="activeProjectName">Neo-Tokyo Cyber Noir Campaign</span>
+          <span style="opacity: 0.5;">▾</span>
+        </button>
+      </div>
+
+      <button id="commandPaletteBtn" class="command-trigger" aria-label="Open Command Palette">
+        <span>🔍</span>
+        <span>Search assets, playbooks, lineage, or commands...</span>
+        <kbd>⌘K</kbd>
+      </button>
+
+      <div class="topbar-actions">
+        <div class="security-pill" title="Aikido Delimiter Containment & AES-256-GCM PII Vault Active">
+          <span class="status-dot"></span>
+          <span>Aikido + PII Vault</span>
+        </div>
+
+        <div id="creditsWidget" class="credits-pill" title="Two-Phase Commit Credit Ledger (Bible §27)">
+          <span>⚡</span>
+          <span><strong id="creditsAvailable">250</strong> Credits</span>
+          <span id="creditsHoldBadge" class="credits-hold-badge">0 Held</span>
+        </div>
+
+        <button id="mobileToggleBtn" class="icon-btn" title="Toggle Mobile Review Mode (Bible §25)">
+          <span>📱</span>
+          <span>Mobile View</span>
+        </button>
+
+        <a href="/admin" class="icon-btn" title="Open Operator Admin Console (Bible §26)">
+          <span>🛡️</span>
+          <span>Operator Console</span>
+        </a>
+      </div>
+    </header>
+
+    <!-- ==================================================================
+         REGION 2: LEFT SIDEBAR (Bible §25: Create, Projects, Assets, History, Favorites)
+         ================================================================== -->
+    <aside class="region-sidebar" role="navigation" aria-label="Workspace Navigation">
+      <div class="sidebar-section-label">Workspace</div>
+      <div class="nav-list" id="primaryNavList">
+        <button class="nav-item active" data-nav="create">
+          <span>✨</span>
+          <span>Create & Stage</span>
+          <span class="nav-item-count">Live</span>
+        </button>
+        <button class="nav-item" data-nav="projects">
+          <span>🗂️</span>
+          <span>Projects</span>
+          <span class="nav-item-count" id="navProjectsCount">3</span>
+        </button>
+        <button class="nav-item" data-nav="assets">
+          <span>🖼️</span>
+          <span>Project Assets</span>
+          <span class="nav-item-count" id="navAssetsCount">5</span>
+        </button>
+        <button class="nav-item" data-nav="history">
+          <span>⏱️</span>
+          <span>Session History</span>
+          <span class="nav-item-count" id="navHistoryCount">6</span>
+        </button>
+        <button class="nav-item" data-nav="favorites">
+          <span>⭐</span>
+          <span>Favorites</span>
+          <span class="nav-item-count" id="navFavoritesCount">2</span>
+        </button>
+      </div>
+
+      <div class="sidebar-section-label" title="Bible §2 Invariant 14: All 13 First-Class Domain Playbooks">
+        13 Domain Playbooks
+      </div>
+      <div class="playbook-grid" id="playbookGrid" role="radiogroup" aria-label="Domain Playbooks">
+        <!-- Populated dynamically with all 13 canonical playbooks -->
+      </div>
+
+      <div class="sidebar-section-label">Active Project Stream</div>
+      <div class="sidebar-asset-mini-list" id="sidebarAssetStream">
+        <!-- Populated dynamically with project assets -->
+      </div>
+    </aside>
+
+    <!-- ==================================================================
+         REGION 3: CENTER CANVAS (Bible §25: Media, Compare, Video, Variations, Lineage)
+         ================================================================== -->
+    <main class="region-canvas" role="main">
+      <!-- Top Canvas Mode Switcher -->
+      <div class="canvas-toolbar">
+        <div class="canvas-mode-tabs" role="tablist" aria-label="Canvas View Modes">
+          <button class="mode-tab active" data-mode="single" role="tab" aria-selected="true">
+            <span>🎯</span>
+            <span>Primary Canvas</span>
+          </button>
+          <button class="mode-tab" data-mode="compare" role="tab" aria-selected="false">
+            <span>🌓</span>
+            <span>Split Compare</span>
+          </button>
+          <button class="mode-tab" data-mode="video" role="tab" aria-selected="false">
+            <span>🎬</span>
+            <span>Sync Video Player</span>
+          </button>
+          <button class="mode-tab" data-mode="variations" role="tab" aria-selected="false">
+            <span>💠</span>
+            <span>Variations (4)</span>
+          </button>
+          <button class="mode-tab" data-mode="lineage" role="tab" aria-selected="false">
+            <span>🌿</span>
+            <span>Lineage DAG</span>
+          </button>
+        </div>
+
+        <div style="display: flex; gap: 8px;">
+          <button id="simulateRefinementBtn" class="icon-btn" title="Demonstrate Bounded Quality Retry Loop (Bible §14, §20)">
+            <span>🔄</span>
+            <span>Demo Auto-Refinement</span>
+          </button>
+          <button id="downloadAssetBtn" class="icon-btn" title="Download via 15-Minute Signed Storage URL (Bible §22)">
+            <span>⬇️</span>
+            <span>Download (Signed URL)</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 7-Stage Customer Progress Language Banner (Bible §25) -->
+      <div id="progressBanner" class="progress-overlay-card hidden" role="status" aria-live="polite">
+        <div class="progress-header">
+          <div class="progress-stage-label">
+            <span class="pulse-ring"></span>
+            <span id="progressStageText">Understanding your request</span>
+          </div>
+          <span id="progressSubMeta" style="font-family: var(--font-mono); font-size: 11.5px; color: var(--text-secondary);">
+            Stage 1 / 7 • Credit Hold Active
+          </span>
+        </div>
+        <div class="progress-steps-track" id="progressStepsTrack">
+          <div class="progress-step-pill active" title="1. Understanding your request"></div>
+          <div class="progress-step-pill" title="2. Planning the generation"></div>
+          <div class="progress-step-pill" title="3. Preparing the workflow"></div>
+          <div class="progress-step-pill" title="4. Creating"></div>
+          <div class="progress-step-pill" title="5. Checking the result"></div>
+          <div class="progress-step-pill" title="6. Refining when necessary"></div>
+          <div class="progress-step-pill" title="7. Finishing"></div>
+        </div>
+      </div>
+
+      <!-- Dynamic Stage Content Area -->
+      <div id="canvasStage" class="canvas-stage">
+        <!-- Rendered by app.js based on active canvas mode -->
+      </div>
+
+      <!-- ================================================================
+           REGION 5: BOTTOM COMPOSER (Bible §25: Natural Language + Intent Hints)
+           ================================================================ -->
+      <section class="region-composer" aria-label="KEYSTONE Creative Composer">
+        <div class="composer-top-row">
+          <div class="intent-pills-group" role="radiogroup" aria-label="Creative Intent Hints">
+            <button class="intent-pill active" data-intent="create">✨ Create</button>
+            <button class="intent-pill" data-intent="edit">🪄 Edit</button>
+            <button class="intent-pill" data-intent="animate">🎬 Animate</button>
+            <button class="intent-pill" data-intent="analyze">🔍 Analyze</button>
+          </div>
+
+          <div class="composer-shield-indicators">
+            <span class="shield-tag" id="activePlaybookBadge">Playbook: Design</span>
+            <span class="shield-tag" id="piiScrubStatus" style="color: #34d399;">🛡️ Zero-PII Verified</span>
+          </div>
+        </div>
+
+        <div class="composer-input-row">
+          <button id="attachAssetBtn" class="icon-btn" title="Attach or Drop Reference Asset" style="padding: 8px 10px;">
+            📎
+          </button>
+          <textarea
+            id="composerInput"
+            class="composer-textarea"
+            placeholder="Describe what you want to create, edit, or animate... (KEYSTONE compiles PromptAnatomy & selects optimal workflow automatically)"
+            aria-label="Creative prompt input"
+          >Animate this cybernetic samurai portrait with a slow cinematic push-in, volumetric neon rain, and anamorphic lens flare</textarea>
+          <button id="composerSubmitBtn" class="composer-submit-btn">
+            <span>Run KEYSTONE</span>
+            <span>↵</span>
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <!-- ==================================================================
+         REGION 4: RIGHT INSPECTOR (Bible §25: Metadata, Controls, Expandable Advanced)
+         ================================================================== -->
+    <aside class="region-inspector" role="complementary" aria-label="Asset and Intelligence Inspector">
+
+      <!-- Active Asset Summary & KHF Quality Score -->
+      <div class="inspector-card">
+        <div class="inspector-card-header">
+          <span>KHF Quality Evaluation</span>
+          <span class="khf-score-ring" id="khfOverallBadge">96.4% PASS</span>
+        </div>
+
+        <div class="dimension-row">
+          <div class="dimension-label-line">
+            <span>Prompt Adherence</span>
+            <span id="dimAdherenceVal">0.98</span>
+          </div>
+          <div class="dimension-bar-bg"><div id="dimAdherenceBar" class="dimension-bar-fill" style="width: 98%;"></div></div>
+        </div>
+
+        <div class="dimension-row">
+          <div class="dimension-label-line">
+            <span>Technical & Visual Quality</span>
+            <span id="dimTechVal">0.96</span>
+          </div>
+          <div class="dimension-bar-bg"><div id="dimTechBar" class="dimension-bar-fill" style="width: 96%;"></div></div>
+        </div>
+
+        <div class="dimension-row">
+          <div class="dimension-label-line">
+            <span>Identity & Temporal Consistency</span>
+            <span id="dimConsistencyVal">0.95</span>
+          </div>
+          <div class="dimension-bar-bg"><div id="dimConsistencyBar" class="dimension-bar-fill" style="width: 95%;"></div></div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-subtle);">
+          <span>Harness: <code>khf.semantic_critic v2.1</code></span>
+          <span id="assetSignedExpiry">URL TTL: 14m 52s</span>
+        </div>
+      </div>
+
+      <!-- Customer-Level Creative Controls (No raw model clutter) -->
+      <div class="inspector-card">
+        <div class="inspector-card-header">
+          <span>Creative Framing & Feel</span>
+          <span style="font-size: 10px; color: var(--accent-cyan);">Intent-Driven</span>
+        </div>
+
+        <div class="control-group">
+          <span class="control-label">Canvas Aspect Ratio</span>
+          <div class="segmented-pills" id="aspectRatioPills">
+            <button class="seg-pill active" data-aspect="16:9">16:9</button>
+            <button class="seg-pill" data-aspect="1:1">1:1</button>
+            <button class="seg-pill" data-aspect="9:16">9:16</button>
+            <button class="seg-pill" data-aspect="21:9">21:9</button>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <span class="control-label">Quality & Refinement Policy</span>
+          <div class="segmented-pills" style="grid-template-columns: repeat(3, 1fr);" id="qualityTierPills">
+            <button class="seg-pill" data-quality="draft">Fast Draft</button>
+            <button class="seg-pill active" data-quality="high">Studio High</button>
+            <button class="seg-pill" data-quality="master">Master 4K</button>
+          </div>
+        </div>
+
+        <div class="control-group" style="margin-bottom: 0;">
+          <span class="control-label">Camera & Motion Feeling</span>
+          <select id="motionPresetSelect" style="width: 100%; padding: 8px 10px; border-radius: 7px; background: var(--bg-surface-3); border: 1px solid var(--border-subtle); color: var(--text-primary); font-size: 12.5px;">
+            <option value="push_in">Slow Cinematic Push-In (Anamorphic)</option>
+            <option value="orbit">360° Hero Subject Orbit</option>
+            <option value="crane_up">Dramatic Crane Rise + Parallax</option>
+            <option value="handheld">Organic Handheld Documentary</option>
+            <option value="static">Locked Tripod Micro-Motion</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Collapsible Advanced & Developer Authority Drawer (Bible §25) -->
+      <div class="inspector-card">
+        <div class="inspector-card-header" style="cursor: pointer; margin-bottom: 0;" id="toggleDevDrawerBtn">
+          <span>🔐 KEYSTONE Authority & Anatomy</span>
+          <span id="devDrawerChevron" style="font-family: var(--font-mono);">[Expand +]</span>
+        </div>
+
+        <div id="devDrawerBody" style="margin-top: 12px; display: block;">
+          <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 6px; display: flex; justify-content: space-between;">
+            <span><strong>6-Part PromptAnatomy</strong> (Compiled)</span>
+            <span id="promptHashBadge" style="font-family: var(--font-mono); color: #a5b4fc;">sha256:dbf93e4f...</span>
+          </div>
+          <pre id="anatomyPre" class="code-block-mono">Loading live compiled PromptAnatomy...</pre>
+
+          <div style="font-size: 11px; color: var(--text-secondary); margin: 10px 0 6px; display: flex; justify-content: space-between;">
+            <span><strong>Authority Decision & Envelope</strong></span>
+            <span id="authorityVerdictBadge" style="color: var(--accent-emerald); font-family: var(--font-mono);">APPROVE</span>
+          </div>
+          <pre id="envelopePre" class="code-block-mono">Loading HMAC-SHA256 ExecutionEnvelope...</pre>
+        </div>
+      </div>
+
+    </aside>
+  </div>
+
+  <!-- ====================================================================
+       GLOBAL COMMAND PALETTE MODAL (⌘K)
+       ==================================================================== -->
+  <div id="commandModalBackdrop" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-label="Command Palette">
+    <div class="command-modal">
+      <input
+        type="text"
+        id="commandSearchInput"
+        class="command-input"
+        placeholder="Type a command, switch playbook, or jump to asset..."
+        autocomplete="off"
+      />
+      <div class="command-list" id="commandList">
+        <div class="command-item" data-cmd="mode:compare">
+          <span>🌓 Switch Canvas to Split Comparison View</span>
+          <kbd>⌘1</kbd>
+        </div>
+        <div class="command-item" data-cmd="mode:video">
+          <span>🎬 Open Synchronized Dual Video Player</span>
+          <kbd>⌘2</kbd>
+        </div>
+        <div class="command-item" data-cmd="mode:lineage">
+          <span>🌿 Inspect Asset Lineage DAG Graph</span>
+          <kbd>⌘3</kbd>
+        </div>
+        <div class="command-item" data-cmd="demo:refinement">
+          <span>🔄 Simulate Bounded Quality Retry Loop (Attempt 1 → Attempt 2)</span>
+          <kbd>⌘R</kbd>
+        </div>
+        <div class="command-item" data-cmd="security:test-aikido">
+          <span>🛡️ Test Aikido Injection Defense & PII Vault Scrubbing</span>
+          <kbd>⌘S</kbd>
+        </div>
+        <div class="command-item" data-cmd="nav:admin">
+          <span>⚙️ Open Operator Admin Console (/admin)</span>
+          <kbd>⌘O</kbd>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/workspace/app.js"></script>
+</body>
+</html>

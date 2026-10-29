@@ -30,9 +30,54 @@ class CognitionConnector:
 
     PINNED_CHECKPOINT = PINNED_CHECKPOINT
 
-    def __init__(self, base_url: str = "http://localhost:8000/v1", api_key: Optional[str] = None):
-        self.base_url = base_url.rstrip("/")
+    def __init__(self, base_url: Optional[str] = None, api_key: Optional[str] = None):
+        self._explicit_base_url = base_url.rstrip("/") if base_url else None
+        self.base_url = (
+            self._explicit_base_url
+            or os.getenv("COGNITION_BASE_URL", "http://localhost:8000/v1").rstrip("/")
+        )
         self.api_key = api_key or os.getenv("COGNITION_API_KEY", "")
+
+    def resolve_active_endpoint(self) -> str:
+        """
+        Dynamically resolves the live vLLM endpoint URL in priority order:
+        1. Explicit constructor base_url (if passed by caller)
+        2. Active ephemeral Kaggle worker registered in WorkerBridge (zero-redeploy discovery)
+        3. COGNITION_BASE_URL environment variable
+        4. Default local fallback (http://localhost:8000/v1)
+        """
+        if self._explicit_base_url:
+            return self._explicit_base_url
+
+        try:
+            from services.harness.src.worker_bridge import worker_bridge
+            # Check for active cognition workers by capability or worker_type
+            cognition_caps = (
+                "cognition.qwen27b",
+                "cognition.reasoning",
+                "cognition",
+                PINNED_CHECKPOINT
+            )
+            for cap in cognition_caps:
+                matched = worker_bridge.route_for_capability(cap)
+                if matched:
+                    tunnel = matched[0].tunnel_url.rstrip("/")
+                    return tunnel if tunnel.endswith("/v1") else f"{tunnel}/v1"
+
+            # Also check any active worker whose worker_type is cognition/vllm/gateway
+            for worker in worker_bridge.list_workers(active_only=True):
+                w_type = str(worker.get("worker_type", "")).lower()
+                if any(k in w_type for k in ("cognition", "vllm", "qwen", "gateway")):
+                    tunnel = str(worker["tunnel_url"]).rstrip("/")
+                    return tunnel if tunnel.endswith("/v1") else f"{tunnel}/v1"
+        except Exception:
+            pass
+
+        env_url = os.getenv("COGNITION_BASE_URL", "").strip()
+        if env_url:
+            return env_url.rstrip("/")
+
+        return self.base_url
 
     @classmethod
     def build_completion_request(
@@ -192,11 +237,12 @@ class CognitionConnector:
     def complete(self, prompt: str, options: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         Synchronously dispatches completion request to vLLM endpoint.
+        Dynamically discovers active Kaggle cognition tunnels via WorkerBridge before falling back.
         Returns parsed response dict with ProposedAction payload and telemetry.
-        Falls back to local mock generation if remote vLLM endpoint is offline.
         """
         req_payload = self.build_completion_request(prompt, options)
-        endpoint = f"{self.base_url}/chat/completions"
+        active_base_url = self.resolve_active_endpoint()
+        endpoint = f"{active_base_url}/chat/completions"
         start_time = time.time()
 
         try:

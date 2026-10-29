@@ -10,9 +10,12 @@ from __future__ import annotations
 
 import os
 import sys
+from pathlib import Path
 from typing import Any, Dict, List
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 
 # 1. Import pre-built baseline app (preserves main.py byte-identical)
 from apps.api.src.main import app, PlanRequest
@@ -225,6 +228,40 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ============================================================================
+# Mount Premium Creative Workspace (/workspace) & Operator Admin Console (/admin)
+# ============================================================================
+
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+_WEB_DIR = _REPO_ROOT / "apps" / "web"
+_ADMIN_DIR = _REPO_ROOT / "apps" / "admin"
+
+
+@app.get("/", include_in_schema=False)
+def root_redirect() -> RedirectResponse:
+    """Redirect root URL directly to the Premium Creative Workspace."""
+    return RedirectResponse(url="/workspace")
+
+
+@app.get("/workspace", tags=["Workspace UX"], summary="Premium Creative Workspace UI")
+def serve_workspace_index() -> FileResponse:
+    """Serves the 5-Region KEYSTONE Premium Creative Workspace (Bible §25)."""
+    return FileResponse(_WEB_DIR / "index.html")
+
+
+@app.get("/admin", tags=["Operator Admin Console"], summary="Operator Admin Console UI")
+def serve_admin_index() -> FileResponse:
+    """Serves the KEYSTONE Operator Admin Console (Bible §26)."""
+    return FileResponse(_ADMIN_DIR / "index.html")
+
+
+if _WEB_DIR.exists():
+    app.mount("/workspace", StaticFiles(directory=str(_WEB_DIR), html=True), name="workspace_static")
+
+if _ADMIN_DIR.exists():
+    app.mount("/admin", StaticFiles(directory=str(_ADMIN_DIR), html=True), name="admin_static")
 
 
 # ============================================================================

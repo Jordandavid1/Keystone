@@ -1,0 +1,86 @@
+✓ snapshot f1e386 --max 10000
+- generic "Code Cell Content with Output" [ref=f1e386]:
+  - generic [ref=f1e395]:
+    - generic [ref=f1e396] [cursor=pointer]:
+      - undefined [0=[] [1=9] [2=0] [3=]] [4=:]
+      - generic "Cell executed in 10.456s at 6:08pm" [ref=f1e398]: [90]:
+    - textbox [ref=f1e407]:
+      - generic [ref=f1e531]: set_widget(node, 'value', 'A tiny orange kitten chasing a falling golden leaf in a quiet autumn garden, gentle camera push-in, warm afternoon light, soft playful music, no text.')
+      - generic [ref=f1e532]: elif node['type'] == 'VHS_VideoCombine':
+      - generic [ref=f1e533]: set_widget(node, 'filename_prefix', 'PinkCherry_H3_Test')
+      - generic [ref=f1e534]: set_widget(node, 'format', 'video/h264-mp4')
+      - generic [ref=f1e536]: for node_id, value in [('132', 1), ('143', 8), ('144', 4), ('146', False)]:
+      - generic [ref=f1e537]: if node_id in nodes:
+      - generic [ref=f1e538]: set_widget(nodes[node_id], 'value', value)
+      - generic [ref=f1e539]: workflow_path.write_text(json.dumps(workflow, ensure_ascii=False, indent=2), encoding='utf-8')
+      - generic [ref=f1e541]: object_info = requests.get('http://127.0.0.1:8188/object_info', timeout=30).json()
+      - generic [ref=f1e542]: links = {link[0]: (str(link[1]), link[2]) for link in workflow['links']}
+      - generic [ref=f1e543]: output_ids = [str(node['id']) for node in workflow['nodes'] if node['type'] == 'VHS_VideoCombine']
+      - generic [ref=f1e409]: if not output_ids:
+      - generic [ref=f1e544]: raise RuntimeError('No VHS_VideoCombine output node found.')
+      - generic [ref=f1e545]: needed, pending = set(), output_ids[:]
+      - generic [ref=f1e546]: while pending:
+      - generic [ref=f1e547]: node_id = pending.pop()
+      - generic [ref=f1e548]: if node_id in needed:
+      - generic [ref=f1e549]: continue
+      - generic [ref=f1e550]: needed.add(node_id)
+      - generic [ref=f1e551]: for item in nodes[node_id].get('inputs', []):
+      - generic [ref=f1e552]: if item.get('link') is not None:
+      - generic [ref=f1e553]: pending.append(links[item['link']][0])
+      - generic [ref=f1e554]: api_prompt, missing, missing_schemas = {}, {}, []
+      - generic [ref=f1e555]: for node_id in needed:
+      - generic [ref=f1e411]: node = nodes[node_id]
+      - generic [ref=f1e412]: node_type = node['type']
+      - generic [ref=f1e413]: if node_type not in object_info:
+      - generic [ref=f1e414]: missing_schemas.append((node_id, node_type))
+      - generic [ref=f1e415]: continue
+      - generic [ref=f1e416]: schema = object_info[node_type]['input']
+      - generic [ref=f1e417]: required = set(schema.get('required', {}))
+      - generic [ref=f1e418]: valid = required | set(schema.get('optional', {}))
+      - generic [ref=f1e419]: current = node.get('widgets_values', [])
+      - generic [ref=f1e420]: if isinstance(current, dict):
+      - generic [ref=f1e421]: widget_values = current
+      - generic [ref=f1e422]: else:
+      - generic [ref=f1e423]: widget_names = [(item.get('widget') or {}).get('name') for item in node.get('inputs', []) if item.get('widget')]
+      - generic [ref=f1e424]: widget_values = dict(zip(widget_names, current))
+      - generic [ref=f1e425]: inputs = {}
+      - generic [ref=f1e426]: for item in node.get('inputs', []):
+      - generic [ref=f1e427]: name = item['name']
+      - generic [ref=f1e428]: if item.get('link') is not None:
+      - generic [ref=f1e429]: value = list(links[item['link']])
+      - generic [ref=f1e430]: else:
+      - generic [ref=f1e431]: key = (item.get('widget') or {}).get('name', name)
+      - generic [ref=f1e432]: if key not in widget_values:
+      - generic [ref=f1e433]: continue
+      - generic [ref=f1e434]: value = widget_values[key]
+      - generic [ref=f1e435]: if name in valid or '.' in name:
+      - generic [ref=f1e436]: inputs[name] = value
+      - generic [ref=f1e437]: absent = {key for key in required if key not in inputs and not any(name.startswith(key + '.') for name in inputs)}
+      - generic [ref=f1e438]: if absent:
+      - generic [ref=f1e439]: missing[node_id] = sorted(absent)
+      - generic [ref=f1e440]: api_prompt[node_id] = {'class_type': node_type, 'inputs': inputs}
+      - generic [ref=f1e441]: if missing_schemas or missing:
+      - generic [ref=f1e442]: raise RuntimeError(f'Workflow API validation failed. Missing node schemas: {missing_schemas}; required inputs: {missing}')
+      - generic [ref=f1e444]: patch_nodes = [node for node in workflow['nodes'] if node['type'] == 'PathchSageAttentionKJ']
+      - generic [ref=f1e445]: for patch in patch_nodes:
+      - generic [ref=f1e446]: model_input = next(item for item in patch['inputs'] if item['name'] == 'model')
+      - generic [ref=f1e447]: source_id, source_slot = links[model_input['link']]
+      - generic [ref=f1e448]: patch_id = str(patch['id'])
+      - generic [ref=f1e449]: for node in api_prompt.values():
+      - generic [ref=f1e450]: for key, value in list(node['inputs'].items()):
+      - generic [ref=f1e451]: if value == [patch_id, 0]:
+      - generic [ref=f1e452]: node['inputs'][key] = [source_id, source_slot]
+      - generic [ref=f1e453]: api_prompt.pop(patch_id, None)
+      - generic [ref=f1e455]: response = requests.post('http://127.0.0.1:8188/prompt', json={'prompt': api_prompt}, timeout=60)
+      - generic [ref=f1e456]: response.raise_for_status()
+      - generic [ref=f1e457]: prompt_id = response.json()['prompt_id']
+      - generic [ref=f1e458]: print('Queued ComfyUI prompt:', prompt_id, 'API nodes:', len(api_prompt))
+      - generic [ref=f1e459]: deadline = time.monotonic() + 900
+  - generic [ref=f1e480]: Queued ComfyUI prompt: 41b631aa-5925-4fa3-921c-4b80c5b386a0 API nodes: 24 GENERATION_SUCCESS /kaggle/working/PinkCherry_H3_T2V_Test.mp4 430379 bytes codec_name=h264 width=352 height=608 codec_name=aac duration=1.625000
+  - generic [ref=f1e491]:
+    - button "add Code" [ref=f1e492]:
+      - generic [ref=f1e493]: add
+      - undefined [0=C] [1=o] [2=d] [3=e]
+    - button "add Markdown" [ref=f1e494]:
+      - generic [ref=f1e495]: add
+      - undefined [0=M] [1=a] [2=r] [3=k] [4=d] [5=o] [6=w] [7=n]
