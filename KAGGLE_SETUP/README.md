@@ -14,9 +14,9 @@ This folder is dedicated to bringing the complete KEYSTONE runtime online throug
    - Workflow directories
    - API health validation
 3. `notebooks/03_keystone_integrated_gateway.ipynb`
-   - KEYSTONE API bridge
-   - Cognition and creative-runtime health checks
-   - Tunnel configuration placeholders
+   - Token-protected H3 bridge (`bridge/keystone_h3_bridge.py`) in front of ComfyUI on 8189
+   - Real Cloudflare tunnel; prints the URL and token only after both pass a public health check
+   - No placeholder URLs and no registration against a control plane that does not exist
 4. `checklists/BRING_UP_CHECKLIST.md`
    - Manual setup and verification gates
 5. `configs/kaggle-secrets.example.env`

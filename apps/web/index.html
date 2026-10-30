@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>KEYSTONE — Creative Workspace</title>
+<link rel="stylesheet" href="/workspace/styles.css?v=4" />
+</head>
+<body>
+
+<!-- Authentication (Bible §27): real accounts, no demo mode -->
+<section class="auth" id="authScreen">
+  <form class="auth-card" id="authForm">
+    <div class="auth-brand"><span class="mark">K</span> KEYSTONE</div>
+    <p class="auth-sub" id="authSub">Sign in to your workspace</p>
+
+    <label>Email<input type="email" id="authEmail" autocomplete="username" required /></label>
+    <label>Password<input type="password" id="authPassword" autocomplete="current-password" minlength="8" required /></label>
+
+    <button class="primary" type="submit" id="authSubmit">Sign in</button>
+    <p class="auth-error" id="authError" hidden></p>
+    <button class="link" type="button" id="authToggle">Create an account instead</button>
+  </form>
+</section>
+
+<!-- Premium creative workspace (Bible §25) -->
+<div class="app" id="app" hidden>
+
+  <header class="topbar">
+    <div class="identity">
+      <span class="mark small">K</span>
+      <div>
+        <strong id="projectName">No project</strong>
+        <span class="muted" id="sessionLabel">—</span>
+      </div>
+    </div>
+
+    <div class="topbar-actions">
+      <button class="ghost" id="newProjectBtn">New project</button>
+      <span class="muted" id="accountEmail"></span>
+      <button class="ghost" id="logoutBtn">Sign out</button>
+    </div>
+  </header>
+
+  <aside class="sidebar">
+    <nav class="nav" id="nav">
+      <button class="nav-item active" data-view="create">Create</button>
+      <button class="nav-item" data-view="projects">Projects</button>
+      <button class="nav-item" data-view="assets">Assets</button>
+      <button class="nav-item" data-view="history">History</button>
+      <button class="nav-item" data-view="favorites">Favorites</button>
+    </nav>
+
+    <div class="sidebar-section">
+      <div class="section-label">Your assets</div>
+      <div class="asset-list" id="assetList"></div>
+    </div>
+  </aside>
+
+  <main class="canvas" id="canvasRegion">
+    <div class="canvas-frame" id="canvasFrame">
+      <div class="canvas-empty" id="canvasEmpty">
+        <h2>Start with an asset</h2>
+        <p>Drop an image or video here, or attach one below. Uploads are stored against your account.</p>
+        <button class="secondary" id="emptyUploadBtn">Upload a file</button>
+      </div>
+      <img id="canvasImage" alt="" hidden />
+      <video id="canvasVideo" controls hidden></video>
+    </div>
+
+    <div class="progress" id="progress" hidden>
+      <div class="progress-head">
+        <strong id="progressLabel">Job accepted</strong>
+        <span class="muted" id="progressState">CREATED</span>
+      </div>
+      <ol class="stages" id="stages"></ol>
+    </div>
+  </main>
+
+  <aside class="inspector">
+    <div class="card">
+      <div class="card-head">Result metadata</div>
+      <dl class="meta" id="metaList">
+        <dt>Asset</dt><dd id="metaAsset">None selected</dd>
+        <dt>Type</dt><dd id="metaType">—</dd>
+        <dt>Size</dt><dd id="metaSize">—</dd>
+        <dt>Created</dt><dd id="metaCreated">—</dd>
+      </dl>
+    </div>
+
+    <div class="card">
+      <div class="card-head">Actions</div>
+      <button class="secondary full" id="downloadBtn" disabled>Download selected</button>
+      <button class="secondary full" id="favoriteBtn" disabled>Favorite</button>
+    </div>
+
+    <div class="card">
+      <button class="disclosure" id="advancedToggle" aria-expanded="false">
+        Advanced controls <span id="advancedChevron">+</span>
+      </button>
+      <div class="advanced" id="advancedBody" hidden>
+        <dl class="meta">
+          <dt>Asset ID</dt><dd id="metaId">—</dd>
+          <dt>Storage</dt><dd>state/assets</dd>
+          <dt>Provider</dt><dd>MiniMax H3 · PinkCherry 1.8</dd>
+          <dt>Runtime</dt><dd id="metaRuntime">checking…</dd>
+        </dl>
+      </div>
+    </div>
+  </aside>
+
+  <footer class="composer-region">
+    <div class="attachments" id="attachments" hidden></div>
+
+    <form class="composer" id="composer">
+      <div class="intents" role="radiogroup" aria-label="Intent">
+        <button type="button" class="intent active" data-intent="create">Create</button>
+        <button type="button" class="intent" data-intent="edit">Edit</button>
+        <button type="button" class="intent" data-intent="animate">Animate</button>
+        <button type="button" class="intent" data-intent="analyze">Analyze</button>
+      </div>
+
+      <textarea id="composerInput" rows="1" placeholder="Describe what you want to create, edit, or animate…"></textarea>
+
+      <div class="composer-actions">
+        <button type="button" class="ghost" id="attachBtn" title="Attach an asset">Attach</button>
+        <button type="submit" class="primary" id="runBtn">Run KEYSTONE</button>
+      </div>
+    </form>
+    <input type="file" id="fileInput" accept="image/*,video/*" multiple hidden />
+    <p class="hint" id="composerHint">Uploads and prompts are stored against your account.</p>
+  </footer>
+
+</div>
+
+<script src="/workspace/app.js?v=4"></script>
+</body>
+</html>

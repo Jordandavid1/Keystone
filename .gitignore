@@ -1,0 +1,24 @@
+# Runtime state (SQLite + uploaded binaries)
+state/
+.run/
+*.log
+
+# Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+
+# Node
+node_modules/
+
+# OS / editor
+.DS_Store
+Thumbs.db
