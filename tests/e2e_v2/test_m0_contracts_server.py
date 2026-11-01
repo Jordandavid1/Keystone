@@ -75,7 +75,7 @@ def test_contracts_endpoint():
     assert len(res["promptAnatomy"]) == 6
     assert set(res["authorityDecisions"]) == {"approve", "deny", "replan"}
     assert len(res["jobStates"]) == 13
-    assert len(res["playbooks"]) == 13
+    assert len(res["playbooks"]) == 16
 
     schemas = res["schemas"]
     for model_name in [

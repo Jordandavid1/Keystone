@@ -58,6 +58,18 @@ from packages.contracts.src.models import (
 
 
 # ============================================================================
+# Runtime Directory Resolution (Supports Development and PyInstaller Frozen .exe)
+# ============================================================================
+
+if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+    _REPO_ROOT = Path(sys._MEIPASS)
+else:
+    _REPO_ROOT = Path(__file__).resolve().parents[3]
+_WEB_DIR = _REPO_ROOT / "apps" / "web"
+_ADMIN_DIR = _REPO_ROOT / "apps" / "admin"
+
+
+# ============================================================================
 # Configure Production OpenAPI Metadata
 # ============================================================================
 
@@ -66,7 +78,7 @@ app.version = "2.0.0-alpha.1"
 app.description = (
     "KEYSTONE is the proprietary prompt-intelligence engine, prompting authority, "
     "cognition controller, workflow orchestrator, and quality authority for multimodal creative AI.\n\n"
-    "Canonical spec: KEYSTONE Bible (SHA-256: 1D31D909790ED73506004B0233AEDE617761E99916D9A7D209BD9086B3063788)."
+    "Canonical spec: KEYSTONE Bible (SHA-256: 3BFF4E7063733146B663BDBE9C9BAD7271D480152243A05542F256DC05E7B25D)."
 )
 
 app.openapi_tags = [
@@ -108,7 +120,7 @@ app.openapi_tags = [
     },
     {
         "name": "Planning",
-        "description": "Deterministic plan.v1 generation and PromptCompiler execution across 13 playbooks (F10)"
+        "description": "Deterministic plan.v1 generation and PromptCompiler execution across 16 playbooks (F10)"
     },
     {
         "name": "Authority",
@@ -156,11 +168,20 @@ app.include_router(admin_router)
 
 @app.on_event("startup")
 async def on_startup() -> None:
-    """Initialize database tables on server startup."""
+    """Initialize database tables and Kaggle worker daemon on server startup."""
     try:
         await init_db()
     except Exception as exc:
         print(f"[Warning] Failed to initialize database: {exc}")
+
+    if not os.getenv("PYTEST_CURRENT_TEST") and os.getenv("KEYSTONE_ENABLE_KAGGLE_DAEMON", "true").lower() == "true":
+        try:
+            from services.harness.src.kaggle_daemon import start_kaggle_daemon
+            start_kaggle_daemon(in_process=True)
+            print("[+] Kaggle Worker Bridge & Heartbeat Daemon initialized (T4x2 Cognition + ComfyUI).")
+        except Exception as exc:
+            print(f"[Warning] Failed to start Kaggle worker daemon: {exc}")
+
 
 
 # ============================================================================
@@ -195,7 +216,7 @@ def get_contracts() -> Dict[str, Any]:
         "playbooks": [
             "Software", "Writing", "Marketing", "Business", "Learning",
             "Career", "Content", "Research", "Design", "Fitness",
-            "Events", "Finance", "General"
+            "Events", "Finance", "Nsfw", "Hacker", "Freedom", "General"
         ],
         "schemas": {
             "PromptIntent": PromptIntent.model_json_schema(),
@@ -217,6 +238,35 @@ def get_contracts() -> Dict[str, Any]:
     }
 
 
+@app.get(
+    "/v1/config/remote",
+    tags=["Configuration"],
+    summary="Firebase Remote Config Template & Feature Flags",
+    description="Returns the active remote config parameters, feature toggles, and in-app defaults."
+)
+def get_remote_config() -> Dict[str, Any]:
+    """Serves the Firebase Remote Config template for client feature activation."""
+    import json
+    config_file = _REPO_ROOT / "remote_config.json"
+    if config_file.exists():
+        try:
+            return json.loads(config_file.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    return {
+        "parameters": {
+            "enable_zencreator_node_graph": {"defaultValue": {"value": "true"}},
+            "enable_cursor_floating_composer": {"defaultValue": {"value": "true"}},
+            "enable_vscode_activity_bar": {"defaultValue": {"value": "true"}},
+            "enable_higgsfield_motion_controls": {"defaultValue": {"value": "true"}},
+            "enable_firecrawl_style_scrape": {"defaultValue": {"value": "true"}},
+            "default_cinema_framerate": {"defaultValue": {"value": "24"}},
+            "credit_hold_estimate": {"defaultValue": {"value": "3"}}
+        },
+        "conditions": []
+    }
+
+
 # ============================================================================
 # CORS Middleware Configuration (Permissive for local development & Canvas)
 # ============================================================================
@@ -230,19 +280,27 @@ app.add_middleware(
 )
 
 
+@app.middleware("http")
+async def disable_static_caching(request, call_next):
+    """Workspace/admin assets are edited live during development, so prevent
+    browsers from heuristically caching them and running stale JavaScript."""
+    response = await call_next(request)
+    if request.url.path.startswith(("/workspace", "/admin")):
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
+
 # ============================================================================
 # Mount Premium Creative Workspace (/workspace) & Operator Admin Console (/admin)
 # ============================================================================
 
-_REPO_ROOT = Path(__file__).resolve().parents[3]
+if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+    _REPO_ROOT = Path(sys._MEIPASS)
+else:
+    _REPO_ROOT = Path(__file__).resolve().parents[3]
 _WEB_DIR = _REPO_ROOT / "apps" / "web"
 _ADMIN_DIR = _REPO_ROOT / "apps" / "admin"
 
-
-@app.get("/", include_in_schema=False)
-def root_redirect() -> RedirectResponse:
-    """Redirect root URL directly to the Premium Creative Workspace."""
-    return RedirectResponse(url="/workspace")
 
 
 @app.get("/workspace", tags=["Workspace UX"], summary="Premium Creative Workspace UI")
