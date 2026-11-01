@@ -70,7 +70,7 @@ class TestBibleIdentityAcceptance:
     def test_identity_03_all_thirteen_playbooks_load(self):
         """Identity Test 3: The original thirteen domain playbooks remain first-class prompt-engine data."""
         playbooks = PlaybookRegistry.list_playbooks()
-        assert len(playbooks) == 13
+        assert len(playbooks) == 16
         expected_playbooks = [
             "software", "writing", "marketing", "business", "learning",
             "career", "content", "research", "design", "fitness",

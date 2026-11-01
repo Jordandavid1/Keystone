@@ -39,7 +39,7 @@ The platform may use cognitive and creative models, workflow engines, adapters, 
 11. Memory pressure is handled through discovery, offload, context reduction, concurrency reduction, controlled retry profiles, or infrastructure migration. It is not handled by silently changing the cognitive identity.
 12. `generate(goal, options) -> plan.v1` remains a supported compatibility contract.
 13. PromptAnatomy remains Role, Task, Context, Constraints, Output Format, and Reasoning.
-14. The original thirteen domain playbooks remain first-class prompt-engine data.
+14. The original thirteen domain playbooks remain first-class prompt-engine data, joined by three extended operating modes (14 NSFW, 15 Hacker, 16 Freedom/YOLO) for sixteen playbooks total.
 15. Kaggle is bootstrap infrastructure, not permanent architecture.
 16. Migration to dedicated infrastructure changes deployment and capacity, not KEYSTONE's identity or public contracts.
 17. KEYSTONE is proprietary and closed source. Git hosting, when used, must be private.
@@ -208,6 +208,9 @@ generate(goal, options) -> plan.v1
 11. Events
 12. Finance
 13. General
+14. NSFW
+15. Hacker
+16. Freedom (YOLO)
 
 The heuristic engine remains available as a local fallback and deterministic test fixture. The cognitive runtime may improve planning, but cannot erase compatibility guarantees.
 
@@ -1473,7 +1476,7 @@ Refresh and recover state
 
 - wire preserved heuristic engine;
 - expose planning endpoint;
-- verify thirteen playbooks;
+- verify all sixteen playbooks;
 - record prompt hashes and provenance.
 
 ### Wave 3: Cognition
@@ -1554,7 +1557,7 @@ The architecture supports the full application from day one, but release confide
 
 - product name remains KEYSTONE;
 - `plan.v1` output remains valid;
-- all thirteen playbooks load;
+- all sixteen playbooks load;
 - PromptAnatomy has all six fields;
 - standard, chat, and reasoning compilers pass;
 - every model-facing call carries KEYSTONE prompt provenance.

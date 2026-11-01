@@ -264,12 +264,12 @@ class TestPromptCompilerStress:
             PromptCompiler.compile({"objective": "   \r\n\t  "})
 
     def test_playbook_catalog_and_fallback_resilience(self):
-        """Verifies 13 canonical playbooks resolve and unknown playbooks fallback to general."""
-        canonical_13 = list(PLAYBOOK_IDS)
-        assert len(canonical_13) == 13
+        """Verifies all 16 playbooks resolve and unknown playbooks fallback to general."""
+        canonical_ids = list(PLAYBOOK_IDS)
+        assert len(canonical_ids) == 16
 
         # Canonical resolve
-        for pb_id in canonical_13:
+        for pb_id in canonical_ids:
             res = PromptCompiler.compile({"objective": "Creative task"}, playbook=pb_id)
             assert res["provenance"]["playbook"] == pb_id
 

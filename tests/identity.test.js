@@ -16,7 +16,7 @@ test('KEYSTONE preserves plan.v1 and six-part PromptAnatomy', () => {
   }
 });
 
-test('KEYSTONE preserves all 13 domain playbooks', () => assert.equal(playbooks.length, 13));
+test('KEYSTONE preserves all 16 domain playbooks (13 canonical + 3 extended modes)', () => assert.equal(playbooks.length, 16));
 
 test('compiler remains model-agnostic with chat and reasoning profiles', () => {
   const p = { role:'Expert',task:'Do work',context:['Goal'],constraints:['Be precise'],outputFormat:'JSON',reasoning:'Check trade-offs' };

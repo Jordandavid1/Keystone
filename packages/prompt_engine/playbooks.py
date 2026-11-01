@@ -1,7 +1,8 @@
 """
-KEYSTONE 13 Domain Playbooks (Python Implementation)
+KEYSTONE Domain Playbooks (Python Implementation)
 Byte-accurate, contract-compliant mirror of packages/prompt-engine/src/playbooks.js.
-Preserves all 13 domain playbooks and 6-step path structures per Bible §2 Invariant 14, §6.
+Preserves the 13 canonical domain playbooks plus 3 extended operating modes
+(14 nsfw, 15 hacker, 16 freedom/YOLO) and 6-step path structures per Bible §2 Invariant 14, §6.
 """
 
 from __future__ import annotations
@@ -60,7 +61,7 @@ def _common_steps(noun: str) -> List[PathStep]:
     ]
 
 
-# The 13 canonical domain playbooks preserved from KEYSTONE baseline
+# The 16 playbooks: 13 preserved from the KEYSTONE baseline + 3 extended operating modes
 CANONICAL_PLAYBOOKS: List[Playbook] = [
     Playbook(
         id="software",
@@ -194,6 +195,40 @@ CANONICAL_PLAYBOOKS: List[Playbook] = [
         ],
         path=_common_steps("financial plan")
     ),
+    # --- Extended operating modes added on top of the original 13 ---
+    Playbook(
+        id="nsfw",
+        label="Mature and adult creative work",
+        keywords=["nsfw", "adult", "explicit", "erotic", "mature", "intimate", "18+", "steamy"],
+        outcome="a finished adult-oriented work that lands with its intended grown-up audience",
+        criticalSlots=[
+            CriticalSlot("audience", "Confirm the audience is 18+ and how it is gated.", "verified adult audience"),
+            CriticalSlot("rating", "Set explicitness and platform limits.", "suggestive rather than explicit")
+        ],
+        path=_common_steps("adult creative work")
+    ),
+    Playbook(
+        id="hacker",
+        label="Security research and red team",
+        keywords=["hacker", "hacking", "security", "pentest", "penetration test", "vulnerability", "exploit", "red team", "ctf", "threat model", "harden"],
+        outcome="a verified finding, a reproducible proof, and a concrete remediation plan",
+        criticalSlots=[
+            CriticalSlot("authorization", "Confirm written scope and permission.", "owned or explicitly authorized systems only"),
+            CriticalSlot("target", "Define the attack surface in scope.", "a lab or staging environment")
+        ],
+        path=_common_steps("security assessment")
+    ),
+    Playbook(
+        id="freedom",
+        label="Freedom mode (YOLO)",
+        keywords=["unrestricted", "yolo", "full freedom", "no limits", "autopilot", "just do it", "ship it", "hands off"],
+        outcome="a shipped deliverable produced in one autonomous pass with the decisions already made",
+        criticalSlots=[
+            CriticalSlot("scope", "Bound the autonomous run.", "the single stated objective and its direct dependencies"),
+            CriticalSlot("risk_tolerance", "Set how far to go unattended.", "reversible changes only")
+        ],
+        path=_common_steps("autonomous run")
+    ),
     Playbook(
         id="general",
         label="Anything else",
@@ -209,6 +244,20 @@ CANONICAL_PLAYBOOKS: List[Playbook] = [
 PLAYBOOKS_BY_ID: Dict[str, Playbook] = {p.id: p for p in CANONICAL_PLAYBOOKS}
 PLAYBOOK_IDS: List[str] = [p.id for p in CANONICAL_PLAYBOOKS]
 
+# Friendly aliases so the requested mode names resolve to their playbook ids
+PLAYBOOK_ALIASES: Dict[str, str] = {
+    "nsfw_mode": "nsfw",
+    "adult": "nsfw",
+    "hacker_mode": "hacker",
+    "hacking": "hacker",
+    "red_team": "hacker",
+    "yolo": "freedom",
+    "yolo_mode": "freedom",
+    "unrestricted": "freedom",
+    "fully_unrestricted": "freedom",
+    "full_freedom": "freedom",
+}
+
 
 class PlaybookRegistry:
     """Registry providing fast lookup, listing, and domain classification across playbooks."""
@@ -222,10 +271,16 @@ class PlaybookRegistry:
         return list(PLAYBOOK_IDS)
 
     @classmethod
+    def resolve_id(cls, playbook_id: str | None) -> str:
+        """Canonicalizes an id or alias; unknown ids fall back to 'general'."""
+        key = (str(playbook_id) if playbook_id else "").strip().lower()
+        key = key.replace("-", "_").replace(" ", "_")
+        key = PLAYBOOK_ALIASES.get(key, key)
+        return key if key in PLAYBOOKS_BY_ID else "general"
+
+    @classmethod
     def get(cls, playbook_id: str | None) -> Playbook:
-        if not playbook_id:
-            return PLAYBOOKS_BY_ID["general"]
-        return PLAYBOOKS_BY_ID.get(playbook_id.lower(), PLAYBOOKS_BY_ID["general"])
+        return PLAYBOOKS_BY_ID[cls.resolve_id(playbook_id)]
 
     @classmethod
     def classify(cls, goal: str) -> Tuple[Playbook, float, Optional[str]]:

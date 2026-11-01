@@ -75,9 +75,9 @@ class TestPromptCompilerF10:
     """Verifies F10 Python PromptCompiler and Playbook engine."""
 
     def test_preserves_all_13_domain_playbooks(self):
-        """Verifies all 13 domain playbooks exist and match canonical IDs."""
+        """Verifies all 16 domain playbooks exist and match canonical IDs."""
         playbooks = PlaybookRegistry.list_playbooks()
-        assert len(playbooks) == 13
+        assert len(playbooks) == 16
         ids = PlaybookRegistry.list_ids()
         expected = [
             "software", "writing", "marketing", "business", "learning",
@@ -698,12 +698,12 @@ class TestPlanningRouterAPI:
         assert data["provenance"]["profile"] == "chat"
 
     def test_planning_playbooks_endpoint(self, client: TestClient):
-        """GET /v1/planning/playbooks lists all 13 playbooks."""
+        """GET /v1/planning/playbooks lists all 16 playbooks."""
         res = client.get("/v1/planning/playbooks")
         assert res.status_code == 200
         data = res.json()
-        assert data["count"] == 13
-        assert len(data["playbooks"]) == 13
+        assert data["count"] == 16
+        assert len(data["playbooks"]) == 16
 
     def test_main_v1_plan_preserved_501(self, client: TestClient):
         """POST /v1/plan remains 501 scaffolded for M0 backward compatibility."""

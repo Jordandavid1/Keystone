@@ -20,7 +20,7 @@ const { oracle, productionContracts } = require('./harness/loader');
 test('F01.1: Verifies KEYSTONE_BIBLE.md exists and SHA-256 matches exact hash', () => {
   const check = oracle.InvariantOracle.verifyBibleChecksum();
   assert.equal(check.matches, true);
-  assert.equal(check.hash, '1D31D909790ED73506004B0233AEDE617761E99916D9A7D209BD9086B3063788');
+  assert.equal(check.hash, '3BFF4E7063733146B663BDBE9C9BAD7271D480152243A05542F256DC05E7B25D');
 });
 
 test('F01.2: Verifies all 18 locked invariants are documented and indexed', () => {
@@ -435,8 +435,8 @@ test('F09.5: State transition is idempotent when target matches current', () => 
 // F10: Prompt Compiler & Playbook Engine
 // ============================================================================
 
-test('F10.1: Preserves all 13 domain playbooks', () => {
-  assert.equal(oracle.PromptCompilerOracle.PLAYBOOKS.length, 13);
+test('F10.1: Preserves all 16 domain playbooks (13 canonical + 3 extended modes)', () => {
+  assert.equal(oracle.PromptCompilerOracle.PLAYBOOKS.length, 16);
   assert.ok(oracle.PromptCompilerOracle.PLAYBOOKS.includes('design'));
   assert.ok(oracle.PromptCompilerOracle.PLAYBOOKS.includes('software'));
   assert.ok(oracle.PromptCompilerOracle.PLAYBOOKS.includes('writing'));
@@ -1269,7 +1269,7 @@ test('F31.1: Catalogs all 6 required Identity checks from Bible §35', () => {
   assert.equal(checks.length, 6);
   assert.ok(checks[0].includes('product name remains KEYSTONE'));
   assert.ok(checks[1].includes('plan.v1 output remains valid'));
-  assert.ok(checks[2].includes('all thirteen playbooks load'));
+  assert.ok(checks[2].includes('all sixteen playbooks load'));
   assert.ok(checks[3].includes('PromptAnatomy has all six fields'));
   assert.ok(checks[4].includes('standard, chat, and reasoning compilers pass'));
   assert.ok(checks[5].includes('every model-facing call carries KEYSTONE prompt provenance'));

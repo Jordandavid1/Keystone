@@ -12,7 +12,7 @@ const path = require('node:path');
 
 const PROJECT_ROOT = path.resolve(__dirname, '../../../');
 const BIBLE_PATH = path.join(PROJECT_ROOT, 'KEYSTONE_BIBLE.md');
-const EXPECTED_BIBLE_SHA256 = '1D31D909790ED73506004B0233AEDE617761E99916D9A7D209BD9086B3063788';
+const EXPECTED_BIBLE_SHA256 = '3BFF4E7063733146B663BDBE9C9BAD7271D480152243A05542F256DC05E7B25D';
 
 // ============================================================================
 // F01: Invariant Verification & Change-Control Oracle
@@ -554,7 +554,7 @@ class PromptCompilerOracle {
   static PLAYBOOKS = [
     'software', 'writing', 'marketing', 'business', 'learning',
     'career', 'content', 'research', 'design', 'fitness',
-    'events', 'finance', 'general'
+    'events', 'finance', 'nsfw', 'hacker', 'freedom', 'general'
   ];
 
   static compile(intent, playbook = 'general', profile = 'standard') {
@@ -1246,7 +1246,7 @@ class AcceptanceTestOracle {
     return [
       'product name remains KEYSTONE',
       'plan.v1 output remains valid',
-      'all thirteen playbooks load',
+      'all sixteen playbooks load',
       'PromptAnatomy has all six fields',
       'standard, chat, and reasoning compilers pass',
       'every model-facing call carries KEYSTONE prompt provenance'

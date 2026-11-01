@@ -152,8 +152,7 @@ class PromptCompiler:
             raise ValueError("OBJECTIVE_REQUIRED")
 
         # Resolve playbook
-        pb_lower = (str(playbook) if playbook else "").lower()
-        selected_playbook = pb_lower if pb_lower in cls.PLAYBOOKS else "general"
+        selected_playbook = PlaybookRegistry.resolve_id(playbook)
 
         # Build 6-part PromptAnatomy
         context_items: List[str] = []

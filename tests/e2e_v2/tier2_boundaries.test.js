@@ -1101,8 +1101,8 @@ test('F31.B4: Validates expired/replayed envelope check is present', () => {
   assert.ok(oracle.AcceptanceTestOracle.getAuthorityChecks().includes('expired or replayed envelope fails'));
 });
 
-test('F31.B5: Validates all 13 playbooks check is present', () => {
-  assert.ok(oracle.AcceptanceTestOracle.getIdentityChecks().includes('all thirteen playbooks load'));
+test('F31.B5: Validates all 16 playbooks check is present', () => {
+  assert.ok(oracle.AcceptanceTestOracle.getIdentityChecks().includes('all sixteen playbooks load'));
 });
 
 // ============================================================================

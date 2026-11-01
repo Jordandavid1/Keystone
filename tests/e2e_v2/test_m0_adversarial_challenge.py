@@ -610,7 +610,7 @@ class TestApiServerHttpInvocation:
         assert data["plan"] == "plan.v1"
         assert len(data["promptAnatomy"]) == 6
         assert len(data["jobStates"]) == 13
-        assert len(data["playbooks"]) == 13
+        assert len(data["playbooks"]) == 16
         assert len(data["authorityDecisions"]) == 3
         assert "PromptIntent" in data["schemas"]
         assert "ExecutionEnvelope" in data["schemas"]
