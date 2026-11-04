@@ -3,93 +3,283 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KEYSTONE — Multimodal Creative Intelligence Workspace</title>
+  <title>KEYSTONE — Multimodal Creative Intelligence Studio (Pro UX)</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/workspace/styles.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/workspace/styles.css?v=zen-cursor-vscode-higgsfield" />
 </head>
 <body>
   <div id="workspaceShell" class="workspace-shell" role="application" aria-label="KEYSTONE Creative Workspace">
 
     <!-- ==================================================================
-         REGION 1: TOP BAR (Bible §25: Identity, Search/Command, Credits)
+         REGION 1: TOP BAR (VS Code / DaVinci Hybrid Header)
          ================================================================== -->
     <header class="region-topbar" role="banner">
       <div class="brand-cluster">
-        <div class="brand-mark" aria-hidden="true">K</div>
-        <div>
-          <span class="brand-title">KEYSTONE</span>
+        <div class="brand-mark" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+            <polyline points="2 17 12 22 22 17"></polyline>
+            <polyline points="2 12 12 17 22 12"></polyline>
+          </svg>
         </div>
-        <span class="brand-badge" title="Pinned Qwen 3.8 27B Abliterated + Authority Engine">v2.0 Alpha</span>
-
-        <button id="projectSelectBtn" class="project-selector" aria-label="Active Project">
-          <span>📁</span>
-          <span id="activeProjectName">Neo-Tokyo Cyber Noir Campaign</span>
-          <span style="opacity: 0.5;">▾</span>
-        </button>
+        <div class="brand-info">
+          <span class="brand-title">KEYSTONE</span>
+          <span class="brand-edition">STUDIO PRO • ZEN / CURSOR / VSCODE / HIGGSFIELD</span>
+        </div>
+        <span class="brand-badge">Creative Workspace</span>
       </div>
 
+      <!-- Studio Master Telemetry & ZenCreator Credit Ledger -->
+      <div class="studio-telemetry-hud" aria-label="Studio Master Telemetry">
+        <!-- ZenCreator 2-Phase Credit Indicator -->
+        <div class="telemetry-pill credit-ledger-pill" id="creditLedgerPill" title="ZenCreator 2-Phase Credit Ledger">
+          <span class="credit-icon">⚡</span>
+          <span class="telemetry-mono" id="creditBalanceText">1,250 CREDITS</span>
+          <span class="credit-hold-badge" id="creditHoldBadge">HOLD: 3</span>
+        </div>
+
+        <!-- Kaggle Worker Bridge Live Telemetry Pill -->
+        <div class="telemetry-pill worker-telemetry-pill" id="workerTelemetryPill" title="Kaggle Worker Bridge (T4×2 Cognition & ComfyUI)">
+          <span class="status-online-dot" id="workerStatusDot"></span>
+          <span class="telemetry-mono" id="workerStatusText">KAGGLE T4×2: ACTIVE</span>
+          <span class="worker-vram-badge" id="workerVramBadge">VRAM: 27.2/30G</span>
+        </div>
+
+        <!-- Autonomous Cognition LLM Agent Pill -->
+        <div class="telemetry-pill agent-chat-pill" id="agentChatPill" title="Speak directly with loaded Qwen 27B LLM & run web/autonomous tasks" style="border-color: rgba(168, 85, 247, 0.4); background: rgba(168, 85, 247, 0.12); color: #c084fc; cursor: pointer;" onclick="openAgentChat()">
+          <span class="status-online-dot" style="background: #c084fc; box-shadow: 0 0 6px #c084fc;"></span>
+          <span class="telemetry-mono" style="font-weight: 700;">💬 LLM AGENT</span>
+          <span class="worker-vram-badge" style="background: rgba(168, 85, 247, 0.3); color: #e9d5ff;">QWEN 27B</span>
+        </div>
+
+        <div class="telemetry-pill">
+          <span class="rec-pulse-indicator"></span>
+          <span class="telemetry-mono">DCI-P3 ACEScc</span>
+        </div>
+        <div class="telemetry-pill">
+          <span class="telemetry-dim">FPS</span>
+          <span class="telemetry-mono" id="hudFramerate">24.000</span>
+        </div>
+        <div class="telemetry-pill">
+          <span class="telemetry-dim">COLOR</span>
+          <span class="telemetry-mono">10-BIT HDR</span>
+        </div>
+
+        <!-- Master Audio & Luma Dynamic Spectrum -->
+        <div class="studio-spectrum-meter" id="studioSpectrumHud" title="Master Audio & Luma Dynamic Spectrum">
+          <span class="spectrum-bar" style="--h: 65%;"></span>
+          <span class="spectrum-bar" style="--h: 88%;"></span>
+          <span class="spectrum-bar" style="--h: 42%;"></span>
+          <span class="spectrum-bar" style="--h: 95%;"></span>
+          <span class="spectrum-bar" style="--h: 75%;"></span>
+          <span class="spectrum-bar" style="--h: 30%;"></span>
+          <span class="spectrum-bar" style="--h: 85%;"></span>
+          <span class="spectrum-bar" style="--h: 60%;"></span>
+        </div>
+      </div>
+
+      <!-- Quick Command Trigger (Cursor & VS Code Command Palette) -->
       <button id="commandPaletteBtn" class="command-trigger" aria-label="Open Command Palette">
-        <span>🔍</span>
+        <svg class="nav-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
         <span>Search assets, playbooks, lineage, or commands...</span>
-        <kbd>⌘K</kbd>
+        <kbd class="kbd-pill">⌘K</kbd>
       </button>
 
       <div class="topbar-actions">
-        <div class="security-pill" title="Aikido Delimiter Containment & AES-256-GCM PII Vault Active">
-          <span class="status-dot"></span>
-          <span>Aikido + PII Vault</span>
-        </div>
-
-        <div id="creditsWidget" class="credits-pill" title="Two-Phase Commit Credit Ledger (Bible §27)">
-          <span>⚡</span>
-          <span><strong id="creditsAvailable">250</strong> Credits</span>
-          <span id="creditsHoldBadge" class="credits-hold-badge">0 Held</span>
-        </div>
-
-        <button id="mobileToggleBtn" class="icon-btn" title="Toggle Mobile Review Mode (Bible §25)">
-          <span>📱</span>
-          <span>Mobile View</span>
+        <!-- Personas & ElevenLabs Audio Studio Button -->
+        <button id="btnPersonasStudioModal" class="icon-btn" title="Character Personas & ElevenLabs Audio Studio (Ctrl+Shift+P)">
+          <svg class="nav-svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #ec4899;">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+          <span class="btn-label">Personas & Audio</span>
         </button>
 
-        <a href="/admin" class="icon-btn" title="Open Operator Admin Console (Bible §26)">
-          <span>🛡️</span>
-          <span>Operator Console</span>
+        <!-- Firecrawl Web Scrape Inspiration Button -->
+        <button id="btnWebScrapeModal" class="icon-btn" title="Firecrawl /scrape: Ingest Style from Any URL (@Web)">
+          <svg class="nav-svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="2" y1="12" x2="22" y2="12"></line>
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+          </svg>
+          <span class="btn-label">@Web Scrape</span>
+        </button>
+
+        <!-- Framing Grid Overlay Toggle -->
+        <button id="toggleGridBtn" class="icon-btn" title="Toggle Framing Guidelines & Rule of Thirds (C)">
+          <svg class="nav-svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="3" y1="9" x2="21" y2="9"></line>
+            <line x1="3" y1="15" x2="21" y2="15"></line>
+            <line x1="9" y1="3" x2="9" y2="21"></line>
+            <line x1="15" y1="3" x2="15" y2="21"></line>
+          </svg>
+          <span class="btn-label">Guides</span>
+        </button>
+
+        <!-- Fullscreen Theater Mode -->
+        <button id="fullscreenBtn" class="icon-btn" title="Toggle Theater / Fullscreen Studio (F)">
+          <svg class="nav-svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <polyline points="9 21 3 21 3 15"></polyline>
+            <line x1="21" y1="3" x2="14" y2="10"></line>
+            <line x1="3" y1="21" x2="10" y2="14"></line>
+          </svg>
+          <span class="btn-label">Theater</span>
+        </button>
+
+        <!-- Mobile Review Mode (Bible §25) -->
+        <button id="mobileToggleBtn" class="icon-btn" title="Toggle Mobile Review Mode (Bible §25)">
+          <svg class="nav-svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+            <line x1="12" y1="18" x2="12.01" y2="18"></line>
+          </svg>
+          <span class="btn-label">Mobile</span>
+        </button>
+
+        <!-- Operator Admin Console (Bible §26) -->
+        <a href="/admin" class="icon-btn operator-link" title="Open Operator Admin Console (Bible §26)">
+          <svg class="nav-svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+          </svg>
+          <span class="btn-label">Operator</span>
         </a>
       </div>
     </header>
 
     <!-- ==================================================================
+         VS CODE ACTIVITY BAR (Ultra-sleek 48px icon rail)
+         ================================================================== -->
+    <nav class="vscode-activity-bar" aria-label="Activity Rail">
+      <div class="activity-top-group">
+        <button class="activity-icon-btn active" data-activity="explorer" title="Asset Explorer & Playbooks (Ctrl+Shift+E)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+          </svg>
+        </button>
+        <button class="activity-icon-btn" data-activity="nodes" title="ZenCreator Visual Node Canvas (Ctrl+Shift+N)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="2" width="6" height="6" rx="1"></rect>
+            <rect x="16" y="2" width="6" height="6" rx="1"></rect>
+            <rect x="9" y="16" width="6" height="6" rx="1"></rect>
+            <path d="M5 8v3a2 2 0 0 0 2 2h5m7-5v3a2 2 0 0 1-2 2h-5m0 0v3"></path>
+          </svg>
+        </button>
+        <button class="activity-icon-btn" data-activity="motion" title="Higgsfield Camera Motion Studio (Ctrl+Shift+M)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="23 7 16 12 23 17 23 7"></polygon>
+            <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+          </svg>
+        </button>
+        <button class="activity-icon-btn" data-activity="grading" title="Hollywood Color Grading Deck (Ctrl+Shift+G)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18V4a8 8 0 0 1 0 16z"></path>
+          </svg>
+        </button>
+        <button class="activity-icon-btn" data-activity="thinking" title="Cursor AI Thinking & Cognitive Anatomy (Ctrl+Shift+T)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7z"></path>
+            <line x1="9" y1="21" x2="15" y2="21"></line>
+          </svg>
+        </button>
+        <button class="activity-icon-btn" data-activity="personas" title="Character Personas & ElevenLabs Voices (Ctrl+Shift+P)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+        </button>
+        <button class="activity-icon-btn" data-activity="audio" title="ElevenLabs Speech Studio & Sound Stage (Ctrl+Shift+U)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+            <line x1="12" y1="19" x2="12" y2="23"></line>
+            <line x1="8" y1="23" x2="16" y2="23"></line>
+          </svg>
+        </button>
+        <button class="activity-icon-btn" data-activity="chat" id="actAgentChatBtn" title="Direct LLM Agent Chat & Web Tasks (Ctrl+Shift+A)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+            <circle cx="9" cy="10" r="1"></circle>
+            <circle cx="12" cy="10" r="1"></circle>
+            <circle cx="15" cy="10" r="1"></circle>
+          </svg>
+        </button>
+      </div>
+      <div class="activity-bottom-group">
+        <button class="activity-icon-btn" id="actSettingsBtn" data-activity="settings" title="Firebase Remote Config & Authority Settings" onclick="openSettingsModal()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+        </button>
+      </div>
+    </nav>
+
+    <!-- ==================================================================
          REGION 2: LEFT SIDEBAR (Bible §25: Create, Projects, Assets, History, Favorites)
          ================================================================== -->
     <aside class="region-sidebar" role="navigation" aria-label="Workspace Navigation">
-      <div class="sidebar-section-label">Workspace</div>
+      <div class="sidebar-header-row">
+        <span class="sidebar-section-label">Workspace Explorer</span>
+        <button id="toggleSidebarCollapseBtn" class="collapse-icon-btn" title="Collapse Explorer">‹</button>
+      </div>
+
       <div class="nav-list" id="primaryNavList">
         <button class="nav-item active" data-nav="create">
-          <span>✨</span>
+          <svg class="nav-svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+          </svg>
           <span>Create & Stage</span>
-          <span class="nav-item-count">Live</span>
+          <span class="nav-item-count">Create</span>
         </button>
         <button class="nav-item" data-nav="projects">
-          <span>🗂️</span>
+          <svg class="nav-svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+          </svg>
           <span>Projects</span>
-          <span class="nav-item-count" id="navProjectsCount">3</span>
         </button>
         <button class="nav-item" data-nav="assets">
-          <span>🖼️</span>
+          <svg class="nav-svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+            <polyline points="21 15 16 10 5 21"></polyline>
+          </svg>
           <span>Project Assets</span>
-          <span class="nav-item-count" id="navAssetsCount">5</span>
+          <span class="nav-item-count" id="navAssetsCount">0</span>
         </button>
         <button class="nav-item" data-nav="history">
-          <span>⏱️</span>
+          <svg class="nav-svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
           <span>Session History</span>
-          <span class="nav-item-count" id="navHistoryCount">6</span>
         </button>
         <button class="nav-item" data-nav="favorites">
-          <span>⭐</span>
+          <svg class="nav-svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+          </svg>
           <span>Favorites</span>
-          <span class="nav-item-count" id="navFavoritesCount">2</span>
+        </button>
+        <button class="nav-item" data-nav="personas" id="navPersonasBtn">
+          <svg class="nav-svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+          <span>Personas & Voices</span>
+          <span class="nav-item-count" id="navPersonasCount">0</span>
+        </button>
+        <button class="nav-item" data-nav="agent-chat" id="navAgentChatBtn">
+          <svg class="nav-svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #c084fc;">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+          <span>LLM Agent & Tasks</span>
+          <span class="nav-item-count" style="background: rgba(168, 85, 247, 0.2); color: #c084fc;">Qwen 27B</span>
         </button>
       </div>
 
@@ -100,9 +290,31 @@
         <!-- Populated dynamically with all 13 canonical playbooks -->
       </div>
 
+      <div class="sidebar-section-row" style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; margin-bottom: 6px; padding: 0 4px;">
+        <span class="sidebar-section-label" style="margin: 0;">Media & References</span>
+        <button id="btnUploadMediaTrigger" class="action-btn-mini" style="background: linear-gradient(135deg, #3b82f6, #06b6d4); color: #fff; border: none; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;" title="Upload Photos & Videos for References or Upscaling">
+          + Upload
+        </button>
+      </div>
+      <input type="file" id="mediaUploadInput" accept="image/*,video/*" multiple hidden>
+      <div class="sidebar-dropzone" id="sidebarMediaDropzone" title="Drag & drop photos or videos here to upload" style="border: 1px dashed var(--border-subtle); border-radius: 6px; padding: 10px; text-align: center; margin: 4px 0 10px 0; background: rgba(255,255,255,0.02); cursor: pointer; transition: all 0.2s ease;">
+        <span class="dropzone-icon" style="font-size: 16px; display: block; margin-bottom: 2px;">📁</span>
+        <span class="dropzone-text" style="font-size: 11px; color: var(--text-secondary); font-family: var(--font-sans);">Drop photos / videos</span>
+      </div>
+
       <div class="sidebar-section-label">Active Project Stream</div>
       <div class="sidebar-asset-mini-list" id="sidebarAssetStream">
         <!-- Populated dynamically with project assets -->
+      </div>
+
+      <div class="sidebar-section-row" style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; margin-bottom: 6px; padding: 0 4px;">
+        <span class="sidebar-section-label" style="margin: 0;">Character Personas</span>
+        <button id="btnCreatePersonaTrigger" class="action-btn-mini" style="background: linear-gradient(135deg, #ec4899, #8b5cf6); color: #fff; border: none; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;" title="Create Digital Persona with ElevenLabs Voice">
+          + Persona
+        </button>
+      </div>
+      <div class="sidebar-personas-mini-list" id="sidebarPersonasStream">
+        <!-- Populated dynamically with personas -->
       </div>
     </aside>
 
@@ -114,35 +326,80 @@
       <div class="canvas-toolbar">
         <div class="canvas-mode-tabs" role="tablist" aria-label="Canvas View Modes">
           <button class="mode-tab active" data-mode="single" role="tab" aria-selected="true">
-            <span>🎯</span>
+            <svg class="mode-tab-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
             <span>Primary Canvas</span>
           </button>
           <button class="mode-tab" data-mode="compare" role="tab" aria-selected="false">
-            <span>🌓</span>
+            <svg class="mode-tab-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18V4a8 8 0 0 1 0 16z"></path>
+            </svg>
             <span>Split Compare</span>
           </button>
           <button class="mode-tab" data-mode="video" role="tab" aria-selected="false">
-            <span>🎬</span>
-            <span>Sync Video Player</span>
+            <svg class="mode-tab-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
+              <line x1="7" y1="2" x2="7" y2="22"></line>
+              <line x1="17" y1="2" x2="17" y2="22"></line>
+              <line x1="2" y1="12" x2="22" y2="12"></line>
+              <line x1="2" y1="7" x2="7" y2="7"></line>
+              <line x1="2" y1="17" x2="7" y2="17"></line>
+              <line x1="17" y1="17" x2="22" y2="17"></line>
+              <line x1="17" y1="7" x2="22" y2="7"></line>
+            </svg>
+            <span>MiniMax H3 Video</span>
           </button>
           <button class="mode-tab" data-mode="variations" role="tab" aria-selected="false">
-            <span>💠</span>
-            <span>Variations (4)</span>
+            <svg class="mode-tab-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="7" height="7"></rect>
+              <rect x="14" y="3" width="7" height="7"></rect>
+              <rect x="14" y="14" width="7" height="7"></rect>
+              <rect x="3" y="14" width="7" height="7"></rect>
+            </svg>
+            <span>Variations</span>
           </button>
           <button class="mode-tab" data-mode="lineage" role="tab" aria-selected="false">
-            <span>🌿</span>
+            <svg class="mode-tab-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="6" y1="3" x2="6" y2="15"></line>
+              <circle cx="18" cy="6" r="3"></circle>
+              <circle cx="6" cy="18" r="3"></circle>
+              <path d="M18 9a9 9 0 0 1-9 9"></path>
+            </svg>
             <span>Lineage DAG</span>
+          </button>
+          <button class="mode-tab" data-mode="audio" role="tab" aria-selected="false">
+            <svg class="mode-tab-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 18V5l12-2v13"></path>
+              <circle cx="6" cy="18" r="3"></circle>
+              <circle cx="18" cy="16" r="3"></circle>
+            </svg>
+            <span>Audio & Voice</span>
+          </button>
+          <button class="mode-tab" data-mode="chat" role="tab" aria-selected="false">
+            <svg class="mode-tab-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+            </svg>
+            <span>LLM Agent Chat</span>
           </button>
         </div>
 
-        <div style="display: flex; gap: 8px;">
-          <button id="simulateRefinementBtn" class="icon-btn" title="Demonstrate Bounded Quality Retry Loop (Bible §14, §20)">
-            <span>🔄</span>
-            <span>Demo Auto-Refinement</span>
-          </button>
-          <button id="downloadAssetBtn" class="icon-btn" title="Download via 15-Minute Signed Storage URL (Bible §22)">
-            <span>⬇️</span>
-            <span>Download (Signed URL)</span>
+        <div class="canvas-actions">
+          <!-- Magnifier / Loupe Tool -->
+          <div class="zoom-segment-control" title="Magnification / Pixel Peep">
+            <button class="zoom-btn active" data-zoom="1">1X</button>
+            <button class="zoom-btn" data-zoom="2">2X</button>
+            <button class="zoom-btn" data-zoom="4">4X</button>
+          </div>
+
+          <button id="downloadAssetBtn" class="icon-btn" title="Download the selected persisted asset">
+            <svg class="nav-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            <span>Download</span>
           </button>
         </div>
       </div>
@@ -155,7 +412,7 @@
             <span id="progressStageText">Understanding your request</span>
           </div>
           <span id="progressSubMeta" style="font-family: var(--font-mono); font-size: 11.5px; color: var(--text-secondary);">
-            Stage 1 / 7 • Credit Hold Active
+            Stage 1 / 7
           </span>
         </div>
         <div class="progress-steps-track" id="progressStepsTrack">
@@ -169,86 +426,287 @@
         </div>
       </div>
 
-      <!-- Dynamic Stage Content Area -->
-      <div id="canvasStage" class="canvas-stage">
-        <!-- Rendered by app.js based on active canvas mode -->
+      <!-- Center Master Stage Area (Single, Compare, Video, Variations, Lineage) -->
+      <div class="stage-viewport-wrapper">
+        <div id="canvasStage" class="canvas-stage">
+          <!-- Rendered by app.js based on active canvas mode -->
+        </div>
+
+        <!-- Hollywood Framing Guideline Overlays (Rule of Thirds & Safe Title) -->
+        <div id="framingGridOverlay" class="framing-grid-overlay hidden" aria-hidden="true">
+          <div class="grid-rule horizontal top"></div>
+          <div class="grid-rule horizontal bottom"></div>
+          <div class="grid-rule vertical left"></div>
+          <div class="grid-rule vertical right"></div>
+          <div class="grid-safe-box title-safe"></div>
+          <div class="grid-safe-box action-safe"></div>
+          <div class="grid-crosshair"></div>
+        </div>
+
+        <!-- Aspect Ratio Letterbox / Pillarbox Matte Overlay -->
+        <div id="aspectOverlayMask" class="aspect-overlay-mask" data-mask="none" aria-hidden="true"></div>
+
+        <!-- Higgsfield Camera Motion Spline Overlay HUD -->
+        <div id="higgsfieldMotionHud" class="higgsfield-motion-hud hidden">
+          <div class="motion-hud-header">
+            <span class="hud-title">HIGGSFIELD MOTION PATH</span>
+            <span class="hud-mode-pill" id="activeMotionPresetBadge">PAN RIGHT (EASE-IN-OUT)</span>
+          </div>
+          <svg class="motion-spline-svg" viewBox="0 0 300 80">
+            <path class="spline-guide-bg" d="M 10 70 Q 80 70, 150 40 T 290 10" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="2"></path>
+            <path id="motionActiveSpline" class="spline-active-curve" d="M 10 70 Q 80 70, 150 40 T 290 10" fill="none" stroke="#06b6d4" stroke-width="3"></path>
+            <circle class="spline-kf-point" cx="10" cy="70" r="5" fill="#f59e0b"></circle>
+            <circle class="spline-kf-point" cx="150" cy="40" r="4" fill="#06b6d4"></circle>
+            <circle class="spline-kf-point" cx="290" cy="10" r="5" fill="#6366f1"></circle>
+          </svg>
+        </div>
+      </div>
+
+      <!-- ==================================================================
+           HOLLYWOOD CINEMA & HIGGSFIELD TRANSPORT BAR
+           ================================================================== -->
+      <div class="cinema-transport-bar" id="cinemaTransportBar" role="region" aria-label="Playback Transport Controls">
+        <!-- SMPTE Timecode Display -->
+        <div class="transport-timecode-cluster">
+          <span class="timecode-label">TC</span>
+          <div class="smpte-digital-display" id="smpteTimecode" title="SMPTE Digital Timecode (HH:MM:SS:FF)">00:00:14:18</div>
+          <span class="timecode-fps-badge" id="transportFpsBadge">24 FPS</span>
+        </div>
+
+        <!-- Master Transport Control Buttons -->
+        <div class="transport-shuttle-cluster">
+          <button class="transport-btn" id="btnStepBack" title="Step Back 1 Frame (Left Arrow)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <polygon points="19 20 9 12 19 4 19 20"></polygon>
+              <line x1="5" y1="19" x2="5" y2="5" stroke="currentColor" stroke-width="2.5"></line>
+            </svg>
+          </button>
+          <button class="transport-btn" id="btnShuttleRev" title="Shuttle Reverse (J)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <polygon points="11 19 2 12 11 5 11 19"></polygon>
+              <polygon points="22 19 13 12 22 5 22 19"></polygon>
+            </svg>
+          </button>
+          <button class="transport-btn transport-btn-play" id="btnPlayPause" title="Play / Pause (Space / K)">
+            <svg id="playIconSvg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            </svg>
+            <svg id="pauseIconSvg" class="hidden" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <rect x="6" y="4" width="4" height="16"></rect>
+              <rect x="14" y="4" width="4" height="16"></rect>
+            </svg>
+          </button>
+          <button class="transport-btn" id="btnShuttleFwd" title="Shuttle Forward (L)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <polygon points="13 19 22 12 13 5 13 19"></polygon>
+              <polygon points="2 19 11 12 2 5 2 19"></polygon>
+            </svg>
+          </button>
+          <button class="transport-btn" id="btnStepFwd" title="Step Forward 1 Frame (Right Arrow)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <polygon points="5 4 15 12 5 20 5 4"></polygon>
+              <line x1="19" y1="5" x2="19" y2="19" stroke="currentColor" stroke-width="2.5"></line>
+            </svg>
+          </button>
+          <button class="transport-btn active" id="btnLoop" title="Toggle Loop Mode (R)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="17 1 21 5 17 9"></polyline>
+              <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+              <polyline points="7 23 3 19 7 15"></polyline>
+              <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Interactive Film Timeline Scrubber -->
+        <div class="transport-scrub-container" id="scrubberContainer" title="Timeline Playhead (Drag to Scrub)">
+          <div class="scrub-ticks-track">
+            <span class="scrub-tick major"></span><span class="scrub-tick"></span><span class="scrub-tick"></span><span class="scrub-tick"></span>
+            <span class="scrub-tick major"></span><span class="scrub-tick"></span><span class="scrub-tick"></span><span class="scrub-tick"></span>
+            <span class="scrub-tick major"></span><span class="scrub-tick"></span><span class="scrub-tick"></span><span class="scrub-tick"></span>
+            <span class="scrub-tick major"></span><span class="scrub-tick"></span><span class="scrub-tick"></span><span class="scrub-tick"></span>
+            <span class="scrub-tick major"></span>
+          </div>
+          <div class="scrub-cached-range" style="width: 100%;"></div>
+          <div class="scrub-playhead" id="timelinePlayhead" style="left: 35%;">
+            <div class="playhead-needle"></div>
+            <div class="playhead-badge">00:00:14</div>
+          </div>
+        </div>
+
+        <!-- Aspect Framing Guide Selector Pills -->
+        <div class="transport-matte-selector" id="aspectGuidePills" title="Hollywood Framing Mask Matte">
+          <span class="matte-label">MASK</span>
+          <button class="matte-pill active" data-mask="none">Full</button>
+          <button class="matte-pill" data-mask="scope">2.39:1</button>
+          <button class="matte-pill" data-mask="flat">1.85:1</button>
+          <button class="matte-pill" data-mask="tv">16:9</button>
+          <button class="matte-pill" data-mask="reel">9:16</button>
+        </div>
       </div>
 
       <!-- ================================================================
-           REGION 5: BOTTOM COMPOSER (Bible §25: Natural Language + Intent Hints)
+           REGION 5: BOTTOM COMPOSER (Cursor-Style Floating AI Composer)
            ================================================================ -->
       <section class="region-composer" aria-label="KEYSTONE Creative Composer">
         <div class="composer-top-row">
           <div class="intent-pills-group" role="radiogroup" aria-label="Creative Intent Hints">
-            <button class="intent-pill active" data-intent="create">✨ Create</button>
-            <button class="intent-pill" data-intent="edit">🪄 Edit</button>
-            <button class="intent-pill" data-intent="animate">🎬 Animate</button>
-            <button class="intent-pill" data-intent="analyze">🔍 Analyze</button>
+            <button class="intent-pill active" data-intent="create">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+              </svg>
+              <span>Create</span>
+            </button>
+            <button class="intent-pill" data-intent="edit">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+              </svg>
+              <span>Edit</span>
+            </button>
+            <button class="intent-pill" data-intent="animate">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+              </svg>
+              <span>Animate</span>
+            </button>
+            <button class="intent-pill" data-intent="analyze">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <span>Analyze</span>
+            </button>
+          </div>
+
+          <!-- Cursor-Style @Context Attachment Pills -->
+          <div class="cursor-context-tray" id="cursorContextTray">
+            <span class="context-pill" id="ctxWebPill" style="display: none;">
+              <span class="ctx-type">@Web:</span>
+              <span class="ctx-val" id="ctxWebVal">https://...</span>
+              <button class="ctx-remove-btn" id="btnRemoveWebCtx">×</button>
+            </span>
+            <span class="context-pill" id="ctxLutPill" style="display: none;">
+              <span class="ctx-type">@LUT:</span>
+              <span class="ctx-val" id="ctxLutVal">Kodak 2383</span>
+              <button class="ctx-remove-btn" id="btnRemoveLutCtx">×</button>
+            </span>
           </div>
 
           <div class="composer-shield-indicators">
             <span class="shield-tag" id="activePlaybookBadge">Playbook: Design</span>
-            <span class="shield-tag" id="piiScrubStatus" style="color: #34d399;">🛡️ Zero-PII Verified</span>
+          </div>
+        </div>
+
+        <!-- Generation Conditioning Mode Bar (Text2Image vs Reference-Guided) -->
+        <div class="gen-mode-bar" id="generationModeBar" style="margin-bottom: 8px; padding: 5px 12px; background: rgba(15, 23, 42, 0.7); border: 1px solid var(--border-subtle); border-radius: 8px; display: flex; align-items: center; justify-content: space-between;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 10px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">Generation Mode:</span>
+            <button type="button" id="btnModeText2Image" class="gen-mode-btn active" style="display: flex; align-items: center; gap: 6px; padding: 4px 12px; font-size: 11px; font-weight: 600; border-radius: 6px; border: 1px solid var(--accent-cyan); background: rgba(6, 182, 212, 0.18); color: #fff; cursor: pointer;">
+              <span>✨ Text-to-Image (Prompt Only)</span>
+            </button>
+            <button type="button" id="btnModeImg2Img" class="gen-mode-btn" style="display: flex; align-items: center; gap: 6px; padding: 4px 12px; font-size: 11px; font-weight: 600; border-radius: 6px; border: 1px solid var(--border-subtle); background: transparent; color: var(--text-secondary); cursor: pointer;">
+              <span>📌 Reference-Guided (Img2Img)</span>
+            </button>
+          </div>
+          <div id="genModeNotice" style="font-size: 10.5px; color: var(--text-muted); font-family: var(--font-mono);">
+            Pure prompt generation — no reference conditioning
+          </div>
+        </div>
+
+        <!-- Active Reference Tray for Reference-Guided Generation (Img2Img / I2V) -->
+        <div id="activeReferenceTray" class="reference-tray hidden" style="display: none; margin-bottom: 8px; padding: 6px 12px; background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(99, 102, 241, 0.4); border-radius: 8px; align-items: center; justify-content: space-between; backdrop-filter: blur(8px);">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: rgba(99, 102, 241, 0.3); color: #818cf8; letter-spacing: 0.5px;">REFERENCE ANCHOR</span>
+            <img id="activeReferenceThumb" src="" alt="Reference thumbnail" style="display: none; width: 28px; height: 28px; border-radius: 4px; object-fit: cover; border: 1px solid rgba(255,255,255,0.2);">
+            <span id="activeReferenceName" style="font-size: 12px; color: var(--text-primary); font-family: var(--font-mono); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"></span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="display: flex; align-items: center; gap: 6px;" title="Reference influence strength (lower = closer to reference, higher = more AI freedom)">
+              <span style="font-size: 11px; color: var(--text-secondary); font-family: var(--font-mono);">Denoise: <span id="denoiseValueText" style="color: var(--accent-cyan); font-weight: 600;">0.65</span></span>
+              <input type="range" id="refDenoiseSlider" min="0.10" max="0.95" step="0.05" value="0.65" style="width: 80px; accent-color: var(--accent-cyan); cursor: pointer;">
+            </div>
+            <button id="btnRemoveReference" style="background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.4); color: #fca5a5; font-size: 11px; font-weight: 600; cursor: pointer; padding: 3px 8px; border-radius: 5px;" title="Detach reference anchor and switch to pure text-to-image">✕ Detach Reference</button>
           </div>
         </div>
 
         <div class="composer-input-row">
-          <button id="attachAssetBtn" class="icon-btn" title="Attach or Drop Reference Asset" style="padding: 8px 10px;">
-            📎
-          </button>
+          <!-- Cursor Style Context Triggers -->
+          <div class="composer-action-btn-group">
+            <button id="attachAssetBtn" class="icon-btn" title="Attach or Drop Reference Asset" style="padding: 8px 10px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+              </svg>
+            </button>
+            <button id="btnPromptScrapeInspiration" class="icon-btn" title="Firecrawl URL Ingestion (@Web)" style="padding: 8px 10px; color: var(--accent-cyan);">
+              @
+            </button>
+          </div>
+
           <textarea
             id="composerInput"
             class="composer-textarea"
-            placeholder="Describe what you want to create, edit, or animate... (KEYSTONE compiles PromptAnatomy & selects optimal workflow automatically)"
+            placeholder="Describe the cinematic masterpiece you want to create (type @ for Web/Asset context)..."
             aria-label="Creative prompt input"
-          >Animate this cybernetic samurai portrait with a slow cinematic push-in, volumetric neon rain, and anamorphic lens flare</textarea>
+          ></textarea>
+
           <button id="composerSubmitBtn" class="composer-submit-btn">
             <span>Run KEYSTONE</span>
-            <span>↵</span>
+            <kbd class="submit-kbd">↵</kbd>
           </button>
         </div>
       </section>
     </main>
 
     <!-- ==================================================================
-         REGION 4: RIGHT INSPECTOR (Bible §25: Metadata, Controls, Expandable Advanced)
+         REGION 4: RIGHT INSPECTOR (Bible §25: Metadata, Controls, LUT Deck, Advanced)
          ================================================================== -->
     <aside class="region-inspector" role="complementary" aria-label="Asset and Intelligence Inspector">
 
-      <!-- Active Asset Summary & KHF Quality Score -->
+      <!-- Persisted asset metadata -->
       <div class="inspector-card">
         <div class="inspector-card-header">
-          <span>KHF Quality Evaluation</span>
-          <span class="khf-score-ring" id="khfOverallBadge">96.4% PASS</span>
+          <span>Selected Asset</span>
+          <span class="khf-score-ring">Metadata</span>
+        </div>
+        <pre id="assetMetadata" class="code-block-mono">No persisted asset selected.</pre>
+      </div>
+
+      <!-- Media Actions & Super-Upscale Deck -->
+      <div class="inspector-card" id="mediaActionsCard">
+        <div class="inspector-card-header">
+          <span>Media Actions & Upscale</span>
+          <span class="lut-active-label" id="mediaTypeBadge">IMAGE / VIDEO</span>
         </div>
 
-        <div class="dimension-row">
-          <div class="dimension-label-line">
-            <span>Prompt Adherence</span>
-            <span id="dimAdherenceVal">0.98</span>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <div id="inspectorVideoContainer" class="hidden" style="margin-bottom: 4px;">
+            <video id="inspectorVideoPlayer" controls loop style="width: 100%; border-radius: 6px; border: 1px solid var(--border-subtle); max-height: 160px; background: #000;"></video>
           </div>
-          <div class="dimension-bar-bg"><div id="dimAdherenceBar" class="dimension-bar-fill" style="width: 98%;"></div></div>
-        </div>
 
-        <div class="dimension-row">
-          <div class="dimension-label-line">
-            <span>Technical & Visual Quality</span>
-            <span id="dimTechVal">0.96</span>
+          <div id="inspectorAudioContainer" class="hidden" style="margin-bottom: 4px; padding: 8px; background: rgba(236,72,153,0.06); border: 1px solid rgba(236,72,153,0.3); border-radius: 6px;">
+            <div style="font-size: 11px; font-weight: 600; color: #ec4899; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
+              <span>🎙️ Voice Audio Track</span>
+            </div>
+            <audio id="inspectorAudioPlayer" controls style="width: 100%; height: 32px;"></audio>
           </div>
-          <div class="dimension-bar-bg"><div id="dimTechBar" class="dimension-bar-fill" style="width: 96%;"></div></div>
-        </div>
 
-        <div class="dimension-row">
-          <div class="dimension-label-line">
-            <span>Identity & Temporal Consistency</span>
-            <span id="dimConsistencyVal">0.95</span>
+          <button id="btnSetSelectedAsReference" class="composer-submit-btn" style="background: linear-gradient(135deg, #4f46e5, #06b6d4); font-size: 11.5px; padding: 7px 10px; width: 100%; border-radius: 6px;" title="Anchor this asset as visual reference for subsequent generations">
+            <span>📌 Use as Active Generation Reference</span>
+          </button>
+
+          <div style="display: flex; gap: 6px; margin-top: 2px;">
+            <button id="btnUpscale2x" class="seg-pill active" style="flex: 1; padding: 7px 4px; font-size: 11px; text-align: center;" title="Super-Upscale to 2× Resolution (2048px)">
+              ⚡ Upscale 2×
+            </button>
+            <button id="btnUpscale4x" class="seg-pill" style="flex: 1; padding: 7px 4px; font-size: 11px; text-align: center;" title="Super-Upscale to 4× Master Resolution (4096px)">
+              ✨ Upscale 4× (4K)
+            </button>
           </div>
-          <div class="dimension-bar-bg"><div id="dimConsistencyBar" class="dimension-bar-fill" style="width: 95%;"></div></div>
-        </div>
 
-        <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-subtle);">
-          <span>Harness: <code>khf.semantic_critic v2.1</code></span>
-          <span id="assetSignedExpiry">URL TTL: 14m 52s</span>
+          <button id="btnGenerateVariation" class="action-btn" style="background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); color: var(--text-primary); font-size: 11.5px; padding: 7px 10px; border-radius: 6px; cursor: pointer; text-align: center; width: 100%;" title="Generate an image-to-image variation from this asset">
+            <span>🎨 Generate Img2Img Variation</span>
+          </button>
         </div>
       </div>
 
@@ -256,7 +714,6 @@
       <div class="inspector-card">
         <div class="inspector-card-header">
           <span>Creative Framing & Feel</span>
-          <span style="font-size: 10px; color: var(--accent-cyan);">Intent-Driven</span>
         </div>
 
         <div class="control-group">
@@ -270,23 +727,109 @@
         </div>
 
         <div class="control-group">
-          <span class="control-label">Quality & Refinement Policy</span>
+          <span class="control-label">Sampling steps</span>
           <div class="segmented-pills" style="grid-template-columns: repeat(3, 1fr);" id="qualityTierPills">
             <button class="seg-pill" data-quality="draft">Fast Draft</button>
             <button class="seg-pill active" data-quality="high">Studio High</button>
             <button class="seg-pill" data-quality="master">Master 4K</button>
           </div>
         </div>
+      </div>
 
-        <div class="control-group" style="margin-bottom: 0;">
-          <span class="control-label">Camera & Motion Feeling</span>
-          <select id="motionPresetSelect" style="width: 100%; padding: 8px 10px; border-radius: 7px; background: var(--bg-surface-3); border: 1px solid var(--border-subtle); color: var(--text-primary); font-size: 12.5px;">
-            <option value="push_in">Slow Cinematic Push-In (Anamorphic)</option>
-            <option value="orbit">360° Hero Subject Orbit</option>
-            <option value="crane_up">Dramatic Crane Rise + Parallax</option>
-            <option value="handheld">Organic Handheld Documentary</option>
-            <option value="static">Locked Tripod Micro-Motion</option>
-          </select>
+      <!-- ==============================================================
+           HIGGSFIELD CAMERA MOTION CONTROL DECK
+           ============================================================== -->
+      <div class="inspector-card" id="higgsfieldMotionCard">
+        <div class="inspector-card-header">
+          <span>Higgsfield Camera Motion</span>
+          <span class="lut-active-label" id="motionPresetActiveBadge">Orbit 360</span>
+        </div>
+
+        <div class="motion-grid-presets">
+          <button class="motion-preset-btn" data-motion="pan-left" title="Pan Camera Left">◄ Pan L</button>
+          <button class="motion-preset-btn" data-motion="pan-right" title="Pan Camera Right">Pan R ►</button>
+          <button class="motion-preset-btn" data-motion="tilt-up" title="Tilt Camera Up">▲ Tilt Up</button>
+          <button class="motion-preset-btn" data-motion="tilt-down" title="Tilt Camera Down">▼ Tilt Dn</button>
+          <button class="motion-preset-btn" data-motion="zoom-in" title="Push In / Zoom In">⊕ Zoom In</button>
+          <button class="motion-preset-btn" data-motion="zoom-out" title="Pull Out / Zoom Out">⊖ Zoom Out</button>
+          <button class="motion-preset-btn active" data-motion="orbit" title="Cinematic Orbit 360">⟳ Orbit 360</button>
+          <button class="motion-preset-btn" data-motion="drone" title="FPV Drone Dynamic Dive">✈ FPV Drone</button>
+        </div>
+
+        <div class="grade-slider-row" style="margin-top: 10px;">
+          <label for="motionSpeedRange">Speed</label>
+          <input type="range" id="motionSpeedRange" min="0.2" max="2.0" step="0.1" value="1.0" />
+          <span class="grade-val" id="valMotionSpeed">1.0x</span>
+        </div>
+      </div>
+
+      <!-- ==============================================================
+           HOLLYWOOD COLOR GRADE & FILM LOOK PRESET DECK
+           ============================================================== -->
+      <div class="inspector-card">
+        <div class="inspector-card-header">
+          <span>Cinema Look & LUT Presets</span>
+          <span class="lut-active-label" id="activeLutName">Raw Studio</span>
+        </div>
+
+        <div class="lut-pills-grid" id="lutPresetsGrid">
+          <button class="lut-pill active" data-lut="none">
+            <span class="lut-swatch swatch-none"></span>
+            <span>Raw Rec.709</span>
+          </button>
+          <button class="lut-pill" data-lut="kodak2383">
+            <span class="lut-swatch swatch-kodak"></span>
+            <span>Kodak 2383</span>
+          </button>
+          <button class="lut-pill" data-lut="arrilogc">
+            <span class="lut-swatch swatch-arri"></span>
+            <span>Arri LogC</span>
+          </button>
+          <button class="lut-pill" data-lut="bleach">
+            <span class="lut-swatch swatch-bleach"></span>
+            <span>Bleach Bypass</span>
+          </button>
+          <button class="lut-pill" data-lut="bladerunner">
+            <span class="lut-swatch swatch-amber"></span>
+            <span>Blade Runner</span>
+          </button>
+          <button class="lut-pill" data-lut="matrix">
+            <span class="lut-swatch swatch-matrix"></span>
+            <span>Matrix Monolith</span>
+          </button>
+          <button class="lut-pill" data-lut="technicolor">
+            <span class="lut-swatch swatch-techni"></span>
+            <span>Technicolor 3</span>
+          </button>
+          <button class="lut-pill" data-lut="tealorange">
+            <span class="lut-swatch swatch-tealorange"></span>
+            <span>Teal & Orange</span>
+          </button>
+        </div>
+
+        <!-- Real-time Fine Grade Sliders -->
+        <div class="grade-sliders-cluster">
+          <div class="grade-slider-row">
+            <label for="gradeExposure">Exposure</label>
+            <input type="range" id="gradeExposure" min="-2" max="2" step="0.1" value="0" />
+            <span class="grade-val" id="valExposure">0.0</span>
+          </div>
+          <div class="grade-slider-row">
+            <label for="gradeContrast">Contrast</label>
+            <input type="range" id="gradeContrast" min="70" max="150" step="1" value="100" />
+            <span class="grade-val" id="valContrast">100%</span>
+          </div>
+          <div class="grade-slider-row">
+            <label for="gradeSaturation">Saturation</label>
+            <input type="range" id="gradeSaturation" min="0" max="200" step="2" value="100" />
+            <span class="grade-val" id="valSaturation">100%</span>
+          </div>
+          <div class="grade-slider-row">
+            <label for="gradeWarmth">Temperature</label>
+            <input type="range" id="gradeWarmth" min="-30" max="30" step="1" value="0" />
+            <span class="grade-val" id="valWarmth">0</span>
+          </div>
+          <button class="btn-reset-grade" id="btnResetGrade">Reset Grade to Baseline</button>
         </div>
       </div>
 
@@ -297,65 +840,1531 @@
           <span id="devDrawerChevron" style="font-family: var(--font-mono);">[Expand +]</span>
         </div>
 
-        <div id="devDrawerBody" style="margin-top: 12px; display: block;">
+        <div id="devDrawerBody" style="margin-top: 12px;" hidden>
           <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 6px; display: flex; justify-content: space-between;">
             <span><strong>6-Part PromptAnatomy</strong> (Compiled)</span>
-            <span id="promptHashBadge" style="font-family: var(--font-mono); color: #a5b4fc;">sha256:dbf93e4f...</span>
+            <span id="promptHashBadge" style="font-family: var(--font-mono); color: #a5b4fc;">Awaiting compilation</span>
           </div>
-          <pre id="anatomyPre" class="code-block-mono">Loading live compiled PromptAnatomy...</pre>
+          <pre id="anatomyPre" class="code-block-mono">Enter an image prompt to view its compiled anatomy.</pre>
 
           <div style="font-size: 11px; color: var(--text-secondary); margin: 10px 0 6px; display: flex; justify-content: space-between;">
             <span><strong>Authority Decision & Envelope</strong></span>
-            <span id="authorityVerdictBadge" style="color: var(--accent-emerald); font-family: var(--font-mono);">APPROVE</span>
+            <span id="authorityVerdictBadge" style="color: var(--text-secondary); font-family: var(--font-mono);">NOT EVALUATED</span>
           </div>
-          <pre id="envelopePre" class="code-block-mono">Loading HMAC-SHA256 ExecutionEnvelope...</pre>
+          <pre id="envelopePre" class="code-block-mono">Authority is evaluated against your account when you submit a generation.</pre>
         </div>
       </div>
 
     </aside>
+
+    <!-- ==================================================================
+         VS CODE BOTTOM STATUS BAR
+         ================================================================== -->
+    <footer class="vscode-status-bar" role="contentinfo" aria-label="Status Bar">
+      <div class="status-left">
+        <span class="status-item git-branch" title="Git Branch: main">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="6" y1="3" x2="6" y2="15"></line>
+            <circle cx="18" cy="6" r="3"></circle>
+            <circle cx="6" cy="18" r="3"></circle>
+            <path d="M18 9a9 9 0 0 1-9 9"></path>
+          </svg>
+          <span>main*</span>
+        </span>
+        <span class="status-item sync-status" title="Sync Status: Clean">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <polyline points="1 20 1 14 7 14"></polyline>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+          </svg>
+          <span>0↓ 0↑</span>
+        </span>
+        <span class="status-item error-count" title="Problems: 0 Errors, 0 Warnings">
+          <span style="color: #34d399;">● 0</span>
+        </span>
+        <span class="status-item playbook-status" id="statusPlaybookText">Playbook: Design</span>
+      </div>
+
+      <div class="status-center">
+        <span class="status-item engine-health">
+          <span class="status-online-dot"></span>
+          <span>KEYSTONE 2.0 • Qwen-27B Pinned • ComfyUI Engine Online</span>
+        </span>
+      </div>
+
+      <div class="status-right">
+        <span class="status-item" id="remoteConfigStatusBadge" title="Firebase Remote Config Status">Remote Config: Active</span>
+        <span class="status-item">UTF-8</span>
+        <span class="status-item">LF</span>
+        <span class="status-item">Spaces: 2</span>
+        <span class="status-item bell-item" title="Notifications">🔔</span>
+      </div>
+    </footer>
   </div>
 
   <!-- ====================================================================
-       GLOBAL COMMAND PALETTE MODAL (⌘K)
+       GLOBAL COMMAND PALETTE MODAL (⌘K / VS Code QuickOpen)
        ==================================================================== -->
   <div id="commandModalBackdrop" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-label="Command Palette">
     <div class="command-modal">
-      <input
-        type="text"
-        id="commandSearchInput"
-        class="command-input"
-        placeholder="Type a command, switch playbook, or jump to asset..."
-        autocomplete="off"
-      />
+      <div class="command-modal-header">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input
+          type="text"
+          id="commandSearchInput"
+          class="command-input"
+          placeholder="Type a command, switch playbook, or jump to asset..."
+          autocomplete="off"
+        />
+        <kbd class="kbd-pill">ESC</kbd>
+      </div>
       <div class="command-list" id="commandList">
+        <div class="command-item" data-cmd="agent:chat">
+          <span class="cmd-icon">💬</span>
+          <span class="cmd-title">Speak Directly with Loaded Qwen 27B LLM (Web & Tasks)</span>
+          <kbd class="kbd-pill">⌘A</kbd>
+        </div>
+        <div class="command-item" data-cmd="mode:single">
+          <span class="cmd-icon">🎨</span>
+          <span class="cmd-title">Switch Canvas to Primary Stage Mode</span>
+          <kbd class="kbd-pill">⌘0</kbd>
+        </div>
         <div class="command-item" data-cmd="mode:compare">
-          <span>🌓 Switch Canvas to Split Comparison View</span>
-          <kbd>⌘1</kbd>
+          <span class="cmd-icon">🌓</span>
+          <span class="cmd-title">Switch Canvas to Split Comparison View</span>
+          <kbd class="kbd-pill">⌘1</kbd>
         </div>
         <div class="command-item" data-cmd="mode:video">
-          <span>🎬 Open Synchronized Dual Video Player</span>
-          <kbd>⌘2</kbd>
+          <span class="cmd-icon">🎬</span>
+          <span class="cmd-title">MiniMax H3 Qwen 3.8 Video Studio (Ref2VA)</span>
+          <kbd class="kbd-pill">⌘2</kbd>
         </div>
         <div class="command-item" data-cmd="mode:lineage">
-          <span>🌿 Inspect Asset Lineage DAG Graph</span>
-          <kbd>⌘3</kbd>
+          <span class="cmd-icon">🌿</span>
+          <span class="cmd-title">Inspect ZenCreator Asset Lineage DAG Graph</span>
+          <kbd class="kbd-pill">⌘3</kbd>
         </div>
-        <div class="command-item" data-cmd="demo:refinement">
-          <span>🔄 Simulate Bounded Quality Retry Loop (Attempt 1 → Attempt 2)</span>
-          <kbd>⌘R</kbd>
+        <div class="command-item" data-cmd="mode:variations">
+          <span class="cmd-icon">🔲</span>
+          <span class="cmd-title">View Project Variations Gallery Grid</span>
+          <kbd class="kbd-pill">⌘4</kbd>
         </div>
-        <div class="command-item" data-cmd="security:test-aikido">
-          <span>🛡️ Test Aikido Injection Defense & PII Vault Scrubbing</span>
-          <kbd>⌘S</kbd>
+        <div class="command-item" data-cmd="mode:audio">
+          <span class="cmd-icon">🎙️</span>
+          <span class="cmd-title">Open Audio & Voice Studio Mode</span>
+          <kbd class="kbd-pill">⌘5</kbd>
+        </div>
+        <div class="command-item" data-cmd="settings:open">
+          <span class="cmd-icon">⚙️</span>
+          <span class="cmd-title">Studio Settings & Firebase Remote Config</span>
+          <kbd class="kbd-pill">⌘,</kbd>
+        </div>
+        <div class="command-item" data-cmd="projects:open">
+          <span class="cmd-icon">📁</span>
+          <span class="cmd-title">Creative Projects Manager (Switch / Create)</span>
+          <kbd class="kbd-pill">⌘P</kbd>
+        </div>
+        <div class="command-item" data-cmd="sessions:open">
+          <span class="cmd-icon">🕒</span>
+          <span class="cmd-title">View Multi-Turn Session History</span>
+          <kbd class="kbd-pill">⌘H</kbd>
+        </div>
+        <div class="command-item" data-cmd="credits:open">
+          <span class="cmd-icon">⚡</span>
+          <span class="cmd-title">ZenCreator Credit Ledger & Instant Top-Up</span>
+          <kbd class="kbd-pill">⌘$</kbd>
+        </div>
+        <div class="command-item" data-cmd="workers:open">
+          <span class="cmd-icon">🧠</span>
+          <span class="cmd-title">Kaggle T4×2 Worker Bridge Telemetry & VRAM</span>
+          <kbd class="kbd-pill">⌘T</kbd>
+        </div>
+        <div class="command-item" data-cmd="personas:open">
+          <span class="cmd-icon">🎭</span>
+          <span class="cmd-title">Character Personas Cast & ElevenLabs Voice Studio</span>
+          <kbd class="kbd-pill">⌘U</kbd>
         </div>
         <div class="command-item" data-cmd="nav:admin">
-          <span>⚙️ Open Operator Admin Console (/admin)</span>
-          <kbd>⌘O</kbd>
+          <span class="cmd-icon">🛡️</span>
+          <span class="cmd-title">Open Operator Admin Console (/admin)</span>
+          <kbd class="kbd-pill">⌘O</kbd>
         </div>
       </div>
     </div>
   </div>
 
-  <script src="/workspace/app.js"></script>
+  <!-- ====================================================================
+       FIRECRAWL /SCRAPE MODAL (URL Inspiration Ingestion)
+       ==================================================================== -->
+  <div id="webScrapeModalBackdrop" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-label="Firecrawl Web Ingestion">
+    <div class="command-modal" style="width: min(620px, 94vw);">
+      <div class="command-modal-header" style="padding: 14px 18px; border-bottom: 1px solid var(--border-subtle);">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent-cyan);">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="2" y1="12" x2="22" y2="12"></line>
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+          </svg>
+          <span style="font-weight: 700; font-size: 14px;">Firecrawl /scrape: Ingest Visual Style & Prompts</span>
+        </div>
+        <button id="btnCloseWebScrapeModal" class="collapse-icon-btn" style="border: none;">×</button>
+      </div>
+      <div style="padding: 18px; display: flex; flex-direction: column; gap: 12px;">
+        <p style="font-size: 12px; color: var(--text-secondary); line-height: 1.5;">
+          Enter any URL to extract color palettes, typography tokens, layout structures, and design motifs using Firecrawl single-page extraction contract.
+        </p>
+        <div style="display: flex; gap: 8px;">
+          <input
+            type="url"
+            id="webScrapeUrlInput"
+            class="command-input"
+            placeholder="https://higgsfield.ai or https://firefly.adobe.com..."
+            style="border: 1px solid var(--border-subtle); border-radius: 8px;"
+          />
+          <button id="btnExecuteWebScrape" class="composer-submit-btn" style="white-space: nowrap;">
+            Scrape Style
+          </button>
+        </div>
+        <div id="webScrapeStatusText" style="font-size: 11.5px; font-family: var(--font-mono); color: var(--accent-cyan); display: none;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       PERSONAS & ELEVENLABS AUDIO STUDIO MODAL
+       ==================================================================== -->
+  <div id="personasModalBackdrop" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-label="Personas and ElevenLabs Audio Studio">
+    <div class="command-modal" style="width: min(840px, 96vw); max-height: 90vh; display: flex; flex-direction: column;">
+      <div class="command-modal-header" style="padding: 14px 20px; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #ec4899;">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+          <span style="font-weight: 700; font-size: 15px; color: var(--text-primary);">KEYSTONE Digital Personas & ElevenLabs Studio</span>
+        </div>
+        <button id="btnClosePersonasModal" class="collapse-icon-btn" style="border: none; font-size: 18px; cursor: pointer;">×</button>
+      </div>
+
+      <!-- Modal Tab Switcher -->
+      <div class="modal-nav-tabs">
+        <button class="modal-nav-tab active" id="btnTabPersonasCast">🎭 Character Personas</button>
+        <button class="modal-nav-tab" id="btnTabElevenLabsTTS">🎙️ ElevenLabs Speech Studio</button>
+      </div>
+
+      <!-- Tab 1: Character Personas Cast -->
+      <div id="panelPersonasCast" style="padding: 18px 22px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <div style="font-size: 13px; font-weight: 600; color: var(--text-primary);">Digital Persona Cast</div>
+            <div style="font-size: 11px; color: var(--text-secondary);">Create recurring character identities, reference avatars, and assigned ElevenLabs voices.</div>
+          </div>
+          <button id="btnModalNewPersona" class="action-btn-mini" style="background: linear-gradient(135deg, #ec4899, #8b5cf6); color: #fff; border: none; padding: 5px 12px; border-radius: 6px; font-size: 11.5px; font-weight: 600; cursor: pointer;">
+            + New Persona
+          </button>
+        </div>
+
+        <div id="modalPersonasGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; max-height: 180px; overflow-y: auto;">
+          <!-- Dynamically populated with persona cards -->
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid var(--border-subtle); margin: 4px 0;" />
+
+        <!-- Persona Edit/Create Form -->
+        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px;">
+          <input type="hidden" id="formPersonaId" value="" />
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div>
+              <label style="font-size: 11px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">Persona Name *</label>
+              <input type="text" id="inputPersonaName" class="command-input" placeholder="e.g. Aria Vance, Commander Vance..." style="border: 1px solid var(--border-subtle); border-radius: 6px; padding: 6px 10px; width: 100%;" />
+            </div>
+            <div>
+              <label style="font-size: 11px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">Assigned ElevenLabs Voice *</label>
+              <select id="selectPersonaVoice" class="command-input" style="border: 1px solid var(--border-subtle); border-radius: 6px; padding: 6px 10px; width: 100%; background: var(--bg-surface); color: var(--text-primary);">
+                <!-- Populated with ElevenLabs Voices -->
+              </select>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div>
+              <label style="font-size: 11px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">Anchor Avatar Reference Asset</label>
+              <select id="selectPersonaAvatar" class="command-input" style="border: 1px solid var(--border-subtle); border-radius: 6px; padding: 6px 10px; width: 100%; background: var(--bg-surface); color: var(--text-primary);">
+                <option value="">-- No Image Asset Linked --</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size: 11px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">Personality Traits (comma separated)</label>
+              <input type="text" id="inputPersonaTraits" class="command-input" placeholder="e.g. cyberpunk, visionary, cinematic, assertive" style="border: 1px solid var(--border-subtle); border-radius: 6px; padding: 6px 10px; width: 100%;" />
+            </div>
+          </div>
+
+          <div>
+            <label style="font-size: 11px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">Character Bio & Visual Description</label>
+            <input type="text" id="inputPersonaBio" class="command-input" placeholder="e.g. Lead auteur director in a neon-drenched metropolis with cybernetic visor..." style="border: 1px solid var(--border-subtle); border-radius: 6px; padding: 6px 10px; width: 100%;" />
+          </div>
+
+          <div>
+            <label style="font-size: 11px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">Cognitive System Prompt / Persona Voice Directives</label>
+            <textarea id="inputPersonaSystemPrompt" class="composer-textarea" style="min-height: 60px; height: 60px; border: 1px solid var(--border-subtle); border-radius: 6px; font-size: 12px;" placeholder="Instructions injected into generation prompts when this persona is active..."></textarea>
+          </div>
+
+          <div style="display: flex; justify-content: flex-end; gap: 10px; align-items: center; margin-top: 4px;">
+            <button id="btnDeletePersonaForm" class="action-btn" style="background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.4); color: #f87171; font-size: 11.5px; padding: 6px 12px; border-radius: 6px; cursor: pointer; display: none;">
+              Delete Persona
+            </button>
+            <button id="btnCancelPersonaForm" class="action-btn" style="background: transparent; border: 1px solid var(--border-subtle); color: var(--text-secondary); font-size: 11.5px; padding: 6px 12px; border-radius: 6px; cursor: pointer;">
+              Reset Form
+            </button>
+            <button id="btnSubmitPersonaForm" class="composer-submit-btn" style="background: linear-gradient(135deg, #ec4899, #8b5cf6); font-size: 12px; padding: 6px 16px; border-radius: 6px; white-space: nowrap;">
+              Save Persona Identity
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 2: ElevenLabs Speech Studio -->
+      <div id="panelElevenLabsTTS" style="padding: 18px 22px; overflow-y: auto; flex: 1; display: none; flex-direction: column; gap: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <div style="font-size: 13px; font-weight: 600; color: var(--text-primary);">ElevenLabs Text-to-Speech Engine</div>
+            <div style="font-size: 11px; color: var(--text-secondary);" id="ttsConfigStatusText">Connecting to ElevenLabs API voice catalog...</div>
+          </div>
+          <span class="telemetry-pill" style="border-color: rgba(236,72,153,0.3); background: rgba(236,72,153,0.1); color: #ec4899; font-weight: 600;">
+            16-Bit PCM / MP3 Master
+          </span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div>
+            <label style="font-size: 11px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">Select Character Persona (Optional)</label>
+            <select id="ttsPersonaSelector" class="command-input" style="border: 1px solid var(--border-subtle); border-radius: 6px; padding: 6px 10px; width: 100%; background: var(--bg-surface); color: var(--text-primary);">
+              <option value="">-- Standalone Voice (No Persona) --</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size: 11px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">ElevenLabs Voice Profile *</label>
+            <select id="ttsVoiceSelector" class="command-input" style="border: 1px solid var(--border-subtle); border-radius: 6px; padding: 6px 10px; width: 100%; background: var(--bg-surface); color: var(--text-primary);">
+              <!-- Populated dynamically with voices -->
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <label style="font-size: 11px; font-weight: 600; color: var(--text-secondary);">Dialogue Script / Voiceover Text *</label>
+            <div style="display: flex; gap: 6px;">
+              <button class="action-btn-mini btn-sample-script" data-sample="In this city, the rain doesn't wash away secrets. It drowns them." style="font-size: 9.5px; background: rgba(255,255,255,0.05); border: 1px solid var(--border-subtle); color: var(--text-secondary); padding: 2px 6px; border-radius: 4px; cursor: pointer;">Noir</button>
+              <button class="action-btn-mini btn-sample-script" data-sample="All systems initialized. Commencing hyperdrive spooling in 3, 2, 1." style="font-size: 9.5px; background: rgba(255,255,255,0.05); border: 1px solid var(--border-subtle); color: var(--text-secondary); padding: 2px 6px; border-radius: 4px; cursor: pointer;">Sci-Fi</button>
+              <button class="action-btn-mini btn-sample-script" data-sample="Check the lighting on the key rim. Let's capture the anamorphic flare on take two." style="font-size: 9.5px; background: rgba(255,255,255,0.05); border: 1px solid var(--border-subtle); color: var(--text-secondary); padding: 2px 6px; border-radius: 4px; cursor: pointer;">Director</button>
+            </div>
+          </div>
+          <textarea id="ttsTextInput" class="composer-textarea" style="min-height: 85px; border: 1px solid var(--border-subtle); border-radius: 8px; font-size: 13px;" placeholder="Type narration, character dialogue, or cinematic monologue to synthesize with ElevenLabs..."></textarea>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div style="display: flex; gap: 16px; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <label for="ttsStabilitySlider" style="font-size: 11px; color: var(--text-secondary);">Stability:</label>
+              <input type="range" id="ttsStabilitySlider" min="0" max="1" step="0.05" value="0.5" style="width: 70px;" />
+              <span id="valTtsStability" style="font-size: 10px; font-family: var(--font-mono); color: var(--text-secondary);">0.50</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <label for="ttsClaritySlider" style="font-size: 11px; color: var(--text-secondary);">Clarity:</label>
+              <input type="range" id="ttsClaritySlider" min="0" max="1" step="0.05" value="0.75" style="width: 70px;" />
+              <span id="valTtsClarity" style="font-size: 10px; font-family: var(--font-mono); color: var(--text-secondary);">0.75</span>
+            </div>
+          </div>
+
+          <button id="btnSynthesizeTTS" class="composer-submit-btn" style="background: linear-gradient(135deg, #ec4899, #06b6d4); font-size: 12px; padding: 7px 18px; border-radius: 6px; white-space: nowrap;">
+            <span>🎙️ Synthesize Speech Audio</span>
+          </button>
+        </div>
+
+        <!-- Synthesized Audio Output & Transport Sync Player -->
+        <div id="ttsOutputSection" style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 14px 16px; display: none; flex-direction: column; gap: 10px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 12px; font-weight: 600; color: #ec4899;" id="ttsResultTitle">Generated Speech Track</span>
+              <span class="stage-chip" id="ttsResultMeta" style="color: #34d399; font-size: 10px;">audio/mpeg • 48 KB</span>
+            </div>
+            <span id="ttsProviderBadge" style="font-size: 10px; font-family: var(--font-mono); color: var(--text-secondary);">Provider: ElevenLabs</span>
+          </div>
+
+          <audio id="modalTTSAudioPlayer" controls style="width: 100%; height: 36px;"></audio>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       STUDIO SETTINGS & FIREBASE REMOTE CONFIG MODAL
+       ==================================================================== -->
+  <div id="settingsModalBackdrop" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-label="Studio Settings">
+    <div class="command-modal" style="width: min(760px, 96vw); max-height: 90vh; display: flex; flex-direction: column;">
+      <div class="command-modal-header" style="padding: 14px 20px; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent-cyan);">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+          <span style="font-weight: 700; font-size: 15px; color: var(--text-primary);">KEYSTONE Studio Configuration & Authority</span>
+        </div>
+        <button id="btnCloseSettingsModal" class="collapse-icon-btn" style="border: none; font-size: 18px; cursor: pointer;">×</button>
+      </div>
+
+      <div class="modal-nav-tabs">
+        <button class="modal-nav-tab active" id="tabSettingsConfig">⚡ Remote Config & Flags</button>
+        <button class="modal-nav-tab" id="tabSettingsEngine">🧠 Engine & Infrastructure</button>
+        <button class="modal-nav-tab" id="tabSettingsSecurity">🔐 Identity & Tokens</button>
+      </div>
+
+      <!-- Settings Tab 1: Remote Config -->
+      <div id="panelSettingsConfig" style="padding: 18px 22px; overflow-y: auto; flex: 1; display: flex; flex-direction: column;">
+        <div style="font-size: 11.5px; color: var(--text-secondary); margin-bottom: 14px;">
+          Live feature flags synced with Firebase Remote Config template. Toggling updates workspace behavior dynamically.
+        </div>
+
+        <div class="settings-row">
+          <div class="settings-info">
+            <span class="settings-title">ZenCreator Visual Node Graph</span>
+            <span class="settings-desc">Enable dynamic DAG node visualization and execution graphs</span>
+          </div>
+          <label class="switch-toggle">
+            <input type="checkbox" id="cfgToggleNodes" checked />
+            <span class="switch-slider"></span>
+          </label>
+        </div>
+
+        <div class="settings-row">
+          <div class="settings-info">
+            <span class="settings-title">Cursor Floating Composer & @Context</span>
+            <span class="settings-desc">Interactive floating prompt composer with Firecrawl web ingestion pills</span>
+          </div>
+          <label class="switch-toggle">
+            <input type="checkbox" id="cfgToggleComposer" checked />
+            <span class="switch-slider"></span>
+          </label>
+        </div>
+
+        <div class="settings-row">
+          <div class="settings-info">
+            <span class="settings-title">VS Code 48px Pro Activity Bar</span>
+            <span class="settings-desc">Ultra-sleek navigation icon rail with hotkey switching</span>
+          </div>
+          <label class="switch-toggle">
+            <input type="checkbox" id="cfgToggleActivityBar" checked />
+            <span class="switch-slider"></span>
+          </label>
+        </div>
+
+        <div class="settings-row">
+          <div class="settings-info">
+            <span class="settings-title">Higgsfield Cinema Camera Motion Splines</span>
+            <span class="settings-desc">3D viewport tilt transforms, orbit, pan, and tilt presets</span>
+          </div>
+          <label class="switch-toggle">
+            <input type="checkbox" id="cfgToggleMotion" checked />
+            <span class="switch-slider"></span>
+          </label>
+        </div>
+
+        <div class="settings-row">
+          <div class="settings-info">
+            <span class="settings-title">Firecrawl Single-Page Style Extraction (@Web)</span>
+            <span class="settings-desc">Extract colors, typography, and layout prompts from live URLs</span>
+          </div>
+          <label class="switch-toggle">
+            <input type="checkbox" id="cfgToggleScrape" checked />
+            <span class="switch-slider"></span>
+          </label>
+        </div>
+
+        <div class="settings-row">
+          <div class="settings-info">
+            <span class="settings-title">Master Cinema Timeline Framerate</span>
+            <span class="settings-desc">Base SMPTE timecode cadence (24 fps Hollywood standard)</span>
+          </div>
+          <select id="cfgSelectFramerate" class="command-input" style="width: 110px; background: var(--bg-surface); color: var(--text-primary); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 4px 8px;">
+            <option value="24">24.000 fps</option>
+            <option value="30">30.000 fps</option>
+            <option value="60">60.000 fps</option>
+          </select>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; margin-top: 18px; gap: 10px;">
+          <button id="btnSaveRemoteConfig" class="composer-submit-btn" style="background: linear-gradient(135deg, #06b6d4, #3b82f6); font-size: 12px; padding: 7px 18px; border-radius: 6px;">
+            Apply & Save Configuration
+          </button>
+        </div>
+      </div>
+
+      <!-- Settings Tab 2: Engine & Infrastructure -->
+      <div id="panelSettingsEngine" style="padding: 18px 22px; overflow-y: auto; flex: 1; display: none; flex-direction: column; gap: 14px;">
+        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 14px;">
+          <div style="font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px;">🧠 Cognition Checkpoint (Pinned)</div>
+          <div style="font-size: 11.5px; font-family: var(--font-mono); color: #38bdf8; margin-bottom: 4px;">huihui-ai/Huihui-Qwen3.8-27B-abliterated</div>
+          <div style="font-size: 11px; color: var(--text-secondary); line-height: 1.4;">
+            Pinned HuggingFace revision for Bible invariant integrity. Runs on dual T4 GPUs with tensor parallelism.
+          </div>
+        </div>
+
+        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <span style="font-size: 13px; font-weight: 700; color: var(--text-primary);">⚡ Kaggle Worker Bridge & ComfyUI Tunnel</span>
+            <span class="telemetry-pill" style="border-color: rgba(52,211,153,0.4); background: rgba(52,211,153,0.1); color: #34d399; font-weight: 600;">ACTIVE</span>
+          </div>
+          <div style="font-size: 11.5px; color: var(--text-secondary); margin-bottom: 6px;">
+            VRAM: <strong style="color: #c7d2fe;">27.2 GB / 30 GB</strong> • Latency: <strong style="color: #34d399;">12ms</strong> • Heartbeat: <strong style="color: #a5b4fc;">Every 10s</strong>
+          </div>
+          <div style="font-size: 11px; font-family: var(--font-mono); color: var(--text-secondary);">
+            ComfyUI Engine: Mock/Direct Pipeline • Execution Envelopes Enforced
+          </div>
+        </div>
+
+        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 14px;">
+          <div style="font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px;">🎙️ ElevenLabs Voice Synthesis Engine</div>
+          <div style="font-size: 11.5px; color: var(--text-secondary);" id="settingsElevenLabsStatusText">
+            Formant Synthesis Fallback Active • Pure-Python 16-Bit PCM Studio Audio
+          </div>
+        </div>
+      </div>
+
+      <!-- Settings Tab 3: Identity & Tokens -->
+      <div id="panelSettingsSecurity" style="padding: 18px 22px; overflow-y: auto; flex: 1; display: none; flex-direction: column; gap: 14px;">
+        <div>
+          <label style="font-size: 11px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">Active Tenant ID</label>
+          <input type="text" id="settingsTenantId" class="command-input" readonly style="font-family: var(--font-mono); font-size: 11px; background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 6px 10px; width: 100%; color: var(--accent-cyan);" />
+        </div>
+        <div>
+          <label style="font-size: 11px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">Authenticated Account Email</label>
+          <input type="text" id="settingsUserEmail" class="command-input" readonly style="font-family: var(--font-mono); font-size: 11px; background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 6px 10px; width: 100%; color: var(--text-primary);" />
+        </div>
+        <div>
+          <label style="font-size: 11px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">Bearer JWT Access Token</label>
+          <textarea id="settingsTokenText" class="composer-textarea" readonly style="font-family: var(--font-mono); font-size: 10.5px; height: 70px; min-height: 70px; background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: 6px;"></textarea>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+          <button id="btnCopyAuthToken" class="action-btn-mini" style="background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); color: var(--text-primary); padding: 6px 12px; border-radius: 6px; cursor: pointer;">
+            📋 Copy Bearer Token
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       PROJECTS MANAGER MODAL
+       ==================================================================== -->
+  <div id="projectsModalBackdrop" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-label="Projects Manager">
+    <div class="command-modal" style="width: min(640px, 94vw); max-height: 85vh; display: flex; flex-direction: column;">
+      <div class="command-modal-header" style="padding: 14px 20px; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #6366f1;">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+          </svg>
+          <span style="font-weight: 700; font-size: 15px;">Creative Projects Manager</span>
+        </div>
+        <button id="btnCloseProjectsModal" class="collapse-icon-btn" style="border: none; font-size: 18px; cursor: pointer;">×</button>
+      </div>
+
+      <div style="padding: 18px 22px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 14px;">
+        <div style="font-size: 11.5px; color: var(--text-secondary);">
+          Projects isolate your multimodal assets, personas, sessions, and render histories into tenant-scoped creative units.
+        </div>
+
+        <div id="projectsListContainer" style="display: flex; flex-direction: column; gap: 8px; max-height: 220px; overflow-y: auto;">
+          <!-- Populated dynamically with projects -->
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid var(--border-subtle); margin: 4px 0;" />
+
+        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+          <div style="font-size: 12px; font-weight: 700; color: var(--text-primary);">Create New Project</div>
+          <input type="text" id="inputNewProjectName" class="command-input" placeholder="Project Name (e.g. Neo-Tokyo Odyssey, Neon Noir 2088...)" style="border: 1px solid var(--border-subtle); border-radius: 6px; padding: 6px 10px; width: 100%;" />
+          <input type="text" id="inputNewProjectDesc" class="command-input" placeholder="Brief project summary or creative brief..." style="border: 1px solid var(--border-subtle); border-radius: 6px; padding: 6px 10px; width: 100%;" />
+          <div style="display: flex; justify-content: flex-end;">
+            <button id="btnCreateProjectSubmit" class="composer-submit-btn" style="background: linear-gradient(135deg, #6366f1, #3b82f6); font-size: 12px; padding: 6px 16px; border-radius: 6px;">
+              + Create Project
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       SESSION HISTORY MODAL
+       ==================================================================== -->
+  <div id="sessionsModalBackdrop" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-label="Session History">
+    <div class="command-modal" style="width: min(640px, 94vw); max-height: 85vh; display: flex; flex-direction: column;">
+      <div class="command-modal-header" style="padding: 14px 20px; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #a855f7;">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+          <span style="font-weight: 700; font-size: 15px;">Multi-Turn Session History</span>
+        </div>
+        <button id="btnCloseSessionsModal" class="collapse-icon-btn" style="border: none; font-size: 18px; cursor: pointer;">×</button>
+      </div>
+
+      <div style="padding: 18px 22px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div style="font-size: 11.5px; color: var(--text-secondary);">
+            Sessions preserve conversational context, cognitive thoughts, and multimodal generation lineage.
+          </div>
+          <button id="btnStartNewSession" class="action-btn-mini" style="background: linear-gradient(135deg, #a855f7, #ec4899); color: #fff; border: none; padding: 5px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer;">
+            + New Session
+          </button>
+        </div>
+
+        <div id="sessionsListContainer" style="display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow-y: auto;">
+          <!-- Populated dynamically with sessions -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       CREDIT LEDGER & BILLING MODAL
+       ==================================================================== -->
+  <div id="creditsModalBackdrop" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-label="Credits & Ledger">
+    <div class="command-modal" style="width: min(680px, 94vw); max-height: 85vh; display: flex; flex-direction: column;">
+      <div class="command-modal-header" style="padding: 14px 20px; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 18px;">⚡</span>
+          <span style="font-weight: 700; font-size: 15px;">ZenCreator 2-Phase Credit Ledger</span>
+        </div>
+        <button id="btnCloseCreditsModal" class="collapse-icon-btn" style="border: none; font-size: 18px; cursor: pointer;">×</button>
+      </div>
+
+      <div style="padding: 18px 22px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 16px;">
+        <!-- Balances Grid -->
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+          <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 12px; text-align: center;">
+            <div style="font-size: 10px; color: var(--text-secondary); text-transform: uppercase;">Available Balance</div>
+            <div id="modalCreditAvail" style="font-size: 20px; font-weight: 800; color: #38bdf8; font-family: var(--font-mono); margin-top: 4px;">1,250</div>
+          </div>
+          <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 12px; text-align: center;">
+            <div style="font-size: 10px; color: var(--text-secondary); text-transform: uppercase;">In-Flight Hold (Phase 1)</div>
+            <div id="modalCreditHold" style="font-size: 20px; font-weight: 800; color: #f59e0b; font-family: var(--font-mono); margin-top: 4px;">3</div>
+          </div>
+          <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 12px; text-align: center;">
+            <div style="font-size: 10px; color: var(--text-secondary); text-transform: uppercase;">Total Ledger Pool</div>
+            <div id="modalCreditTotal" style="font-size: 20px; font-weight: 800; color: #34d399; font-family: var(--font-mono); margin-top: 4px;">1,253</div>
+          </div>
+        </div>
+
+        <!-- Instant Studio Top-Up -->
+        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 8px;">
+          <div style="font-size: 12px; font-weight: 700; color: var(--text-primary);">Instant Credit Top-Up (Studio Test Mode)</div>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <button class="seg-pill btn-topup-pkg" data-amt="50" style="padding: 6px 10px; font-size: 11px;">+50 Credits</button>
+            <button class="seg-pill active btn-topup-pkg" data-amt="250" style="padding: 6px 10px; font-size: 11px;">+250 Credits (Pro)</button>
+            <button class="seg-pill btn-topup-pkg" data-amt="1000" style="padding: 6px 10px; font-size: 11px;">+1,000 Credits (Enterprise)</button>
+            <button id="btnExecuteTopUp" class="composer-submit-btn" style="margin-left: auto; font-size: 11.5px; padding: 6px 14px; border-radius: 6px;">Top-Up Now</button>
+          </div>
+        </div>
+
+        <!-- Ledger Transactions Table -->
+        <div>
+          <div style="font-size: 12px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px;">Recent Ledger Events</div>
+          <div style="max-height: 180px; overflow-y: auto; border: 1px solid var(--border-subtle); border-radius: 6px;">
+            <table class="studio-table">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Action</th>
+                  <th>Amount</th>
+                  <th>Reason</th>
+                </tr>
+              </thead>
+              <tbody id="creditsLedgerTableBody">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       KAGGLE WORKER BRIDGE TELEMETRY MODAL
+       ==================================================================== -->
+  <div id="workerTelemetryModalBackdrop" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-label="Worker Telemetry">
+    <div class="command-modal" style="width: min(700px, 94vw); max-height: 85vh; display: flex; flex-direction: column;">
+      <div class="command-modal-header" style="padding: 14px 20px; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span class="status-online-dot"></span>
+          <span style="font-weight: 700; font-size: 15px;">Kaggle T4×2 Worker Bridge Telemetry</span>
+        </div>
+        <button id="btnCloseWorkerModal" class="collapse-icon-btn" style="border: none; font-size: 18px; cursor: pointer;">×</button>
+      </div>
+
+      <div style="padding: 18px 22px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 14px;">
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+          <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 12px; text-align: center;">
+            <div style="font-size: 10px; color: var(--text-secondary); text-transform: uppercase;">Worker State</div>
+            <div style="font-size: 14px; font-weight: 700; color: #34d399; margin-top: 4px;">ACTIVE (T4×2)</div>
+          </div>
+          <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 12px; text-align: center;">
+            <div style="font-size: 10px; color: var(--text-secondary); text-transform: uppercase;">VRAM Utilization</div>
+            <div style="font-size: 14px; font-weight: 700; color: #c7d2fe; font-family: var(--font-mono); margin-top: 4px;">27.2 / 30.0 GB</div>
+          </div>
+          <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 12px; text-align: center;">
+            <div style="font-size: 10px; color: var(--text-secondary); text-transform: uppercase;">Heartbeat Latency</div>
+            <div style="font-size: 14px; font-weight: 700; color: #38bdf8; font-family: var(--font-mono); margin-top: 4px;">12 ms</div>
+          </div>
+        </div>
+
+        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 14px; font-family: var(--font-mono); font-size: 11px; display: flex; flex-direction: column; gap: 6px;">
+          <div><strong style="color: var(--text-secondary);">Worker ID:</strong> kaggle-cluster-t4x2-node-01</div>
+          <div><strong style="color: var(--text-secondary);">Pinned Model:</strong> huihui-ai/Huihui-Qwen3.8-27B-abliterated</div>
+          <div><strong style="color: var(--text-secondary);">Backend Driver:</strong> ComfyUI Autonomous Execution Daemon</div>
+          <div><strong style="color: var(--text-secondary);">Active Tunnel:</strong> http://127.0.0.1:8000/internal/workers</div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 8px;">
+          <button id="btnRefreshWorkerTelemetry" class="action-btn-mini" style="background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); color: var(--text-primary); padding: 6px 12px; border-radius: 6px; cursor: pointer;">
+            🔄 Ping & Refresh Worker
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       AUTONOMOUS COGNITION AGENT & DIRECT LLM CHAT MODAL (Bible § 39, ADR-002)
+       ==================================================================== -->
+  <div id="agentChatModalBackdrop" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-label="Direct LLM Agent Chat">
+    <div class="chat-modal-window">
+      <!-- Header -->
+      <div class="chat-top-header">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div class="chat-avatar-icon qwen">🧠</div>
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-weight: 700; font-size: 14.5px; color: var(--text-primary);">Qwen 27B Direct Cognition Console</span>
+              <span class="stage-chip" style="background: rgba(168, 85, 247, 0.2); color: #c084fc; font-size: 10.5px; font-weight: 700;">ABLITERATED</span>
+              <span class="stage-chip" style="background: rgba(52, 211, 153, 0.15); color: #34d399; font-size: 10.5px;">ONLINE</span>
+            </div>
+            <div style="font-size: 11px; color: var(--text-secondary); margin-top: 2px;">
+              Model: <code style="color: #38bdf8;">huihui-ai/Huihui-Qwen3.8-27B-abliterated</code> • Worker: Kaggle T4x2 (Tensor Parallelism) • Dual-Mode Chat & Agent
+            </div>
+          </div>
+        </div>
+        <div class="chat-header-actions">
+          <button id="btnNewAgentChat" class="btn-new-chat" title="Clear conversation and start a new session">
+            <span>+</span>
+            <span>New Chat</span>
+          </button>
+          <button id="btnCloseAgentChatModal" class="collapse-icon-btn" style="border: none; font-size: 18px; cursor: pointer;" title="Close chat (Esc)">✕</button>
+        </div>
+      </div>
+
+      <!-- Quick Action Inspiration Bar -->
+      <div style="display: flex; gap: 6px; padding: 8px 16px; background: rgba(0,0,0,0.25); border-bottom: 1px solid var(--border-subtle); overflow-x: auto;">
+        <button class="action-btn-mini btn-agent-sample" data-task="Who are you, what model is loaded, and what capabilities do you have?" style="white-space: nowrap; font-size: 10.5px; background: rgba(255,255,255,0.04); border: 1px solid var(--border-subtle); color: var(--text-secondary); padding: 4px 8px; border-radius: 4px; cursor: pointer;">
+          💬 Model Identity
+        </button>
+        <button class="action-btn-mini btn-agent-sample" data-task="Search the internet for current 2026 cyberpunk visual trends and give me color palettes" style="white-space: nowrap; font-size: 10.5px; background: rgba(6, 182, 212, 0.1); border: 1px solid rgba(6, 182, 212, 0.3); color: var(--accent-cyan); padding: 4px 8px; border-radius: 4px; cursor: pointer;">
+          🌐 Web: Cyberpunk Trends
+        </button>
+        <button class="action-btn-mini btn-agent-sample" data-task="Look up recent sci-fi movies on the internet and generate an image for a futuristic Tokyo alley" style="white-space: nowrap; font-size: 10.5px; background: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.3); color: #c084fc; padding: 4px 8px; border-radius: 4px; cursor: pointer;">
+          🎨 Task: Search & Generate
+        </button>
+        <button class="action-btn-mini btn-agent-sample" data-task="Analyze cinematic lighting: How to achieve Kodak 2383 anamorphic lens flare?" style="white-space: nowrap; font-size: 10.5px; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); color: #f59e0b; padding: 4px 8px; border-radius: 4px; cursor: pointer;">
+          🎥 Director: Cinematic Lighting
+        </button>
+      </div>
+
+      <!-- Messages Stream Viewport -->
+      <div id="agentChatMessagesStream" class="chat-stream-viewport">
+        <!-- Initial Welcome Message from Qwen 27B -->
+        <div class="chat-msg-row assistant">
+          <div class="chat-avatar-icon qwen">🧠</div>
+          <div class="chat-bubble-content">
+            <div class="chat-bubble-header">
+              <span style="font-weight: 700; color: #c084fc;">Qwen 27B Abliterated Cognition</span>
+              <span style="font-size: 10px; color: var(--text-muted); font-family: var(--font-mono);">Bible § 39 Online</span>
+            </div>
+            <div>
+              Welcome to your dedicated creative intelligence console. I am <strong><code>huihui-ai/Huihui-Qwen3.8-27B-abliterated</code></strong>, running on dual NVIDIA T4 GPUs with active tensor parallelism.
+              <br><br>
+              You can converse directly with me like ChatGPT or Gemini: ask technical cinematography questions, brainstorm shot lists, analyze lighting recipes, or instruct me to <strong>search the live internet</strong> and <strong>autonomously generate or upscale studio assets</strong>. What would you like to build?
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom Input Composer (ChatGPT / Gemini style) -->
+      <div class="chat-bottom-composer">
+        <div class="chat-composer-toolbar">
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <button id="btnToggleWebSearch" class="chat-tool-btn active web" title="Toggle real-time DuckDuckGo web search & citations">
+              <span>🌐</span>
+              <span>Web Search</span>
+            </button>
+            <button id="btnToggleGen" class="chat-tool-btn active gen" title="Toggle autonomous ComfyUI image/video generation">
+              <span>🎨</span>
+              <span>Asset Generation</span>
+            </button>
+          </div>
+          <span style="color: var(--text-muted); font-family: var(--font-mono); font-size: 10.5px;">Shift+Enter for newline • Enter to send</span>
+        </div>
+
+        <div class="chat-composer-row">
+          <textarea
+            id="agentChatInput"
+            class="chat-input-textarea"
+            placeholder="Message Qwen 27B... (Ask a question, discuss a concept, or command a web/studio task)"
+          ></textarea>
+          <button id="btnSendAgentChat" class="btn-chat-send" title="Send message to Qwen 27B">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13"></line>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+            </svg>
+            <span>Send</span>
+          </button>
+          <button id="btnStopAgentChat" class="btn-chat-send" style="display: none; background: #ef4444;" title="Stop generation">
+            <span>⏹ Stop</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       GLOBAL COMMAND PALETTE MODAL (⌘K / VS Code QuickOpen)
+       ==================================================================== -->
+  <div id="commandModalBackdrop" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-label="Command Palette">
+    <div class="command-modal">
+      <div class="command-modal-header">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input
+          type="text"
+          id="commandSearchInput"
+          class="command-input"
+          placeholder="Type a command, switch playbook, or jump to asset..."
+          autocomplete="off"
+        />
+        <kbd class="kbd-pill">ESC</kbd>
+      </div>
+      <div class="command-list" id="commandList">
+        <div class="command-item" data-cmd="agent:chat">
+          <span class="cmd-icon">💬</span>
+          <span class="cmd-title">Speak Directly with Loaded Qwen 27B LLM (Web & Tasks)</span>
+          <kbd class="kbd-pill">⌘A</kbd>
+        </div>
+        <div class="command-item" data-cmd="mode:single">
+          <span class="cmd-icon">🎨</span>
+          <span class="cmd-title">Switch Canvas to Primary Stage Mode</span>
+          <kbd class="kbd-pill">⌘0</kbd>
+        </div>
+        <div class="command-item" data-cmd="mode:compare">
+          <span class="cmd-icon">🌓</span>
+          <span class="cmd-title">Switch Canvas to Split Comparison View</span>
+          <kbd class="kbd-pill">⌘1</kbd>
+        </div>
+        <div class="command-item" data-cmd="mode:video">
+          <span class="cmd-icon">🎬</span>
+          <span class="cmd-title">MiniMax H3 Qwen 3.8 Video Studio (Ref2VA)</span>
+          <kbd class="kbd-pill">⌘2</kbd>
+        </div>
+        <div class="command-item" data-cmd="mode:lineage">
+          <span class="cmd-icon">🌿</span>
+          <span class="cmd-title">Inspect ZenCreator Asset Lineage DAG Graph</span>
+          <kbd class="kbd-pill">⌘3</kbd>
+        </div>
+        <div class="command-item" data-cmd="mode:variations">
+          <span class="cmd-icon">🔲</span>
+          <span class="cmd-title">View Project Variations Gallery Grid</span>
+          <kbd class="kbd-pill">⌘4</kbd>
+        </div>
+        <div class="command-item" data-cmd="mode:audio">
+          <span class="cmd-icon">🎙️</span>
+          <span class="cmd-title">Open Audio & Voice Studio Mode</span>
+          <kbd class="kbd-pill">⌘5</kbd>
+        </div>
+        <div class="command-item" data-cmd="settings:open">
+          <span class="cmd-icon">⚙️</span>
+          <span class="cmd-title">Studio Settings & Firebase Remote Config</span>
+          <kbd class="kbd-pill">⌘,</kbd>
+        </div>
+        <div class="command-item" data-cmd="projects:open">
+          <span class="cmd-icon">📁</span>
+          <span class="cmd-title">Creative Projects Manager (Switch / Create)</span>
+          <kbd class="kbd-pill">⌘P</kbd>
+        </div>
+        <div class="command-item" data-cmd="sessions:open">
+          <span class="cmd-icon">🕒</span>
+          <span class="cmd-title">View Multi-Turn Session History</span>
+          <kbd class="kbd-pill">⌘H</kbd>
+        </div>
+        <div class="command-item" data-cmd="credits:open">
+          <span class="cmd-icon">⚡</span>
+          <span class="cmd-title">ZenCreator Credit Ledger & Instant Top-Up</span>
+          <kbd class="kbd-pill">⌘$</kbd>
+        </div>
+        <div class="command-item" data-cmd="workers:open">
+          <span class="cmd-icon">🧠</span>
+          <span class="cmd-title">Kaggle T4×2 Worker Bridge Telemetry & VRAM</span>
+          <kbd class="kbd-pill">⌘T</kbd>
+        </div>
+        <div class="command-item" data-cmd="personas:open">
+          <span class="cmd-icon">🎭</span>
+          <span class="cmd-title">Character Personas Cast & ElevenLabs Voice Studio</span>
+          <kbd class="kbd-pill">⌘U</kbd>
+        </div>
+        <div class="command-item" data-cmd="nav:admin">
+          <span class="cmd-icon">🛡️</span>
+          <span class="cmd-title">Open Operator Admin Console (/admin)</span>
+          <kbd class="kbd-pill">⌘O</kbd>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       FIRECRAWL /SCRAPE MODAL (URL Inspiration Ingestion)
+       ==================================================================== -->
+  <div id="webScrapeModalBackdrop" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-label="Firecrawl Web Ingestion">
+    <div class="command-modal" style="width: min(620px, 94vw);">
+      <div class="command-modal-header" style="padding: 14px 18px; border-bottom: 1px solid var(--border-subtle);">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent-cyan);">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="2" y1="12" x2="22" y2="12"></line>
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+          </svg>
+          <span style="font-weight: 700; font-size: 14px;">Firecrawl /scrape: Ingest Visual Style & Prompts</span>
+        </div>
+        <button id="btnCloseWebScrapeModal" class="collapse-icon-btn" style="border: none;">×</button>
+      </div>
+      <div style="padding: 18px; display: flex; flex-direction: column; gap: 12px;">
+        <p style="font-size: 12px; color: var(--text-secondary); line-height: 1.5;">
+          Enter any URL to extract color palettes, typography tokens, layout structures, and design motifs using Firecrawl single-page extraction contract.
+        </p>
+        <div style="display: flex; gap: 8px;">
+          <input
+            type="url"
+            id="webScrapeUrlInput"
+            class="command-input"
+            placeholder="https://higgsfield.ai or https://firefly.adobe.com..."
+            style="border: 1px solid var(--border-subtle); border-radius: 8px;"
+          />
+          <button id="btnExecuteWebScrape" class="composer-submit-btn" style="white-space: nowrap;">
+            Scrape Style
+          </button>
+        </div>
+        <div id="webScrapeStatusText" style="font-size: 11.5px; font-family: var(--font-mono); color: var(--accent-cyan); display: none;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       PERSONAS & ELEVENLABS AUDIO STUDIO MODAL
+       ==================================================================== -->
+  <div id="personasModalBackdrop" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-label="Personas and ElevenLabs Audio Studio">
+    <div class="command-modal" style="width: min(840px, 96vw); max-height: 90vh; display: flex; flex-direction: column;">
+      <div class="command-modal-header" style="padding: 14px 20px; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #ec4899;">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+          <span style="font-weight: 700; font-size: 15px; color: var(--text-primary);">KEYSTONE Digital Personas & ElevenLabs Studio</span>
+        </div>
+        <button id="btnClosePersonasModal" class="collapse-icon-btn" style="border: none; font-size: 18px; cursor: pointer;">×</button>
+      </div>
+
+      <!-- Modal Tab Switcher -->
+      <div class="modal-nav-tabs">
+        <button class="modal-nav-tab active" id="btnTabPersonasCast">🎭 Character Personas</button>
+        <button class="modal-nav-tab" id="btnTabElevenLabsTTS">🎙️ ElevenLabs Speech Studio</button>
+      </div>
+
+      <!-- Tab 1: Character Personas Cast -->
+      <div id="panelPersonasCast" style="padding: 18px 22px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <div style="font-size: 13px; font-weight: 600; color: var(--text-primary);">Digital Persona Cast</div>
+            <div style="font-size: 11px; color: var(--text-secondary);">Create recurring character identities, reference avatars, and assigned ElevenLabs voices.</div>
+          </div>
+          <button id="btnModalNewPersona" class="action-btn-mini" style="background: linear-gradient(135deg, #ec4899, #8b5cf6); color: #fff; border: none; padding: 5px 12px; border-radius: 6px; font-size: 11.5px; font-weight: 600; cursor: pointer;">
+            + New Persona
+          </button>
+        </div>
+
+        <div id="modalPersonasGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; max-height: 180px; overflow-y: auto;">
+          <!-- Dynamically populated with persona cards -->
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid var(--border-subtle); margin: 4px 0;" />
+
+        <!-- Persona Edit/Create Form -->
+        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px;">
+          <input type="hidden" id="formPersonaId" value="" />
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div>
+              <label style="font-size: 11px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">Persona Name *</label>
+              <input type="text" id="inputPersonaName" class="command-input" placeholder="e.g. Aria Vance, Commander Vance..." style="border: 1px solid var(--border-subtle); border-radius: 6px; padding: 6px 10px; width: 100%;" />
+            </div>
+            <div>
+              <label style="font-size: 11px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">Assigned ElevenLabs Voice *</label>
+              <select id="selectPersonaVoice" class="command-input" style="border: 1px solid var(--border-subtle); border-radius: 6px; padding: 6px 10px; width: 100%; background: var(--bg-surface); color: var(--text-primary);">
+                <!-- Populated with ElevenLabs Voices -->
+              </select>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div>
+              <label style="font-size: 11px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">Anchor Avatar Reference Asset</label>
+              <select id="selectPersonaAvatar" class="command-input" style="border: 1px solid var(--border-subtle); border-radius: 6px; padding: 6px 10px; width: 100%; background: var(--bg-surface); color: var(--text-primary);">
+                <option value="">-- No Image Asset Linked --</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size: 11px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">Personality Traits (comma separated)</label>
+              <input type="text" id="inputPersonaTraits" class="command-input" placeholder="e.g. cyberpunk, visionary, cinematic, assertive" style="border: 1px solid var(--border-subtle); border-radius: 6px; padding: 6px 10px; width: 100%;" />
+            </div>
+          </div>
+
+          <div>
+            <label style="font-size: 11px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">Character Bio & Visual Description</label>
+            <input type="text" id="inputPersonaBio" class="command-input" placeholder="e.g. Lead auteur director in a neon-drenched metropolis with cybernetic visor..." style="border: 1px solid var(--border-subtle); border-radius: 6px; padding: 6px 10px; width: 100%;" />
+          </div>
+
+          <div>
+            <label style="font-size: 11px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">Cognitive System Prompt / Persona Voice Directives</label>
+            <textarea id="inputPersonaSystemPrompt" class="composer-textarea" style="min-height: 60px; height: 60px; border: 1px solid var(--border-subtle); border-radius: 6px; font-size: 12px;" placeholder="Instructions injected into generation prompts when this persona is active..."></textarea>
+          </div>
+
+          <div style="display: flex; justify-content: flex-end; gap: 10px; align-items: center; margin-top: 4px;">
+            <button id="btnDeletePersonaForm" class="action-btn" style="background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.4); color: #f87171; font-size: 11.5px; padding: 6px 12px; border-radius: 6px; cursor: pointer; display: none;">
+              Delete Persona
+            </button>
+            <button id="btnCancelPersonaForm" class="action-btn" style="background: transparent; border: 1px solid var(--border-subtle); color: var(--text-secondary); font-size: 11.5px; padding: 6px 12px; border-radius: 6px; cursor: pointer;">
+              Reset Form
+            </button>
+            <button id="btnSubmitPersonaForm" class="composer-submit-btn" style="background: linear-gradient(135deg, #ec4899, #8b5cf6); font-size: 12px; padding: 6px 16px; border-radius: 6px; white-space: nowrap;">
+              Save Persona Identity
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 2: ElevenLabs Speech Studio -->
+      <div id="panelElevenLabsTTS" style="padding: 18px 22px; overflow-y: auto; flex: 1; display: none; flex-direction: column; gap: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <div style="font-size: 13px; font-weight: 600; color: var(--text-primary);">ElevenLabs Text-to-Speech Engine</div>
+            <div style="font-size: 11px; color: var(--text-secondary);" id="ttsConfigStatusText">Connecting to ElevenLabs API voice catalog...</div>
+          </div>
+          <span class="telemetry-pill" style="border-color: rgba(236,72,153,0.3); background: rgba(236,72,153,0.1); color: #ec4899; font-weight: 600;">
+            16-Bit PCM / MP3 Master
+          </span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div>
+            <label style="font-size: 11px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">Select Character Persona (Optional)</label>
+            <select id="ttsPersonaSelector" class="command-input" style="border: 1px solid var(--border-subtle); border-radius: 6px; padding: 6px 10px; width: 100%; background: var(--bg-surface); color: var(--text-primary);">
+              <option value="">-- Standalone Voice (No Persona) --</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size: 11px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">ElevenLabs Voice Profile *</label>
+            <select id="ttsVoiceSelector" class="command-input" style="border: 1px solid var(--border-subtle); border-radius: 6px; padding: 6px 10px; width: 100%; background: var(--bg-surface); color: var(--text-primary);">
+              <!-- Populated dynamically with voices -->
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <label style="font-size: 11px; font-weight: 600; color: var(--text-secondary);">Dialogue Script / Voiceover Text *</label>
+            <div style="display: flex; gap: 6px;">
+              <button class="action-btn-mini btn-sample-script" data-sample="In this city, the rain doesn't wash away secrets. It drowns them." style="font-size: 9.5px; background: rgba(255,255,255,0.05); border: 1px solid var(--border-subtle); color: var(--text-secondary); padding: 2px 6px; border-radius: 4px; cursor: pointer;">Noir</button>
+              <button class="action-btn-mini btn-sample-script" data-sample="All systems initialized. Commencing hyperdrive spooling in 3, 2, 1." style="font-size: 9.5px; background: rgba(255,255,255,0.05); border: 1px solid var(--border-subtle); color: var(--text-secondary); padding: 2px 6px; border-radius: 4px; cursor: pointer;">Sci-Fi</button>
+              <button class="action-btn-mini btn-sample-script" data-sample="Check the lighting on the key rim. Let's capture the anamorphic flare on take two." style="font-size: 9.5px; background: rgba(255,255,255,0.05); border: 1px solid var(--border-subtle); color: var(--text-secondary); padding: 2px 6px; border-radius: 4px; cursor: pointer;">Director</button>
+            </div>
+          </div>
+          <textarea id="ttsTextInput" class="composer-textarea" style="min-height: 85px; border: 1px solid var(--border-subtle); border-radius: 8px; font-size: 13px;" placeholder="Type narration, character dialogue, or cinematic monologue to synthesize with ElevenLabs..."></textarea>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div style="display: flex; gap: 16px; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <label for="ttsStabilitySlider" style="font-size: 11px; color: var(--text-secondary);">Stability:</label>
+              <input type="range" id="ttsStabilitySlider" min="0" max="1" step="0.05" value="0.5" style="width: 70px;" />
+              <span id="valTtsStability" style="font-size: 10px; font-family: var(--font-mono); color: var(--text-secondary);">0.50</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <label for="ttsClaritySlider" style="font-size: 11px; color: var(--text-secondary);">Clarity:</label>
+              <input type="range" id="ttsClaritySlider" min="0" max="1" step="0.05" value="0.75" style="width: 70px;" />
+              <span id="valTtsClarity" style="font-size: 10px; font-family: var(--font-mono); color: var(--text-secondary);">0.75</span>
+            </div>
+          </div>
+
+          <button id="btnSynthesizeTTS" class="composer-submit-btn" style="background: linear-gradient(135deg, #ec4899, #06b6d4); font-size: 12px; padding: 7px 18px; border-radius: 6px; white-space: nowrap;">
+            <span>🎙️ Synthesize Speech Audio</span>
+          </button>
+        </div>
+
+        <!-- Synthesized Audio Output & Transport Sync Player -->
+        <div id="ttsOutputSection" style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 14px 16px; display: none; flex-direction: column; gap: 10px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 12px; font-weight: 600; color: #ec4899;" id="ttsResultTitle">Generated Speech Track</span>
+              <span class="stage-chip" id="ttsResultMeta" style="color: #34d399; font-size: 10px;">audio/mpeg • 48 KB</span>
+            </div>
+            <span id="ttsProviderBadge" style="font-size: 10px; font-family: var(--font-mono); color: var(--text-secondary);">Provider: ElevenLabs</span>
+          </div>
+
+          <audio id="modalTTSAudioPlayer" controls style="width: 100%; height: 36px;"></audio>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       STUDIO SETTINGS & FIREBASE REMOTE CONFIG MODAL
+       ==================================================================== -->
+  <div id="settingsModalBackdrop" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-label="Studio Settings">
+    <div class="command-modal" style="width: min(760px, 96vw); max-height: 90vh; display: flex; flex-direction: column;">
+      <div class="command-modal-header" style="padding: 14px 20px; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent-cyan);">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+          <span style="font-weight: 700; font-size: 15px; color: var(--text-primary);">KEYSTONE Studio Configuration & Authority</span>
+        </div>
+        <button id="btnCloseSettingsModal" class="collapse-icon-btn" style="border: none; font-size: 18px; cursor: pointer;">×</button>
+      </div>
+
+      <div class="modal-nav-tabs">
+        <button class="modal-nav-tab active" id="tabSettingsConfig">⚡ Remote Config & Flags</button>
+        <button class="modal-nav-tab" id="tabSettingsEngine">🧠 Engine & Infrastructure</button>
+        <button class="modal-nav-tab" id="tabSettingsSecurity">🔐 Identity & Tokens</button>
+      </div>
+
+      <!-- Settings Tab 1: Remote Config -->
+      <div id="panelSettingsConfig" style="padding: 18px 22px; overflow-y: auto; flex: 1; display: flex; flex-direction: column;">
+        <div style="font-size: 11.5px; color: var(--text-secondary); margin-bottom: 14px;">
+          Live feature flags synced with Firebase Remote Config template. Toggling updates workspace behavior dynamically.
+        </div>
+
+        <div class="settings-row">
+          <div class="settings-info">
+            <span class="settings-title">ZenCreator Visual Node Graph</span>
+            <span class="settings-desc">Enable dynamic DAG node visualization and execution graphs</span>
+          </div>
+          <label class="switch-toggle">
+            <input type="checkbox" id="cfgToggleNodes" checked />
+            <span class="switch-slider"></span>
+          </label>
+        </div>
+
+        <div class="settings-row">
+          <div class="settings-info">
+            <span class="settings-title">Cursor Floating Composer & @Context</span>
+            <span class="settings-desc">Interactive floating prompt composer with Firecrawl web ingestion pills</span>
+          </div>
+          <label class="switch-toggle">
+            <input type="checkbox" id="cfgToggleComposer" checked />
+            <span class="switch-slider"></span>
+          </label>
+        </div>
+
+        <div class="settings-row">
+          <div class="settings-info">
+            <span class="settings-title">VS Code 48px Pro Activity Bar</span>
+            <span class="settings-desc">Ultra-sleek navigation icon rail with hotkey switching</span>
+          </div>
+          <label class="switch-toggle">
+            <input type="checkbox" id="cfgToggleActivityBar" checked />
+            <span class="switch-slider"></span>
+          </label>
+        </div>
+
+        <div class="settings-row">
+          <div class="settings-info">
+            <span class="settings-title">Higgsfield Cinema Camera Motion Splines</span>
+            <span class="settings-desc">3D viewport tilt transforms, orbit, pan, and tilt presets</span>
+          </div>
+          <label class="switch-toggle">
+            <input type="checkbox" id="cfgToggleMotion" checked />
+            <span class="switch-slider"></span>
+          </label>
+        </div>
+
+        <div class="settings-row">
+          <div class="settings-info">
+            <span class="settings-title">Firecrawl Single-Page Style Extraction (@Web)</span>
+            <span class="settings-desc">Extract colors, typography, and layout prompts from live URLs</span>
+          </div>
+          <label class="switch-toggle">
+            <input type="checkbox" id="cfgToggleScrape" checked />
+            <span class="switch-slider"></span>
+          </label>
+        </div>
+
+        <div class="settings-row">
+          <div class="settings-info">
+            <span class="settings-title">Master Cinema Timeline Framerate</span>
+            <span class="settings-desc">Base SMPTE timecode cadence (24 fps Hollywood standard)</span>
+          </div>
+          <select id="cfgSelectFramerate" class="command-input" style="width: 110px; background: var(--bg-surface); color: var(--text-primary); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 4px 8px;">
+            <option value="24">24.000 fps</option>
+            <option value="30">30.000 fps</option>
+            <option value="60">60.000 fps</option>
+          </select>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; margin-top: 18px; gap: 10px;">
+          <button id="btnSaveRemoteConfig" class="composer-submit-btn" style="background: linear-gradient(135deg, #06b6d4, #3b82f6); font-size: 12px; padding: 7px 18px; border-radius: 6px;">
+            Apply & Save Configuration
+          </button>
+        </div>
+      </div>
+
+      <!-- Settings Tab 2: Engine & Infrastructure -->
+      <div id="panelSettingsEngine" style="padding: 18px 22px; overflow-y: auto; flex: 1; display: none; flex-direction: column; gap: 14px;">
+        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 14px;">
+          <div style="font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px;">🧠 Cognition Checkpoint (Pinned)</div>
+          <div style="font-size: 11.5px; font-family: var(--font-mono); color: #38bdf8; margin-bottom: 4px;">huihui-ai/Huihui-Qwen3.8-27B-abliterated</div>
+          <div style="font-size: 11px; color: var(--text-secondary); line-height: 1.4;">
+            Pinned HuggingFace revision for Bible invariant integrity. Runs on dual T4 GPUs with tensor parallelism.
+          </div>
+        </div>
+
+        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <span style="font-size: 13px; font-weight: 700; color: var(--text-primary);">⚡ Kaggle Worker Bridge & ComfyUI Tunnel</span>
+            <span class="telemetry-pill" style="border-color: rgba(52,211,153,0.4); background: rgba(52,211,153,0.1); color: #34d399; font-weight: 600;">ACTIVE</span>
+          </div>
+          <div style="font-size: 11.5px; color: var(--text-secondary); margin-bottom: 6px;">
+            VRAM: <strong style="color: #c7d2fe;">27.2 GB / 30 GB</strong> • Latency: <strong style="color: #34d399;">12ms</strong> • Heartbeat: <strong style="color: #a5b4fc;">Every 10s</strong>
+          </div>
+          <div style="font-size: 11px; font-family: var(--font-mono); color: var(--text-secondary);">
+            ComfyUI Engine: Mock/Direct Pipeline • Execution Envelopes Enforced
+          </div>
+        </div>
+
+        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 14px;">
+          <div style="font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px;">🎙️ ElevenLabs Voice Synthesis Engine</div>
+          <div style="font-size: 11.5px; color: var(--text-secondary);" id="settingsElevenLabsStatusText">
+            Formant Synthesis Fallback Active • Pure-Python 16-Bit PCM Studio Audio
+          </div>
+        </div>
+      </div>
+
+      <!-- Settings Tab 3: Identity & Tokens -->
+      <div id="panelSettingsSecurity" style="padding: 18px 22px; overflow-y: auto; flex: 1; display: none; flex-direction: column; gap: 14px;">
+        <div>
+          <label style="font-size: 11px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">Active Tenant ID</label>
+          <input type="text" id="settingsTenantId" class="command-input" readonly style="font-family: var(--font-mono); font-size: 11px; background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 6px 10px; width: 100%; color: var(--accent-cyan);" />
+        </div>
+        <div>
+          <label style="font-size: 11px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">Authenticated Account Email</label>
+          <input type="text" id="settingsUserEmail" class="command-input" readonly style="font-family: var(--font-mono); font-size: 11px; background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 6px 10px; width: 100%; color: var(--text-primary);" />
+        </div>
+        <div>
+          <label style="font-size: 11px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">Bearer JWT Access Token</label>
+          <textarea id="settingsTokenText" class="composer-textarea" readonly style="font-family: var(--font-mono); font-size: 10.5px; height: 70px; min-height: 70px; background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: 6px;"></textarea>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+          <button id="btnCopyAuthToken" class="action-btn-mini" style="background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); color: var(--text-primary); padding: 6px 12px; border-radius: 6px; cursor: pointer;">
+            📋 Copy Bearer Token
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       PROJECTS MANAGER MODAL
+       ==================================================================== -->
+  <div id="projectsModalBackdrop" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-label="Projects Manager">
+    <div class="command-modal" style="width: min(640px, 94vw); max-height: 85vh; display: flex; flex-direction: column;">
+      <div class="command-modal-header" style="padding: 14px 20px; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #6366f1;">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+          </svg>
+          <span style="font-weight: 700; font-size: 15px;">Creative Projects Manager</span>
+        </div>
+        <button id="btnCloseProjectsModal" class="collapse-icon-btn" style="border: none; font-size: 18px; cursor: pointer;">×</button>
+      </div>
+
+      <div style="padding: 18px 22px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 14px;">
+        <div style="font-size: 11.5px; color: var(--text-secondary);">
+          Projects isolate your multimodal assets, personas, sessions, and render histories into tenant-scoped creative units.
+        </div>
+
+        <div id="projectsListContainer" style="display: flex; flex-direction: column; gap: 8px; max-height: 220px; overflow-y: auto;">
+          <!-- Populated dynamically with projects -->
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid var(--border-subtle); margin: 4px 0;" />
+
+        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+          <div style="font-size: 12px; font-weight: 700; color: var(--text-primary);">Create New Project</div>
+          <input type="text" id="inputNewProjectName" class="command-input" placeholder="Project Name (e.g. Neo-Tokyo Odyssey, Neon Noir 2088...)" style="border: 1px solid var(--border-subtle); border-radius: 6px; padding: 6px 10px; width: 100%;" />
+          <input type="text" id="inputNewProjectDesc" class="command-input" placeholder="Brief project summary or creative brief..." style="border: 1px solid var(--border-subtle); border-radius: 6px; padding: 6px 10px; width: 100%;" />
+          <div style="display: flex; justify-content: flex-end;">
+            <button id="btnCreateProjectSubmit" class="composer-submit-btn" style="background: linear-gradient(135deg, #6366f1, #3b82f6); font-size: 12px; padding: 6px 16px; border-radius: 6px;">
+              + Create Project
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       SESSION HISTORY MODAL
+       ==================================================================== -->
+  <div id="sessionsModalBackdrop" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-label="Session History">
+    <div class="command-modal" style="width: min(640px, 94vw); max-height: 85vh; display: flex; flex-direction: column;">
+      <div class="command-modal-header" style="padding: 14px 20px; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #a855f7;">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+          <span style="font-weight: 700; font-size: 15px;">Multi-Turn Session History</span>
+        </div>
+        <button id="btnCloseSessionsModal" class="collapse-icon-btn" style="border: none; font-size: 18px; cursor: pointer;">×</button>
+      </div>
+
+      <div style="padding: 18px 22px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div style="font-size: 11.5px; color: var(--text-secondary);">
+            Sessions preserve conversational context, cognitive thoughts, and multimodal generation lineage.
+          </div>
+          <button id="btnStartNewSession" class="action-btn-mini" style="background: linear-gradient(135deg, #a855f7, #ec4899); color: #fff; border: none; padding: 5px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer;">
+            + New Session
+          </button>
+        </div>
+
+        <div id="sessionsListContainer" style="display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow-y: auto;">
+          <!-- Populated dynamically with sessions -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       CREDIT LEDGER & BILLING MODAL
+       ==================================================================== -->
+  <div id="creditsModalBackdrop" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-label="Credits & Ledger">
+    <div class="command-modal" style="width: min(680px, 94vw); max-height: 85vh; display: flex; flex-direction: column;">
+      <div class="command-modal-header" style="padding: 14px 20px; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 18px;">⚡</span>
+          <span style="font-weight: 700; font-size: 15px;">ZenCreator 2-Phase Credit Ledger</span>
+        </div>
+        <button id="btnCloseCreditsModal" class="collapse-icon-btn" style="border: none; font-size: 18px; cursor: pointer;">×</button>
+      </div>
+
+      <div style="padding: 18px 22px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 16px;">
+        <!-- Balances Grid -->
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+          <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 12px; text-align: center;">
+            <div style="font-size: 10px; color: var(--text-secondary); text-transform: uppercase;">Available Balance</div>
+            <div id="modalCreditAvail" style="font-size: 20px; font-weight: 800; color: #38bdf8; font-family: var(--font-mono); margin-top: 4px;">1,250</div>
+          </div>
+          <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 12px; text-align: center;">
+            <div style="font-size: 10px; color: var(--text-secondary); text-transform: uppercase;">In-Flight Hold (Phase 1)</div>
+            <div id="modalCreditHold" style="font-size: 20px; font-weight: 800; color: #f59e0b; font-family: var(--font-mono); margin-top: 4px;">3</div>
+          </div>
+          <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 12px; text-align: center;">
+            <div style="font-size: 10px; color: var(--text-secondary); text-transform: uppercase;">Total Ledger Pool</div>
+            <div id="modalCreditTotal" style="font-size: 20px; font-weight: 800; color: #34d399; font-family: var(--font-mono); margin-top: 4px;">1,253</div>
+          </div>
+        </div>
+
+        <!-- Instant Studio Top-Up -->
+        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 8px;">
+          <div style="font-size: 12px; font-weight: 700; color: var(--text-primary);">Instant Credit Top-Up (Studio Test Mode)</div>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <button class="seg-pill btn-topup-pkg" data-amt="50" style="padding: 6px 10px; font-size: 11px;">+50 Credits</button>
+            <button class="seg-pill active btn-topup-pkg" data-amt="250" style="padding: 6px 10px; font-size: 11px;">+250 Credits (Pro)</button>
+            <button class="seg-pill btn-topup-pkg" data-amt="1000" style="padding: 6px 10px; font-size: 11px;">+1,000 Credits (Enterprise)</button>
+            <button id="btnExecuteTopUp" class="composer-submit-btn" style="margin-left: auto; font-size: 11.5px; padding: 6px 14px; border-radius: 6px;">Top-Up Now</button>
+          </div>
+        </div>
+
+        <!-- Ledger Transactions Table -->
+        <div>
+          <div style="font-size: 12px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px;">Recent Ledger Events</div>
+          <div style="max-height: 180px; overflow-y: auto; border: 1px solid var(--border-subtle); border-radius: 6px;">
+            <table class="studio-table">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Action</th>
+                  <th>Amount</th>
+                  <th>Reason</th>
+                </tr>
+              </thead>
+              <tbody id="creditsLedgerTableBody">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       KAGGLE WORKER BRIDGE TELEMETRY MODAL
+       ==================================================================== -->
+  <div id="workerTelemetryModalBackdrop" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-label="Worker Telemetry">
+    <div class="command-modal" style="width: min(700px, 94vw); max-height: 85vh; display: flex; flex-direction: column;">
+      <div class="command-modal-header" style="padding: 14px 20px; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span class="status-online-dot"></span>
+          <span style="font-weight: 700; font-size: 15px;">Kaggle T4×2 Worker Bridge Telemetry</span>
+        </div>
+        <button id="btnCloseWorkerModal" class="collapse-icon-btn" style="border: none; font-size: 18px; cursor: pointer;">×</button>
+      </div>
+
+      <div style="padding: 18px 22px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 14px;">
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+          <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 12px; text-align: center;">
+            <div style="font-size: 10px; color: var(--text-secondary); text-transform: uppercase;">Worker State</div>
+            <div style="font-size: 14px; font-weight: 700; color: #34d399; margin-top: 4px;">ACTIVE (T4×2)</div>
+          </div>
+          <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 12px; text-align: center;">
+            <div style="font-size: 10px; color: var(--text-secondary); text-transform: uppercase;">VRAM Utilization</div>
+            <div style="font-size: 14px; font-weight: 700; color: #c7d2fe; font-family: var(--font-mono); margin-top: 4px;">27.2 / 30.0 GB</div>
+          </div>
+          <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 12px; text-align: center;">
+            <div style="font-size: 10px; color: var(--text-secondary); text-transform: uppercase;">Heartbeat Latency</div>
+            <div style="font-size: 14px; font-weight: 700; color: #38bdf8; font-family: var(--font-mono); margin-top: 4px;">12 ms</div>
+          </div>
+        </div>
+
+        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 14px; font-family: var(--font-mono); font-size: 11px; display: flex; flex-direction: column; gap: 6px;">
+          <div><strong style="color: var(--text-secondary);">Worker ID:</strong> kaggle-cluster-t4x2-node-01</div>
+          <div><strong style="color: var(--text-secondary);">Pinned Model:</strong> huihui-ai/Huihui-Qwen3.8-27B-abliterated</div>
+          <div><strong style="color: var(--text-secondary);">Backend Driver:</strong> ComfyUI Autonomous Execution Daemon</div>
+          <div><strong style="color: var(--text-secondary);">Active Tunnel:</strong> http://127.0.0.1:8000/internal/workers</div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 8px;">
+          <button id="btnRefreshWorkerTelemetry" class="action-btn-mini" style="background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); color: var(--text-primary); padding: 6px 12px; border-radius: 6px; cursor: pointer;">
+            🔄 Ping & Refresh Worker
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       AUTONOMOUS COGNITION AGENT & DIRECT LLM CHAT MODAL (Bible §39, ADR-002)
+       ==================================================================== -->
+  <div id="agentChatModalBackdrop" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-label="Direct LLM Agent Chat">
+    <div class="command-modal" style="width: min(880px, 96vw); height: min(780px, 92vh); display: flex; flex-direction: column;">
+      <!-- Header -->
+      <div class="command-modal-header" style="padding: 14px 20px; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 20px;">💬</span>
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-weight: 700; font-size: 15px; color: var(--text-primary);">Direct Cognition Agent & Task Console</span>
+              <span class="stage-chip" style="background: rgba(168, 85, 247, 0.2); color: #c084fc; font-size: 10.5px; font-weight: 700;">QWEN-27B ABLITERATED</span>
+            </div>
+            <div style="font-size: 11px; color: var(--text-secondary); margin-top: 2px;">
+              Model: <code style="color: #38bdf8;">huihui-ai/Huihui-Qwen3.8-27B-abliterated</code> • Worker: Kaggle T4×2 (Tensor Parallelism) • Unrestricted
+            </div>
+          </div>
+        </div>
+        <button id="btnCloseAgentChatModal" class="collapse-icon-btn" style="border: none; font-size: 18px; cursor: pointer;">×</button>
+      </div>
+
+      <!-- Quick Action Inspiration Bar -->
+      <div style="display: flex; gap: 6px; padding: 10px 16px; background: rgba(0,0,0,0.2); border-bottom: 1px solid var(--border-subtle); overflow-x: auto;">
+        <button class="action-btn-mini btn-agent-sample" data-task="Who are you, what model is loaded, and what capabilities do you have?" style="white-space: nowrap; font-size: 10.5px; background: rgba(255,255,255,0.04); border: 1px solid var(--border-subtle); color: var(--text-secondary); padding: 4px 8px; border-radius: 4px; cursor: pointer;">
+          ❓ Model Identity
+        </button>
+        <button class="action-btn-mini btn-agent-sample" data-task="Search the internet for current 2026 cyberpunk visual trends and give me color palettes" style="white-space: nowrap; font-size: 10.5px; background: rgba(6, 182, 212, 0.1); border: 1px solid rgba(6, 182, 212, 0.3); color: var(--accent-cyan); padding: 4px 8px; border-radius: 4px; cursor: pointer;">
+          🌐 Web: Cyberpunk Trends
+        </button>
+        <button class="action-btn-mini btn-agent-sample" data-task="Look up recent sci-fi movies on the internet and generate an image for a futuristic Tokyo alley" style="white-space: nowrap; font-size: 10.5px; background: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.3); color: #c084fc; padding: 4px 8px; border-radius: 4px; cursor: pointer;">
+          🎨 Task: Search Web & Generate Asset
+        </button>
+        <button class="action-btn-mini btn-agent-sample" data-task="Analyze cinematic lighting: How to achieve Kodak 2383 anamorphic lens flare?" style="white-space: nowrap; font-size: 10.5px; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); color: #f59e0b; padding: 4px 8px; border-radius: 4px; cursor: pointer;">
+          🎬 Director: Cinematic Lighting
+        </button>
+      </div>
+
+      <!-- Messages Stream -->
+      <div id="agentChatMessagesStream" style="flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 14px;">
+        <!-- Initial Welcome Message from Qwen 27B -->
+        <div class="agent-msg-bubble assistant" style="display: flex; gap: 12px; max-width: 90%; align-self: flex-start;">
+          <div style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #a855f7, #06b6d4); display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; box-shadow: 0 0 10px rgba(168,85,247,0.4);">
+            🧠
+          </div>
+          <div style="background: rgba(30, 41, 59, 0.6); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 12px 16px; color: var(--text-primary); font-size: 13px; line-height: 1.5;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <span style="font-weight: 700; color: #c084fc; font-size: 12px;">Qwen 27B Abliterated Cognition</span>
+              <span style="font-size: 10px; color: var(--text-muted); font-family: var(--font-mono);">Bible §39 Online</span>
+            </div>
+            <div>
+              Welcome to the direct cognitive agent console. I am <strong><code>huihui-ai/Huihui-Qwen3.8-27B-abliterated</code></strong>, running on Kaggle dual NVIDIA T4 GPUs.
+              <br><br>
+              You can converse directly with me about cinematic concepts, prompt strategy, technical architecture, or instruct me to <strong>search the live internet</strong>, <strong>scrape web pages</strong>, and <strong>autonomously generate or upscale studio assets</strong> for your project. What would you like to build?
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom Input Container -->
+      <div style="padding: 14px 20px; border-top: 1px solid var(--border-subtle); background: var(--bg-surface-elevated); display: flex; flex-direction: column; gap: 10px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px;">
+          <div style="display: flex; gap: 16px; align-items: center;">
+            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; color: var(--text-secondary);">
+              <input type="checkbox" id="chkAgentAllowInternet" checked />
+              <span>🌐 Allow Live Internet Search</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; color: var(--text-secondary);">
+              <input type="checkbox" id="chkAgentAllowGen" checked />
+              <span>🎨 Allow Autonomous Asset Generation</span>
+            </label>
+          </div>
+          <span style="color: var(--text-muted); font-family: var(--font-mono); font-size: 10px;">Press Enter to send (Shift+Enter for newline)</span>
+        </div>
+
+        <div style="display: flex; gap: 10px; align-items: flex-end;">
+          <textarea
+            id="agentChatInput"
+            class="composer-textarea"
+            style="min-height: 48px; max-height: 120px; flex: 1; padding: 10px 14px; font-size: 13px; border-radius: 8px; border: 1px solid var(--border-subtle);"
+            placeholder="Talk with Qwen 27B or instruct: 'Search the internet for... and generate...'"
+          ></textarea>
+          <button id="btnSendAgentChat" class="composer-submit-btn" style="background: linear-gradient(135deg, #a855f7, #06b6d4); padding: 12px 20px; border-radius: 8px; font-size: 12px; font-weight: 700; white-space: nowrap; height: 48px;">
+            <span>Send & Execute</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/workspace/app.js?v=zen-cursor-vscode-higgsfield"></script>
 </body>
 </html>

@@ -45,8 +45,9 @@ The `KAGGLE_SETUP` production workspace provides a sovereign, reproducible GPU e
 4. Run all cells in sequence:
    - Cell 1–2 performs the hardware probe, verifying 2x T4 GPUs and host RAM.
    - Cell 3 calculates the CPU weight offload (~26.7 GiB) and asserts host RAM safety headroom.
-   - Cell 4–5 launches vLLM with `tensor-parallel-size 2`, `cpu-offload-gb 27`, and `dtype bfloat16`.
-   - Cell 6 verifies structured JSON output conforming to `ProposedAction`.
+   - Cell 4 launches vLLM background daemon with `tensor-parallel-size 2`, `cpu-offload-gb 27`, and `dtype bfloat16`.
+   - Cell 5 launches the **Cloudflare Ingress Tunnel** (`cloudflared`) co-located inside this container, mapping port 8000 out to Cloudflare edge nodes, printing the live `trycloudflare.com` URL.
+   - Cell 6 verifies structured JSON output conforming to `ProposedAction` via a live request.
 5. Keep Notebook 01 active.
 
 ### Step 2: Launch Notebook 02 (Creative Tool Fabric)
@@ -61,17 +62,54 @@ The `KAGGLE_SETUP` production workspace provides a sovereign, reproducible GPU e
 ### Step 3: Launch Notebook 03 (Integrated Gateway & Cloud Bridge)
 1. Open a third Kaggle session (GPU or CPU) with **Internet On**.
 2. Upload and open `KAGGLE_SETUP/03_keystone_integrated_gateway.ipynb`.
-3. Set your live Cloud Run API URL:
+3. Set your live Cloud Run API URL and the cognition tunnel URL (from Notebook 01):
    ```python
    os.environ["KEYSTONE_API_URL"] = "https://your-keystone-api.a.run.app"
+   os.environ["COGNITION_TUNNEL_URL"] = "https://<your-cognition-subdomain>.trycloudflare.com"
    ```
 4. Run all cells:
-   - Establishes Cloudflare public reverse tunnels mapping to local ports 8000 and 8189.
+   - Establishes Cloudflare public reverse tunnels mapping to local ports (or forwards registered worker tunnels).
+   - Prints `COMFY_BASE_URL = https://<name>.trycloudflare.com`. Put that value in the repository `.env` (`COMFY_BASE_URL=...`) and restart the API — the workspace's Create button then runs real ComfyUI inference through `/v1/assets/generate`.
    - Dispatches worker registration handshake to `POST /internal/workers/register`.
    - Spawns background heartbeat daemon pinging Cloud Run every 30 seconds.
 5. In your KEYSTONE workspace, check system capabilities (`GET /v1/capabilities`) to confirm green status.
 
 ---
+
+## 3. Atomic Chat & External OpenAI-Compatible Client Configuration
+
+When connecting **Atomic Chat**, Open WebUI, Jan, LM Studio, or any OpenAI-compatible desktop client to the Kaggle GPU runtime:
+
+### 1. Which Endpoint to Point To: Cloudflare vs Kaggle
+* **Point to the Cloudflare Tunnel URL, NEVER the Kaggle URL.**
+* **Why Kaggle endpoints do not work**:
+  - Kaggle kernels run in sandboxed Linux containers behind NAT and Google Cloud firewalls.
+  - Kaggle does **not** assign public inbound IP addresses or open inbound ports (port 8000 is closed to incoming traffic from the internet).
+  - The browser URL (`https://www.kaggle.com/code/...`) is the Kaggle web frontend for notebook editing, not an API endpoint.
+  - `http://127.0.0.1:8000` is strictly container-local.
+* **Why Cloudflare works**:
+  - `cloudflared` initiates an **outbound** tunnel from inside the Kaggle container to Cloudflare's edge network, creating an ingress route (`https://<subdomain>.trycloudflare.com`) that securely routes external HTTPS traffic directly to port 8000.
+
+### 2. Mandatory Container Co-location Invariant
+* **Crucial Rule**: The Cloudflare tunnel for vLLM **MUST be started inside Notebook 01 (Session 1)**.
+* Because Kaggle sessions are completely independent, isolated Docker containers, starting `cloudflared tunnel --url http://127.0.0.1:8000` in a separate session (Session 3) points to an empty port in Session 3's container, resulting in **`HTTP 502 Bad Gateway: Unable to reach origin`**.
+* Notebook 01 now automatically includes the co-located Cloudflare tunnel launcher in Cell 5.
+
+### 3. Exact Atomic Chat Configuration Fields
+In Atomic Chat (**Settings > AI Providers > Custom Provider / OpenAI-Compatible**):
+
+| Setting Field | Value to Enter | Notes |
+| :--- | :--- | :--- |
+| **Provider** | `Custom` / `OpenAI-Compatible` | Enables OpenAI standard protocol |
+| **Base URL / Endpoint Host** | `https://<subdomain>.trycloudflare.com/v1` | Ephemeral URL printed in Notebook 01 Cell 5. If client appends `/v1` internally and returns 404, omit `/v1`. |
+| **Chat Completions URL** | `https://<subdomain>.trycloudflare.com/v1/chat/completions` | Only if client asks for the full path instead of Base URL |
+| **Model Name / ID** | `huihui-ai/Huihui-Qwen3.8-27B-abliterated` | Pinned checkpoint name (case-sensitive) |
+| **API Key** | `dummy` (or `sk-none`) | vLLM does not require auth by default, but Atomic Chat requires a non-empty field |
+
+To verify tunnel connectivity before chatting, query in PowerShell or browser:
+```bash
+curl https://<subdomain>.trycloudflare.com/v1/models
+```
 
 ## 3. Cognitive Memory Strategy & CPU Offload Math
 

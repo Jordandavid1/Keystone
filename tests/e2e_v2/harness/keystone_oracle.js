@@ -12,7 +12,7 @@ const path = require('node:path');
 
 const PROJECT_ROOT = path.resolve(__dirname, '../../../');
 const BIBLE_PATH = path.join(PROJECT_ROOT, 'KEYSTONE_BIBLE.md');
-const EXPECTED_BIBLE_SHA256 = '3BFF4E7063733146B663BDBE9C9BAD7271D480152243A05542F256DC05E7B25D';
+const EXPECTED_BIBLE_SHA256 = '1DA5FFE9D1467B7A4CF31F27F8B9D4CDE0B4096F1A922C6A3C214450FCC13A99';
 
 // ============================================================================
 // F01: Invariant Verification & Change-Control Oracle

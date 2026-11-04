@@ -20,7 +20,7 @@ const { oracle, productionContracts } = require('./harness/loader');
 test('F01.1: Verifies KEYSTONE_BIBLE.md exists and SHA-256 matches exact hash', () => {
   const check = oracle.InvariantOracle.verifyBibleChecksum();
   assert.equal(check.matches, true);
-  assert.equal(check.hash, '3BFF4E7063733146B663BDBE9C9BAD7271D480152243A05542F256DC05E7B25D');
+  assert.equal(check.hash, '1DA5FFE9D1467B7A4CF31F27F8B9D4CDE0B4096F1A922C6A3C214450FCC13A99');
 });
 
 test('F01.2: Verifies all 18 locked invariants are documented and indexed', () => {

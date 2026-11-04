@@ -1,0 +1,47 @@
+{
+  "parameters": {
+    "enable_zencreator_node_graph": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enables ZenCreator Pro visual node workflow canvas"
+    },
+    "enable_cursor_floating_composer": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enables Cursor-grade inline composer with @-mention context pills"
+    },
+    "enable_vscode_activity_bar": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enables VS Code style left Activity Bar and Bottom Status Bar"
+    },
+    "enable_higgsfield_motion_controls": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enables Higgsfield Cinema camera motion curves and keyframes"
+    },
+    "enable_firecrawl_style_scrape": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enables Firecrawl URL extraction for visual reference and prompt ingestion"
+    },
+    "default_cinema_framerate": {
+      "defaultValue": {
+        "value": "24"
+      },
+      "description": "Default SMPTE transport framerate"
+    },
+    "credit_hold_estimate": {
+      "defaultValue": {
+        "value": "3"
+      },
+      "description": "ZenCreator 2-phase credit reservation"
+    }
+  },
+  "conditions": []
+}

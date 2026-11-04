@@ -1,0 +1,50 @@
+# ---- Secrets & environment ----
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# ---- Local databases & runtime state ----
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+state/
+data/storage/
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ---- Node ----
+node_modules/
+npm-debug.log*
+
+# ---- Agent session artifacts (contain transcripts and pasted credentials) ----
+.agents/
+
+# ---- Scrape / tool caches ----
+.firecrawl/
+.freebuff/
+
+# ---- Local run scratch (pid/log files from this workspace) ----
+.run/
+
+# ---- Logs (keep the tracked placeholders) ----
+*.log
+KAGGLE_SETUP/logs/*
+!KAGGLE_SETUP/logs/.gitkeep
+!KAGGLE_SETUP/logs/README.md
+
+# ---- OS / editor noise ----
+.DS_Store
+Thumbs.db

@@ -537,3 +537,25 @@ class AssetRelationship(Base):
     __table_args__ = (
         UniqueConstraint("parent_asset_id", "child_asset_id", "relationship_type", name="uq_asset_relationships_par_child_type"),
     )
+
+
+# -----------------------------------------------------------------------------
+# 24. Persona
+# -----------------------------------------------------------------------------
+class Persona(Base):
+    __tablename__ = "personas"
+
+    id: Mapped[str] = mapped_column(UniversalUUID, primary_key=True, default=gen_uuid_str)
+    owner_id: Mapped[str] = mapped_column(UniversalUUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    project_id: Mapped[Optional[str]] = mapped_column(UniversalUUID, ForeignKey("projects.id", ondelete="SET NULL"), nullable=True, index=True)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    avatar_asset_id: Mapped[Optional[str]] = mapped_column(UniversalUUID, ForeignKey("assets.id", ondelete="SET NULL"), nullable=True)
+    voice_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True, default="21m00Tcm4TlvDq8ikWAM")
+    voice_name: Mapped[Optional[str]] = mapped_column(String(128), nullable=True, default="Rachel (American Calm)")
+    voice_settings: Mapped[Dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    personality_traits: Mapped[List[str]] = mapped_column(JSON, nullable=False, default=list)
+    system_prompt: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    metadata_: Mapped[Dict[str, Any]] = mapped_column("metadata", JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), onupdate=func.now())

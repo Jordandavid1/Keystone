@@ -12,9 +12,10 @@ import json
 import os
 import uuid
 from typing import Any, Dict, List, Optional
-from fastapi import APIRouter, Header, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
+from apps.api.src.auth.dependencies import get_current_tenant_id
 from services.authority.src.credits_ledger import credits_ledger
 
 router = APIRouter(prefix="/v1/billing", tags=["Billing & Credits"])
@@ -182,3 +183,45 @@ def get_account_balance(account_id: str) -> Dict[str, Any]:
 )
 def get_account_transactions(account_id: str) -> List[Dict[str, Any]]:
     return credits_ledger.get_entries(account_id)
+
+
+class TopUpRequest(BaseModel):
+    amount: int = Field(100, ge=10, le=10000, description="Credits to add")
+    reason: Optional[str] = Field("Manual Studio Top-up", description="Reason for top-up")
+
+
+@router.get(
+    "/balance",
+    summary="Get Current Tenant Credits Balance",
+    description="Returns available balance and hold for authenticated user."
+)
+def get_current_user_balance(tenant_id: str = Depends(get_current_tenant_id)) -> Dict[str, Any]:
+    available = credits_ledger.get_available_balance(tenant_id)
+    held = credits_ledger.get_held_balance(tenant_id)
+    entries = credits_ledger.get_entries(tenant_id)
+    return {
+        "account_id": tenant_id,
+        "available_credits": available,
+        "held_credits": held,
+        "total_balance": available + held,
+        "transaction_count": len(entries)
+    }
+
+
+@router.get(
+    "/transactions",
+    summary="List Current Tenant Ledger Transactions",
+    description="Returns transaction history for authenticated user."
+)
+def get_current_user_transactions(tenant_id: str = Depends(get_current_tenant_id)) -> List[Dict[str, Any]]:
+    return credits_ledger.get_entries(tenant_id)
+
+
+@router.post(
+    "/topup",
+    summary="Top-up Account Credits",
+    description="Instant top-up for creative studio testing."
+)
+def topup_current_user_credits(req: TopUpRequest, tenant_id: str = Depends(get_current_tenant_id)) -> Dict[str, Any]:
+    credits_ledger.topup(account_id=tenant_id, amount=req.amount, reason=req.reason or "Studio Top-up")
+    return get_current_user_balance(tenant_id)

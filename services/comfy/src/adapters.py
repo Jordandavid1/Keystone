@@ -303,6 +303,64 @@ class UpscaleAdapter(CreativeAdapterBase):
         }
 
 
+class MiniMaxH3Adapter(CreativeAdapterBase):
+    """
+    MiniMax H3 Omni-Modal Reference-to-Video (ref2va) generation adapter.
+    Jointly synthesizes video with native synced stereo audio.
+    Powered by Qwen3.8-VL 32B text encoder (qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors)
+    and minimax_h3_ref2va_pruned_int8_convrot.safetensors per PinkCherry_Ref2V.json.
+    """
+
+    def __init__(self):
+        super().__init__("minimax_h3", "video.minimax_h3_ref2va", "comfy.minimax_h3")
+
+    def get_manifest(self) -> CapabilityManifest:
+        return CapabilityManifest(
+            capability_id="video.minimax_h3_ref2va",
+            provider_id="comfy.minimax_h3",
+            provider_version="1.0.0",
+            capability_type="generation",
+            description="MiniMax H3 Omni-Modal Reference-to-Video generation with native stereo audio and Qwen 3.8 text encoder",
+            accepts=["image/png", "image/jpeg", "video/mp4", "audio/wav", "audio/mpeg", "text/plain"],
+            produces=["video/mp4"],
+            parameters={
+                "prompt": ParameterSpec(type="string", required=True, description="Prompt referencing <Picture 1>, <Video 1>, <Audio 1>"),
+                "ref_image_asset_id": ParameterSpec(type="string", required=False, description="Primary visual identity reference image"),
+                "ref_video_asset_id": ParameterSpec(type="string", required=False, description="Motion reference video asset ID"),
+                "ref_audio_asset_id": ParameterSpec(type="string", required=False, description="Audio / voice reference clip ID"),
+                "duration_seconds": ParameterSpec(type="integer", required=False, default=5, minimum=1, maximum=15),
+                "resolution": ParameterSpec(type="string", required=False, default="720p", enum=["720p", "1080p", "2K"]),
+                "ref_image_size": ParameterSpec(type="string", required=False, default="match", enum=["match", "max"])
+            }
+        )
+
+    def validate_parameters(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        if "prompt" not in params or not str(params["prompt"]).strip():
+            raise ValueError("MISSING_PROMPT: minimax_h3 requires prompt string")
+        return params
+
+    def build_workflow_graph(self, params: Dict[str, Any], prompt: str) -> Dict[str, Any]:
+        return {
+            "116": {"class_type": "MarkdownNote", "inputs": {"note": "PinkCherry MiniMax H3 Ref2VA Pipeline"}},
+            "unet": {"class_type": "UNETLoader", "inputs": {"unet_name": "minimax_h3_ref2va_pruned_int8_convrot.safetensors"}},
+            "clip": {"class_type": "CLIPLoader", "inputs": {"clip_name": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors"}},
+            "video_vae": {"class_type": "VAELoader", "inputs": {"vae_name": "minimax_h3_video_vae_fp16.safetensors"}},
+            "audio_vae": {"class_type": "VAELoader", "inputs": {"vae_name": "minimax_h3_audio_vae_fp32.safetensors"}},
+            "ref2v": {
+                "class_type": "MiniMaxH3ReferenceToVideo",
+                "inputs": {
+                    "prompt": prompt,
+                    "ref_image_size": params.get("ref_image_size", "match"),
+                    "duration": params.get("duration_seconds", 5),
+                    "ref_image": params.get("ref_image_asset_id"),
+                    "ref_video": params.get("ref_video_asset_id"),
+                    "ref_audio": params.get("ref_audio_asset_id")
+                }
+            },
+            "output": {"class_type": "VHS_VideoCombine", "inputs": {"format": "video/h264-mp4", "audio": True}}
+        }
+
+
 ADAPTER_REGISTRY: Dict[str, CreativeAdapterBase] = {
     "comfyui": ComfyUIAdapter(),
     "image_gen": ImageGenAdapter(),
@@ -310,7 +368,8 @@ ADAPTER_REGISTRY: Dict[str, CreativeAdapterBase] = {
     "wan_i2v": WanI2VAdapter(),
     "wan_t2v": WanT2VAdapter(),
     "facefusion": FaceFusionAdapter(),
-    "upscale": UpscaleAdapter()
+    "upscale": UpscaleAdapter(),
+    "minimax_h3": MiniMaxH3Adapter()
 }
 
 

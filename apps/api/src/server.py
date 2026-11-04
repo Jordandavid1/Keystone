@@ -12,7 +12,7 @@ import os
 import sys
 from pathlib import Path
 from typing import Any, Dict, List
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -35,6 +35,9 @@ from apps.api.src.routers.workers import router as workers_router
 from apps.api.src.routers.creative import router as creative_router
 from apps.api.src.routers.billing import router as billing_router
 from apps.api.src.routers.admin import router as admin_router
+from apps.api.src.routers.personas import router as personas_router
+from apps.api.src.routers.audio import router as audio_router
+from apps.api.src.routers.cognition import router as cognition_router
 from apps.api.src.db.session import init_db
 
 # 3. Import canonical Pydantic v2 contract models
@@ -129,6 +132,14 @@ app.openapi_tags = [
     {
         "name": "Workers",
         "description": "Kaggle Worker Bridge, dynamic tunnel registration, and heartbeat monitoring (F17)"
+    },
+    {
+        "name": "Personas",
+        "description": "Character identities, avatar reference anchoring, personality traits, and ElevenLabs voice assignment"
+    },
+    {
+        "name": "Audio",
+        "description": "ElevenLabs Text-to-Speech synthesis and voice catalogs with offline formant fallback"
     }
 ]
 
@@ -160,6 +171,13 @@ app.include_router(creative_router)
 # Mount Milestone M5 Billing & Admin Routers
 app.include_router(billing_router)
 app.include_router(admin_router)
+
+# Mount Milestone M6 Personas & ElevenLabs Audio Routers
+app.include_router(personas_router)
+app.include_router(audio_router)
+
+# Mount Autonomous Cognition Agent & Direct LLM Chat Router (/v1/cognition, Bible §39, ADR-002)
+app.include_router(cognition_router)
 
 
 # ============================================================================
@@ -265,6 +283,32 @@ def get_remote_config() -> Dict[str, Any]:
         },
         "conditions": []
     }
+
+
+@app.post(
+    "/v1/config/remote",
+    tags=["Configuration"],
+    summary="Update Firebase Remote Config Feature Flags",
+    description="Updates in-app defaults and feature toggles in remote_config.json."
+)
+async def update_remote_config(request: Request) -> Dict[str, Any]:
+    """Updates the active remote config template."""
+    import json
+    data = await request.json()
+    config_file = _REPO_ROOT / "remote_config.json"
+    existing = get_remote_config()
+    
+    params = data.get("parameters", data)
+    for k, v in params.items():
+        if k in existing.get("parameters", {}):
+            val_str = str(v.get("defaultValue", {}).get("value", v) if isinstance(v, dict) else v)
+            existing["parameters"][k] = {"defaultValue": {"value": val_str}}
+            
+    try:
+        config_file.write_text(json.dumps(existing, indent=2), encoding="utf-8")
+    except Exception:
+        pass
+    return existing
 
 
 # ============================================================================

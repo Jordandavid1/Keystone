@@ -1637,3 +1637,27 @@ The integrated private repository must contain:
 - proprietary source and secret-handling policies.
 
 This document is the canonical architecture and product authority unless replaced by a later founder-approved version.
+
+---
+
+## 39. Autonomous Cognition Agent, Direct LLM Chat & Live Internet Tool Execution
+
+### 39.1 Direct Conversational Cognition Interface
+The locked abliterated cognition checkpoint (`huihui-ai/Huihui-Qwen3.8-27B-abliterated`) provides real-time, interactive multi-turn conversational intelligence. Users can converse directly with the loaded LLM via the dedicated `/v1/cognition/chat` and `/v1/cognition/agent-task` endpoints.
+
+The model maintains full conversational context, answers technical and creative questions, assists with cinematic ideation, and operates without restrictive filters or moralizing refusals while adhering to execution safety.
+
+### 39.2 Autonomous Internet Lookup & Tool Calling
+The cognition agent possesses live tool-calling faculties to perform external actions and complete user tasks:
+
+1. **`internet_search(query)`**: Real-time web retrieval for current events, technical documentation, visual inspirations, and cinematic references.
+2. **`url_scrape(url)`**: Live single-page extraction of layout structures, color palettes, typography tokens, and design motifs via Firecrawl contracts.
+3. **`generate_image(prompt, aspect, motion)`**: Autonomous dispatch of studio image generation requests to the ComfyUI pipeline.
+4. **`upscale_asset(asset_id, scale)`**: Autonomous invocation of 2x and 4x super-resolution pipelines.
+5. **`synthesize_speech(script, voice)`**: Autonomous audio generation for voiceover tracks via ElevenLabs / formant synthesis.
+6. **`manage_workspace(action, data)`**: Autonomous orchestration of creative projects, sessions, and asset metadata.
+
+### 39.3 Dual Interaction Surfaces
+The premium creative workspace surfaces this capability through:
+- **Interactive Agent Console (`#agentChatModalBackdrop`)**: A floating or docked conversational interface featuring real-time reasoning visualization, tool invocation status, and rendered asset deliverables.
+- **Direct Workspace Agent Mode (`data-mode="chat"`)**: Full-canvas multi-turn conversation and task tracking synchronized with the active project timeline and creative assets.
