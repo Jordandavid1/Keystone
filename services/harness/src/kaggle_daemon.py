@@ -30,7 +30,6 @@ def _resolve_cognition_tunnel() -> str:
         os.getenv("OPENAI_BASE_URL", "").strip()
         or os.getenv("COGNITION_BASE_URL", "").strip()
         or os.getenv("KAGGLE_COGNITION_TUNNEL", "").strip()
-        or "https://showing-deutsche-snow-activists.trycloudflare.com/v1"
     )
 
 
@@ -40,7 +39,6 @@ def _resolve_comfy_tunnel() -> str:
         os.getenv("COMFY_BASE_URL", "").strip()
         or os.getenv("KEYSTONE_COMFY_URL", "").strip()
         or os.getenv("KAGGLE_COMFYUI_TUNNEL", "").strip()
-        or "https://nature-particle-previews-tion.trycloudflare.com"
     )
 
 
@@ -112,7 +110,7 @@ class KaggleWorkerDaemon:
         self._pulse_count = 0
 
     def register_workers_in_process(self) -> None:
-        """Direct in-memory registration via worker_bridge."""
+        """Direct in-memory registration via worker_bridge only for configured tunnels."""
         from services.harness.src.worker_bridge import worker_bridge
         for w in KAGGLE_WORKERS:
             tunnel_url = (
@@ -121,6 +119,8 @@ class KaggleWorkerDaemon:
                 else _resolve_comfy_tunnel()
             )
             w["tunnel_url"] = tunnel_url
+            if not tunnel_url:
+                continue
             worker_bridge.register_worker(
                 worker_id=w["worker_id"],
                 worker_type=w["worker_type"],
@@ -154,6 +154,14 @@ class KaggleWorkerDaemon:
         self._pulse_count += 1
 
         for w in KAGGLE_WORKERS:
+            tunnel_url = (
+                _resolve_cognition_tunnel()
+                if w["worker_type"] == "cognition"
+                else _resolve_comfy_tunnel()
+            )
+            w["tunnel_url"] = tunnel_url
+            if not tunnel_url:
+                continue
             wid = w["worker_id"]
             if wid == "kaggle-cognition-t4x2":
                 metrics = {

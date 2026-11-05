@@ -5,72 +5,6 @@
   "last_link_id": 393,
   "nodes": [
     {
-      "id": 116,
-      "type": "MarkdownNote",
-      "pos": [
-        -2030,
-        4850
-      ],
-      "size": [
-        450,
-        890
-      ],
-      "flags": {},
-      "order": 0,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [],
-      "title": "Note: MiniMax H3",
-      "properties": {
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "version": "7.8",
-          "input_ue_unconnectable": {}
-        }
-      },
-      "widgets_values": [
-        "## MiniMax H3\n\n[MiniMax H3](https://www.minimax.io/blog/minimax-h3) is MiniMax's general-purpose, omni-modal generation model. It jointly understands text, image, video, and audio, and generates video with **native stereo audio**: voice, sound effects, and music are modeled jointly in a single forward pass, not layered on afterward. Output is up to 2K resolution, 24fps, and up to about 15 seconds.\n\n## ComfyUI links\n- [ComfyUI#15224](https://github.com/Comfy-Org/ComfyUI/pull/15224)\n- [🤗 Comfy-Org/MiniMax-H3](https://huggingface.co/Comfy-Org/MiniMax-H3)\n\n## About this workflow\n\nThis template runs the **reference-to-video (ref2va)** task using the `MiniMaxH3ReferenceToVideo` node. It takes any mix of reference images, videos, and standalone audio, and weaves them into the generation to lock in a character's identity, a style, a motion, a camera move, or a voice.\n\n**Key inputs**\n\n- **ref_images / ref_videos / ref_video_audios / ref_audios**: up to 9 reference images, 3 reference videos (each may carry its own paired soundtrack), and 3 standalone reference audio clips\n- **prompt**: reference the inputs by tag, in the exact order they were connected, for example `<Picture 1>`, `<Video 1>`, `<Audio 1>`, then describe the target scene, motion, and audio\n- **ref_image_size**: `match` scales references down to the generation's resolution (faster); `max` keeps up to a 2048px short edge for stronger identity fidelity, at the cost of speed since reference tokens ride along every sampling step\n- **width / height**: set via Resolution Selector.\n- **duration (seconds)**: converted to a valid frame `length` by the Math Expression node\n\n**Sampling and decode**\n\n- Sampler: `res_multistep`. `beta` or `normal` scheduler tends to outperform `simple` for reference-heavy prompts like this one\n- The sampler's joint audio+video `LATENT` output feeds directly into both `VAEDecode` (video, `minimax_h3_video_vae_fp16`) and `VAEDecodeAudio` (audio, `minimax_h3_audio_vae_fp32`); each decode node automatically pulls its own half out of the packed latent. `CreateVideo` then muxes the two into a single MP4 with synced sound\n- The diffusion model here is `minimax_h3_ref2va_pruned_int8_convrot.safetensors`, a different set of weights from the `fl2va` model used by the t2v/i2v templates\n\nRef2va's output is very sensitive to prompt wording; matching the reference tags precisely and being explicit about which reference drives which part of the shot tends to work best."
-      ],
-      "widgets_values_named": {
-        "text": "## MiniMax H3\n\n[MiniMax H3](https://www.minimax.io/blog/minimax-h3) is MiniMax's general-purpose, omni-modal generation model. It jointly understands text, image, video, and audio, and generates video with **native stereo audio**: voice, sound effects, and music are modeled jointly in a single forward pass, not layered on afterward. Output is up to 2K resolution, 24fps, and up to about 15 seconds.\n\n## ComfyUI links\n- [ComfyUI#15224](https://github.com/Comfy-Org/ComfyUI/pull/15224)\n- [🤗 Comfy-Org/MiniMax-H3](https://huggingface.co/Comfy-Org/MiniMax-H3)\n\n## About this workflow\n\nThis template runs the **reference-to-video (ref2va)** task using the `MiniMaxH3ReferenceToVideo` node. It takes any mix of reference images, videos, and standalone audio, and weaves them into the generation to lock in a character's identity, a style, a motion, a camera move, or a voice.\n\n**Key inputs**\n\n- **ref_images / ref_videos / ref_video_audios / ref_audios**: up to 9 reference images, 3 reference videos (each may carry its own paired soundtrack), and 3 standalone reference audio clips\n- **prompt**: reference the inputs by tag, in the exact order they were connected, for example `<Picture 1>`, `<Video 1>`, `<Audio 1>`, then describe the target scene, motion, and audio\n- **ref_image_size**: `match` scales references down to the generation's resolution (faster); `max` keeps up to a 2048px short edge for stronger identity fidelity, at the cost of speed since reference tokens ride along every sampling step\n- **width / height**: set via Resolution Selector.\n- **duration (seconds)**: converted to a valid frame `length` by the Math Expression node\n\n**Sampling and decode**\n\n- Sampler: `res_multistep`. `beta` or `normal` scheduler tends to outperform `simple` for reference-heavy prompts like this one\n- The sampler's joint audio+video `LATENT` output feeds directly into both `VAEDecode` (video, `minimax_h3_video_vae_fp16`) and `VAEDecodeAudio` (audio, `minimax_h3_audio_vae_fp32`); each decode node automatically pulls its own half out of the packed latent. `CreateVideo` then muxes the two into a single MP4 with synced sound\n- The diffusion model here is `minimax_h3_ref2va_pruned_int8_convrot.safetensors`, a different set of weights from the `fl2va` model used by the t2v/i2v templates\n\nRef2va's output is very sensitive to prompt wording; matching the reference tags precisely and being explicit about which reference drives which part of the shot tends to work best."
-      },
-      "color": "#222",
-      "bgcolor": "#000"
-    },
-    {
-      "id": 117,
-      "type": "MarkdownNote",
-      "pos": [
-        -2500,
-        4850
-      ],
-      "size": [
-        440,
-        740
-      ],
-      "flags": {},
-      "order": 1,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [],
-      "title": "Note: Model Links",
-      "properties": {
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "version": "7.8",
-          "input_ue_unconnectable": {}
-        }
-      },
-      "widgets_values": [
-        "## Model Links\n[🤗 Comfy-Org/MiniMax-H3](https://huggingface.co/Comfy-Org/MiniMax-H3)\n\n**vae**\n\n- [minimax_h3_video_vae_fp16.safetensors](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_video_vae_fp16.safetensors)\n- [minimax_h3_audio_vae_fp32.safetensors](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_audio_vae_fp32.safetensors)\n\n**diffusion_models**\n\n- [minimax_h3_ref2va_pruned_int8_convrot.safetensors](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors)\n\n**text_encoders**\n\n- [qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors)\n\n**loras**\n\n- 4 steps: [minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/loras/minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors)\n\n**embeddings**\n\n- [10 style embeddings](https://huggingface.co/Comfy-Org/MiniMax-H3/tree/main/embeddings) (`minimaxh3_*.safetensors`), for example `minimaxh3_art_is_explosion`\n\n## Model Storage Location\n\n```\n📂 ComfyUI/\n├── 📂 models/\n│   ├── 📂 vae/\n│   │   ├── minimax_h3_video_vae_fp16.safetensors\n│   │   └── minimax_h3_audio_vae_fp32.safetensors\n│   ├── 📂 diffusion_models/\n│   │   └── minimax_h3_ref2va_pruned_int8_convrot.safetensors\n│   ├── 📂 text_encoders/\n│   │   └── qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors\n│   ├── 📂 loras/\n│   │   └── minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors\n│   └── 📂 embeddings/\n│       └── minimaxh3_art_is_explosion.safetensors\n```\n\n## Using Prompt Embeddings\n\nPrompt embeddings (supported since [ComfyUI#15697](https://github.com/Comfy-Org/ComfyUI/pull/15697)) add reusable style tokens to your prompt. Download one or more embeddings from the folder above into `ComfyUI/models/embeddings/`, then reference one in the prompt text with the `embedding:` prefix and the filename without its extension, for example:\n\n`embedding:minimaxh3_art_is_explosion`\n\nUsing an embedding is optional and the template runs fine without one.\n\n## Report Issue\n\nNote: Please update ComfyUI first ([guide](https://docs.comfy.org/installation/update_comfyui)) and prepare required models. Desktop/Cloud updates follow stable releases, so some nightly-supported models may not be available yet.\n\n- Cannot run / runtime errors: [ComfyUI/issues](https://github.com/comfyanonymous/ComfyUI/issues)\n- UI / frontend issues: [ComfyUI_frontend/issues](https://github.com/Comfy-Org/ComfyUI_frontend/issues)\n- Workflow issues: [workflow_templates/issues](https://github.com/Comfy-Org/workflow_templates/issues)\n"
-      ],
-      "widgets_values_named": {
-        "text": "## Model Links\n[🤗 Comfy-Org/MiniMax-H3](https://huggingface.co/Comfy-Org/MiniMax-H3)\n\n**vae**\n\n- [minimax_h3_video_vae_fp16.safetensors](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_video_vae_fp16.safetensors)\n- [minimax_h3_audio_vae_fp32.safetensors](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_audio_vae_fp32.safetensors)\n\n**diffusion_models**\n\n- [minimax_h3_ref2va_pruned_int8_convrot.safetensors](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors)\n\n**text_encoders**\n\n- [qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors)\n\n**loras**\n\n- 4 steps: [minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/loras/minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors)\n\n**embeddings**\n\n- [10 style embeddings](https://huggingface.co/Comfy-Org/MiniMax-H3/tree/main/embeddings) (`minimaxh3_*.safetensors`), for example `minimaxh3_art_is_explosion`\n\n## Model Storage Location\n\n```\n📂 ComfyUI/\n├── 📂 models/\n│   ├── 📂 vae/\n│   │   ├── minimax_h3_video_vae_fp16.safetensors\n│   │   └── minimax_h3_audio_vae_fp32.safetensors\n│   ├── 📂 diffusion_models/\n│   │   └── minimax_h3_ref2va_pruned_int8_convrot.safetensors\n│   ├── 📂 text_encoders/\n│   │   └── qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors\n│   ├── 📂 loras/\n│   │   └── minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors\n│   └── 📂 embeddings/\n│       └── minimaxh3_art_is_explosion.safetensors\n```\n\n## Using Prompt Embeddings\n\nPrompt embeddings (supported since [ComfyUI#15697](https://github.com/Comfy-Org/ComfyUI/pull/15697)) add reusable style tokens to your prompt. Download one or more embeddings from the folder above into `ComfyUI/models/embeddings/`, then reference one in the prompt text with the `embedding:` prefix and the filename without its extension, for example:\n\n`embedding:minimaxh3_art_is_explosion`\n\nUsing an embedding is optional and the template runs fine without one.\n\n## Report Issue\n\nNote: Please update ComfyUI first ([guide](https://docs.comfy.org/installation/update_comfyui)) and prepare required models. Desktop/Cloud updates follow stable releases, so some nightly-supported models may not be available yet.\n\n- Cannot run / runtime errors: [ComfyUI/issues](https://github.com/comfyanonymous/ComfyUI/issues)\n- UI / frontend issues: [ComfyUI_frontend/issues](https://github.com/Comfy-Org/ComfyUI_frontend/issues)\n- Workflow issues: [workflow_templates/issues](https://github.com/Comfy-Org/workflow_templates/issues)\n"
-      },
-      "color": "#222",
-      "bgcolor": "#000"
-    },
-    {
       "id": 119,
       "type": "VAELoader",
       "pos": [
@@ -485,39 +419,6 @@
       "widgets_values_named": {
         "expression": "max(5, round(a * 24)) + (5 - (max(5, round(a * 24)) % 17)) % 17"
       }
-    },
-    {
-      "id": 140,
-      "type": "MarkdownNote",
-      "pos": [
-        -1880,
-        6070
-      ],
-      "size": [
-        300,
-        520
-      ],
-      "flags": {},
-      "order": 5,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [],
-      "title": "Note: Size Settings Reference",
-      "properties": {
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "version": "7.8",
-          "input_ue_unconnectable": {}
-        }
-      },
-      "widgets_values": [
-        "| megapixels | Aspect | Output (multiple=32) |\n|---|---|---|\n| 0.2 | 16:9 | 608 x 352 |\n| 0.3 | 16:9 | 736 x 416 |\n| 0.4 | 16:9 | 864 x 480 |\n| 0.5 | 16:9 | 960 x 544 |\n| 0.6 | 16:9 | 1056 x 608 |\n| 0.7 | 16:9 | 1152 x 640 |\n| 0.8 | 16:9 | 1216 x 672 |\n| 0.9 | 16:9 | 1280 x 736 |\n| 0.98 | 16:9 | 1344 x 768 (official 768p) |"
-      ],
-      "widgets_values_named": {
-        "text": "| megapixels | Aspect | Output (multiple=32) |\n|---|---|---|\n| 0.2 | 16:9 | 608 x 352 |\n| 0.3 | 16:9 | 736 x 416 |\n| 0.4 | 16:9 | 864 x 480 |\n| 0.5 | 16:9 | 960 x 544 |\n| 0.6 | 16:9 | 1056 x 608 |\n| 0.7 | 16:9 | 1152 x 640 |\n| 0.8 | 16:9 | 1216 x 672 |\n| 0.9 | 16:9 | 1280 x 736 |\n| 0.98 | 16:9 | 1344 x 768 (official 768p) |"
-      },
-      "color": "#222",
-      "bgcolor": "#000"
     },
     {
       "id": 142,
@@ -1331,11 +1232,11 @@
         }
       },
       "widgets_values": [
-        "PinkCherry_hybrid_v1.8_int8_minimax_h3_pruned.safetensors",
+        "PinkCherry_hybrid_v1.8_minimax_h3_pruned_bf16.safetensors",
         "default"
       ],
       "widgets_values_named": {
-        "unet_name": "PinkCherry_hybrid_v1.8_int8_minimax_h3_pruned.safetensors",
+        "unet_name": "PinkCherry_hybrid_v1.8_minimax_h3_pruned_bf16.safetensors",
         "weight_dtype": "default"
       }
     },
@@ -1431,10 +1332,10 @@
         }
       },
       "widgets_values": [
-        "Your Path\nStep 1: Clarify objective & define completion\nObjective: Define the exact end state and measurable boundaries of success.\nDone when: A written definition of done with acceptance criteria.\nCopy## ROLE\nSenior Expert in Anything else\n\n## TASK\nClarify objective & define completion: Define the exact end state and measurable boundaries of success.\n\n## CONTEXT\nOverall Goal: using the current model loaded, \nmake a video with the couple having a serious amount of hardcore sex in various positions with full quality and longest possible time limits.\nExecution Sequence: Step 1 of 6 in the \"Anything else\" path.\n\n## CONSTRAINTS\n- Be specific, concrete, and directly actionable.\n- Eliminate generic boilerplate, superficial listicles, and filler phrasing.\n- Explicitly state any operational assumptions made.\n- If critical context is missing to produce the exact deliverable, halt and ask clarifying questions.\n\n## OUTPUT FORMAT\nDeliverable format: A written definition of done with acceptance criteria.\n\n## REASONING\nThink step by step through structural trade-offs, potential failure modes, and edge cases before outputting the deliverable.\nStep 2: Gather requirements & resource inventory\nObjective: List all necessary tools, materials, access, and prerequisites.\nDone when: A complete checklist of prerequisites verified before starting.\nCopy## ROLE\nSenior Expert in Anything else\n\n## TASK\nGather requirements & resource inventory: List all necessary tools, materials, access, and prerequisites.\n\n## CONTEXT\nOverall Goal: using the current model loaded, \nmake a video with the couple having a serious amount of hardcore sex in various positions with full quality and longest possible time limits.\nExecution Sequence: Step 2 of 6 in the \"Anything else\" path.\n<previous_step_output>\n[Insert deliverable output from Step 1 here]\n</previous_step_output>\n\n## CONSTRAINTS\n- Be specific, concrete, and directly actionable.\n- Eliminate generic boilerplate, superficial listicles, and filler phrasing.\n- Explicitly state any operational assumptions made.\n- If critical context is missing to produce the exact deliverable, halt and ask clarifying questions.\n\n## OUTPUT FORMAT\nDeliverable format: A complete checklist of prerequisites verified before starting.\n\n## REASONING\nThink step by step through structural trade-offs, potential failure modes, and edge cases before outputting the deliverable.\nStep 3: Draft execution timeline & milestones\nObjective: Break the total work into discrete, sequential working sessions.\nDone when: A numbered milestone schedule with assigned time blocks.\nCopy## ROLE\nSenior Expert in Anything else\n\n## TASK\nDraft execution timeline & milestones: Break the total work into discrete, sequential working sessions.\n\n## CONTEXT\nOverall Goal: using the current model loaded, \nmake a video with the couple having a serious amount of hardcore sex in various positions with full quality and longest possible time limits.\nExecution Sequence: Step 3 of 6 in the \"Anything else\" path.\n<previous_step_output>\n[Insert deliverable output from Step 2 here]\n</previous_step_output>\n\n## CONSTRAINTS\n- Be specific, concrete, and directly actionable.\n- Eliminate generic boilerplate, superficial listicles, and filler phrasing.\n- Explicitly state any operational assumptions made.\n- If critical context is missing to produce the exact deliverable, halt and ask clarifying questions.\n\n## OUTPUT FORMAT\nDeliverable format: A numbered milestone schedule with assigned time blocks.\n\n## REASONING\nThink step by step through structural trade-offs, potential failure modes, and edge cases before outputting the deliverable.\nStep 4: Execute primary foundational phase\nObjective: Tackle the most uncertain or highest-friction task first.\nDone when: The core dependency is resolved and proven functional.\nCopy## ROLE\nSenior Expert in Anything else\n\n## TASK\nExecute primary foundational phase: Tackle the most uncertain or highest-friction task first.\n\n## CONTEXT\nOverall Goal: using the current model loaded, \nmake a video with the couple having a serious amount of hardcore sex in various positions with full quality and longest possible time limits.\nExecution Sequence: Step 4 of 6 in the \"Anything else\" path.\n<previous_step_output>\n[Insert deliverable output from Step 3 here]\n</previous_step_output>\n\n## CONSTRAINTS\n- Be specific, concrete, and directly actionable.\n- Eliminate generic boilerplate, superficial listicles, and filler phrasing.\n- Explicitly state any operational assumptions made.\n- If critical context is missing to produce the exact deliverable, halt and ask clarifying questions.\n\n## OUTPUT FORMAT\nDeliverable format: The core dependency is resolved and proven functional.\n\n## REASONING\nThink step by step through structural trade-offs, potential failure modes, and edge cases before outputting the deliverable.\nStep 5: Complete secondary implementation phase\nObjective: Flesh out remaining tasks and integrate supporting elements.\nDone when: All components assembled into a unified working state.\nCopy## ROLE\nSenior Expert in Anything else\n\n## TASK\nComplete secondary implementation phase: Flesh out remaining tasks and integrate supporting elements.\n\n## CONTEXT\nOverall Goal: using the current model loaded, \nmake a video with the couple having a serious amount of hardcore sex in various positions with full quality and longest possible time limits.\nExecution Sequence: Step 5 of 6 in the \"Anything else\" path.\n<previous_step_output>\n[Insert deliverable output from Step 4 here]\n</previous_step_output>\n\n## CONSTRAINTS\n- Be specific, concrete, and directly actionable.\n- Eliminate generic boilerplate, superficial listicles, and filler phrasing.\n- Explicitly state any operational assumptions made.\n- If critical context is missing to produce the exact deliverable, halt and ask clarifying questions.\n\n## OUTPUT FORMAT\nDeliverable format: All components assembled into a unified working state.\n\n## REASONING\nThink step by step through structural trade-offs, potential failure modes, and edge cases before outputting the deliverable.\nStep 6: Review, polish & deliver final outcome\nObjective: Audit against the original definition of done and package deliverable.\nDone when: The finalized result ready for immediate use.\nCopy## ROLE\nSenior Expert in Anything else\n\n## TASK\nReview, polish & deliver final outcome: Audit against the original definition of done and package deliverable.\n\n## CONTEXT\nOverall Goal: using the current model loaded, \nmake a video with the couple having a serious amount of hardcore sex in various positions with full quality and longest possible time limits.\nExecution Sequence: Step 6 of 6 in the \"Anything else\" path.\n<previous_step_output>\n[Insert deliverable output from Step 5 here]\n</previous_step_output>\n\n## CONSTRAINTS\n- Be specific, concrete, and directly actionable.\n- Eliminate generic boilerplate, superficial listicles, and filler phrasing.\n- Explicitly state any operational assumptions made.\n- If critical context is missing to produce the exact deliverable, halt and ask clarifying questions.\n\n## OUTPUT FORMAT\nDeliverable format: The finalized result ready for immediate use.\n\n## REASONING\nThink step by step through structural trade-offs, potential failure modes, and edge cases before outputting the deliverable."
+        ""
       ],
       "widgets_values_named": {
-        "value": "Your Path\nStep 1: Clarify objective & define completion\nObjective: Define the exact end state and measurable boundaries of success.\nDone when: A written definition of done with acceptance criteria.\nCopy## ROLE\nSenior Expert in Anything else\n\n## TASK\nClarify objective & define completion: Define the exact end state and measurable boundaries of success.\n\n## CONTEXT\nOverall Goal: using the current model loaded, \nmake a video with the couple having a serious amount of hardcore sex in various positions with full quality and longest possible time limits.\nExecution Sequence: Step 1 of 6 in the \"Anything else\" path.\n\n## CONSTRAINTS\n- Be specific, concrete, and directly actionable.\n- Eliminate generic boilerplate, superficial listicles, and filler phrasing.\n- Explicitly state any operational assumptions made.\n- If critical context is missing to produce the exact deliverable, halt and ask clarifying questions.\n\n## OUTPUT FORMAT\nDeliverable format: A written definition of done with acceptance criteria.\n\n## REASONING\nThink step by step through structural trade-offs, potential failure modes, and edge cases before outputting the deliverable.\nStep 2: Gather requirements & resource inventory\nObjective: List all necessary tools, materials, access, and prerequisites.\nDone when: A complete checklist of prerequisites verified before starting.\nCopy## ROLE\nSenior Expert in Anything else\n\n## TASK\nGather requirements & resource inventory: List all necessary tools, materials, access, and prerequisites.\n\n## CONTEXT\nOverall Goal: using the current model loaded, \nmake a video with the couple having a serious amount of hardcore sex in various positions with full quality and longest possible time limits.\nExecution Sequence: Step 2 of 6 in the \"Anything else\" path.\n<previous_step_output>\n[Insert deliverable output from Step 1 here]\n</previous_step_output>\n\n## CONSTRAINTS\n- Be specific, concrete, and directly actionable.\n- Eliminate generic boilerplate, superficial listicles, and filler phrasing.\n- Explicitly state any operational assumptions made.\n- If critical context is missing to produce the exact deliverable, halt and ask clarifying questions.\n\n## OUTPUT FORMAT\nDeliverable format: A complete checklist of prerequisites verified before starting.\n\n## REASONING\nThink step by step through structural trade-offs, potential failure modes, and edge cases before outputting the deliverable.\nStep 3: Draft execution timeline & milestones\nObjective: Break the total work into discrete, sequential working sessions.\nDone when: A numbered milestone schedule with assigned time blocks.\nCopy## ROLE\nSenior Expert in Anything else\n\n## TASK\nDraft execution timeline & milestones: Break the total work into discrete, sequential working sessions.\n\n## CONTEXT\nOverall Goal: using the current model loaded, \nmake a video with the couple having a serious amount of hardcore sex in various positions with full quality and longest possible time limits.\nExecution Sequence: Step 3 of 6 in the \"Anything else\" path.\n<previous_step_output>\n[Insert deliverable output from Step 2 here]\n</previous_step_output>\n\n## CONSTRAINTS\n- Be specific, concrete, and directly actionable.\n- Eliminate generic boilerplate, superficial listicles, and filler phrasing.\n- Explicitly state any operational assumptions made.\n- If critical context is missing to produce the exact deliverable, halt and ask clarifying questions.\n\n## OUTPUT FORMAT\nDeliverable format: A numbered milestone schedule with assigned time blocks.\n\n## REASONING\nThink step by step through structural trade-offs, potential failure modes, and edge cases before outputting the deliverable.\nStep 4: Execute primary foundational phase\nObjective: Tackle the most uncertain or highest-friction task first.\nDone when: The core dependency is resolved and proven functional.\nCopy## ROLE\nSenior Expert in Anything else\n\n## TASK\nExecute primary foundational phase: Tackle the most uncertain or highest-friction task first.\n\n## CONTEXT\nOverall Goal: using the current model loaded, \nmake a video with the couple having a serious amount of hardcore sex in various positions with full quality and longest possible time limits.\nExecution Sequence: Step 4 of 6 in the \"Anything else\" path.\n<previous_step_output>\n[Insert deliverable output from Step 3 here]\n</previous_step_output>\n\n## CONSTRAINTS\n- Be specific, concrete, and directly actionable.\n- Eliminate generic boilerplate, superficial listicles, and filler phrasing.\n- Explicitly state any operational assumptions made.\n- If critical context is missing to produce the exact deliverable, halt and ask clarifying questions.\n\n## OUTPUT FORMAT\nDeliverable format: The core dependency is resolved and proven functional.\n\n## REASONING\nThink step by step through structural trade-offs, potential failure modes, and edge cases before outputting the deliverable.\nStep 5: Complete secondary implementation phase\nObjective: Flesh out remaining tasks and integrate supporting elements.\nDone when: All components assembled into a unified working state.\nCopy## ROLE\nSenior Expert in Anything else\n\n## TASK\nComplete secondary implementation phase: Flesh out remaining tasks and integrate supporting elements.\n\n## CONTEXT\nOverall Goal: using the current model loaded, \nmake a video with the couple having a serious amount of hardcore sex in various positions with full quality and longest possible time limits.\nExecution Sequence: Step 5 of 6 in the \"Anything else\" path.\n<previous_step_output>\n[Insert deliverable output from Step 4 here]\n</previous_step_output>\n\n## CONSTRAINTS\n- Be specific, concrete, and directly actionable.\n- Eliminate generic boilerplate, superficial listicles, and filler phrasing.\n- Explicitly state any operational assumptions made.\n- If critical context is missing to produce the exact deliverable, halt and ask clarifying questions.\n\n## OUTPUT FORMAT\nDeliverable format: All components assembled into a unified working state.\n\n## REASONING\nThink step by step through structural trade-offs, potential failure modes, and edge cases before outputting the deliverable.\nStep 6: Review, polish & deliver final outcome\nObjective: Audit against the original definition of done and package deliverable.\nDone when: The finalized result ready for immediate use.\nCopy## ROLE\nSenior Expert in Anything else\n\n## TASK\nReview, polish & deliver final outcome: Audit against the original definition of done and package deliverable.\n\n## CONTEXT\nOverall Goal: using the current model loaded, \nmake a video with the couple having a serious amount of hardcore sex in various positions with full quality and longest possible time limits.\nExecution Sequence: Step 6 of 6 in the \"Anything else\" path.\n<previous_step_output>\n[Insert deliverable output from Step 5 here]\n</previous_step_output>\n\n## CONSTRAINTS\n- Be specific, concrete, and directly actionable.\n- Eliminate generic boilerplate, superficial listicles, and filler phrasing.\n- Explicitly state any operational assumptions made.\n- If critical context is missing to produce the exact deliverable, halt and ask clarifying questions.\n\n## OUTPUT FORMAT\nDeliverable format: The finalized result ready for immediate use.\n\n## REASONING\nThink step by step through structural trade-offs, potential failure modes, and edge cases before outputting the deliverable."
+        "value": ""
       },
       "color": "#322",
       "bgcolor": "#533"
@@ -1498,52 +1399,26 @@
       "widgets_values": {
         "frame_rate": 24,
         "loop_count": 0,
-        "filename_prefix": "REf2va\\TEST_",
+        "filename_prefix": "keystone/h3_",
         "format": "video/h264-mp4",
         "pix_fmt": "yuv420p",
         "crf": 9,
         "save_metadata": false,
         "trim_to_audio": false,
         "pingpong": false,
-        "save_output": true,
-        "videopreview": {
-          "hidden": false,
-          "paused": false,
-          "params": {
-            "filename": "TEST__00215-audio.mp4",
-            "subfolder": "REf2va",
-            "type": "output",
-            "format": "video/h264-mp4",
-            "frame_rate": 24,
-            "workflow": "TEST__00215.png",
-            "fullpath": "G:\\ComfyUI_windows_portable\\ComfyUI\\output\\REf2va\\TEST__00215-audio.mp4"
-          }
-        }
+        "save_output": true
       },
       "widgets_values_named": {
         "frame_rate": 24,
         "loop_count": 0,
-        "filename_prefix": "REf2va\\TEST_",
+        "filename_prefix": "keystone/h3_",
         "format": "video/h264-mp4",
         "pix_fmt": "yuv420p",
         "crf": 9,
         "save_metadata": false,
         "trim_to_audio": false,
         "pingpong": false,
-        "save_output": true,
-        "videopreview": {
-          "hidden": false,
-          "paused": false,
-          "params": {
-            "filename": "TEST__00215-audio.mp4",
-            "subfolder": "REf2va",
-            "type": "output",
-            "format": "video/h264-mp4",
-            "frame_rate": 24,
-            "workflow": "TEST__00215.png",
-            "fullpath": "G:\\ComfyUI_windows_portable\\ComfyUI\\output\\REf2va\\TEST__00215-audio.mp4"
-          }
-        }
+        "save_output": true
       }
     },
     {
@@ -1586,11 +1461,11 @@
         }
       },
       "widgets_values": [
-        "received_10208142453974418.jpg",
+        "",
         "image"
       ],
       "widgets_values_named": {
-        "image": "received_10208142453974418.jpg",
+        "image": "",
         "upload": "image"
       }
     },
@@ -1682,11 +1557,11 @@
         }
       },
       "widgets_values": [
-        "received_10208221536351428.jpg",
+        "",
         "image"
       ],
       "widgets_values_named": {
-        "image": "received_10208221536351428.jpg",
+        "image": "",
         "upload": "image"
       }
     },
@@ -1724,11 +1599,11 @@
         }
       },
       "widgets_values": [
-        "3e785606-83ea-4a5f-8dde-437d60f41b71.mp4",
+        "",
         ""
       ],
       "widgets_values_named": {
-        "audio": "3e785606-83ea-4a5f-8dde-437d60f41b71.mp4",
+        "audio": "",
         "upload": ""
       }
     },
@@ -1766,11 +1641,11 @@
         }
       },
       "widgets_values": [
-        "3e785606-83ea-4a5f-8dde-437d60f41b71.mp4",
+        "",
         ""
       ],
       "widgets_values_named": {
-        "audio": "3e785606-83ea-4a5f-8dde-437d60f41b71.mp4",
+        "audio": "",
         "upload": ""
       }
     },
@@ -1830,7 +1705,7 @@
         "Node name for S&R": "VHS_LoadVideo"
       },
       "widgets_values": {
-        "video": "FB_VID_3621513403090711778.mp4",
+        "video": "",
         "force_rate": 0,
         "custom_width": 0,
         "custom_height": 0,
@@ -1838,25 +1713,10 @@
         "skip_first_frames": 0,
         "select_every_nth": 1,
         "format": "H3",
-        "choose video to upload": "image",
-        "videopreview": {
-          "hidden": false,
-          "paused": false,
-          "params": {
-            "force_rate": 0,
-            "custom_width": 0,
-            "custom_height": 0,
-            "frame_load_cap": 0,
-            "skip_first_frames": 0,
-            "select_every_nth": 1,
-            "filename": "FB_VID_3621513403090711778.mp4",
-            "type": "input",
-            "format": "video/mp4"
-          }
-        }
+        "choose video to upload": "image"
       },
       "widgets_values_named": {
-        "video": "FB_VID_3621513403090711778.mp4",
+        "video": "",
         "force_rate": 0,
         "custom_width": 0,
         "custom_height": 0,
@@ -1864,22 +1724,7 @@
         "skip_first_frames": 0,
         "select_every_nth": 1,
         "format": "H3",
-        "choose video to upload": "image",
-        "videopreview": {
-          "hidden": false,
-          "paused": false,
-          "params": {
-            "force_rate": 0,
-            "custom_width": 0,
-            "custom_height": 0,
-            "frame_load_cap": 0,
-            "skip_first_frames": 0,
-            "select_every_nth": 1,
-            "filename": "FB_VID_3621513403090711778.mp4",
-            "type": "input",
-            "format": "video/mp4"
-          }
-        }
+        "choose video to upload": "image"
       }
     }
   ],

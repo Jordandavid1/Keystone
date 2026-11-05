@@ -264,95 +264,6 @@ def fetch_image(image_ref: Dict[str, Any]) -> Tuple[bytes, str]:
     return body, mime
 
 
-def generate_fallback_image(
-    prompt: str,
-    width: int = 1024,
-    height: int = 1024,
-    reference_bytes: Optional[bytes] = None,
-    denoise: float = 0.65,
-) -> Tuple[bytes, str]:
-    """Generates an authentic, high-aesthetic cinematic RGBA PNG with volumetric lighting,
-    prompt-conditioned color harmonies, anamorphic flare, and studio vignetting."""
-    import math
-    import zlib
-    import struct
-
-    w_sample = min(width, 512)
-    h_sample = min(height, 512)
-    p_lower = prompt.lower()
-
-    # Cinematic Palette Selection based on prompt mood
-    if any(k in p_lower for k in ("cyberpunk", "neon", "tokyo", "synthwave", "city")):
-        c_top = (18, 12, 38)      # Deep midnight purple
-        c_mid = (236, 72, 153)    # Neon pink / magenta
-        c_bot = (6, 182, 212)     # Cyan glow
-    elif any(k in p_lower for k in ("noir", "shadow", "monochrome", "detective", "dark", "crime")):
-        c_top = (10, 12, 16)      # Jet black
-        c_mid = (65, 75, 90)      # Steely gunmetal
-        c_bot = (200, 180, 140)   # Warm streetlamp amber
-    elif any(k in p_lower for k in ("sunset", "golden", "desert", "warm", "flare", "sun")):
-        c_top = (45, 15, 30)      # Dusk violet
-        c_mid = (249, 115, 22)    # Golden amber
-        c_bot = (234, 179, 8)     # Sunlight yellow
-    elif any(k in p_lower for k in ("space", "galaxy", "nebula", "stars", "cosmic", "sci-fi")):
-        c_top = (4, 6, 18)        # Deep void
-        c_mid = (99, 102, 241)    # Indigo cosmic dust
-        c_bot = (168, 85, 247)    # Violet nebula
-    else:
-        # Hollywood Studio Cinematic Teal & Orange
-        c_top = (8, 16, 26)       # Rich studio teal-black
-        c_mid = (30, 58, 82)      # Deep teal atmospheric depth
-        c_bot = (220, 130, 60)    # Warm cinematic key light
-
-    cx = w_sample / 2.0
-    cy = h_sample * 0.45
-    max_dist = math.hypot(cx, cy)
-    p_hash = sum(ord(c) for c in prompt)
-
-    row_bytes = bytearray()
-    for y in range(h_sample):
-        row_bytes.append(0)  # filter type none
-        ny = y / h_sample
-        for x in range(w_sample):
-            nx = x / w_sample
-            dist = math.hypot(x - cx, y - cy) / max_dist
-
-            # Vertical atmosphere blend
-            if ny < 0.5:
-                t = ny / 0.5
-                r = c_top[0] * (1 - t) + c_mid[0] * t
-                g = c_top[1] * (1 - t) + c_mid[1] * t
-                b = c_top[2] * (1 - t) + c_mid[2] * t
-            else:
-                t = (ny - 0.5) / 0.5
-                r = c_mid[0] * (1 - t) + c_bot[0] * t
-                g = c_mid[1] * (1 - t) + c_bot[1] * t
-                b = c_mid[2] * (1 - t) + c_bot[2] * t
-
-            # Anamorphic horizontal lens flare highlight across center
-            flare_dist = abs(y - cy)
-            if flare_dist < 18:
-                flare_int = (1.0 - (flare_dist / 18.0)) * 0.45 * (1.0 - abs(nx - 0.5) * 0.8)
-                r += 240 * flare_int
-                g += 200 * flare_int
-                b += 180 * flare_int
-
-            # Radial spotlight & cinematic corner vignette
-            vignette = max(0.25, 1.0 - (dist * 0.72) ** 1.8)
-            r = int(min(255, max(0, r * vignette)))
-            g = int(min(255, max(0, g * vignette)))
-            b = int(min(255, max(0, b * vignette)))
-
-            row_bytes.extend((r, g, b, 255))
-
-    ihdr = struct.pack(">IIBBBBB", w_sample, h_sample, 8, 6, 0, 0, 0)
-    idat = zlib.compress(bytes(row_bytes), level=6)
-    crc = lambda t, d: struct.pack(">I", zlib.crc32(t + d) & 0xFFFFFFFF)
-    chunk = lambda t, d: struct.pack(">I", len(d)) + t + d + crc(t, d)
-    png = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr) + chunk(b"IDAT", idat) + chunk(b"IEND", b"")
-    return png, "image/png"
-
-
 def upload_image_to_comfy(image_bytes: bytes, filename: str = "reference.png") -> str:
     """Uploads an image to ComfyUI's /upload/image endpoint using multipart/form-data."""
     base = comfy_base_url()
@@ -520,90 +431,40 @@ def decode_png_rgba(data: bytes) -> Tuple[int, int, bytearray]:
     return width, height, raw_pixels
 
 
-def upscale_fallback_image(image_bytes: bytes, scale_factor: int = 2) -> Tuple[bytes, str, int, int]:
-    """Pure-Python super-resolution resampling (2x or 4x) for standalone fallback execution."""
-    import zlib
-    import struct
-
-    scale = max(2, min(4, int(scale_factor)))
-    try:
-        w, h, pixels = decode_png_rgba(image_bytes)
-    except Exception:
-        # Fallback if image is not PNG: generate deterministic upscale pattern
-        w, h = 512, 512
-        pixels = bytearray(w * h * 4)
-        for y in range(h):
-            for x in range(w):
-                idx = (y * w + x) * 4
-                pixels[idx] = (x + y) % 256
-                pixels[idx + 1] = (x * 2) % 256
-                pixels[idx + 2] = (y * 2 + 128) % 256
-                pixels[idx + 3] = 255
-
-    nw, nh = w * scale, h * scale
-    out_pixels = bytearray()
-    for ny in range(nh):
-        out_pixels.append(0)  # filter type none
-        sy = ny // scale
-        src_row_start = sy * w * 4
-        for nx in range(nw):
-            sx = nx // scale
-            px_idx = src_row_start + sx * 4
-            out_pixels.extend(pixels[px_idx : px_idx + 4])
-
-    ihdr = struct.pack(">IIBBBBB", nw, nh, 8, 6, 0, 0, 0)
-    idat = zlib.compress(bytes(out_pixels))
-    crc = lambda t, d: struct.pack(">I", zlib.crc32(t + d) & 0xFFFFFFFF)
-    chunk = lambda t, d: struct.pack(">I", len(d)) + t + d + crc(t, d)
-    png = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr) + chunk(b"IDAT", idat) + chunk(b"IEND", b"")
-    return png, "image/png", nw, nh
-
-
 def upscale_image(
     image_bytes: bytes,
     scale_factor: int = 2,
     prompt: str = "",
     timeout: Optional[float] = None,
 ) -> Dict[str, Any]:
-    """Full upscale execution. Routes to ComfyUI if live, falls back to pure-Python high-res generator."""
+    """Full upscale execution against the live ComfyUI runtime."""
     scale = max(2, min(4, int(scale_factor)))
-    if is_configured():
-        try:
-            fname = f"upscale_src_{int(time.time())}.png"
-            comfy_name = upload_image_to_comfy(image_bytes, fname)
-            graph = build_upscale_graph(comfy_name, scale_factor=scale)
-            prompt_id = submit_graph(graph)
-            outputs = wait_for_result(prompt_id, timeout=timeout)
-            images = []
-            for node_output in outputs.values():
-                images.extend(node_output.get("images", []) or [])
-            if images:
-                data, mime = fetch_image(images[0])
-                try:
-                    w, h, _ = decode_png_rgba(data)
-                except Exception:
-                    w, h = 1024 * scale, 1024 * scale
-                return {
-                    "bytes": data,
-                    "mime_type": mime,
-                    "scale_factor": scale,
-                    "width": w,
-                    "height": h,
-                    "prompt_id": prompt_id,
-                }
-        except Exception:
-            if os.getenv("COMFY_STRICT", "0") == "1":
-                raise
-
-    # Robust local high-resolution upscale fallback
-    data, mime, nw, nh = upscale_fallback_image(image_bytes, scale)
+    if not is_configured():
+        raise ComfyUINotConfigured(
+            "COMFY_NOT_CONFIGURED: set COMFY_BASE_URL to a running ComfyUI instance"
+        )
+    fname = f"upscale_src_{int(time.time())}.png"
+    comfy_name = upload_image_to_comfy(image_bytes, fname)
+    graph = build_upscale_graph(comfy_name, scale_factor=scale)
+    prompt_id = submit_graph(graph)
+    outputs = wait_for_result(prompt_id, timeout=timeout)
+    images = []
+    for node_output in outputs.values():
+        images.extend(node_output.get("images", []) or [])
+    if not images:
+        raise ComfyUIError("COMFY_NO_IMAGE: upscale workflow produced no image outputs")
+    data, mime = fetch_image(images[0])
+    try:
+        w, h, _ = decode_png_rgba(data)
+    except Exception:
+        w, h = 1024 * scale, 1024 * scale
     return {
         "bytes": data,
         "mime_type": mime,
         "scale_factor": scale,
-        "width": nw,
-        "height": nh,
-        "prompt_id": f"upscale_local_{uuid.uuid4().hex[:8]}",
+        "width": w,
+        "height": h,
+        "prompt_id": prompt_id,
     }
 
 
@@ -623,83 +484,65 @@ def generate_image(
     denoise: float = 0.65,
     mode: str = "text2image",
 ) -> Dict[str, Any]:
-    """Full text-to-image or reference-guided generation round trip."""
-    try:
-        if reference_image_bytes:
-            ref_name = upload_image_to_comfy(
-                reference_image_bytes,
-                reference_filename or f"ref_{int(time.time())}.png"
-            )
-            graph = build_img2img_graph(
-                prompt,
-                ref_name,
-                negative_prompt=negative_prompt,
-                denoise=denoise,
-                width=width,
-                height=height,
-                steps=steps,
-                cfg=cfg,
-                seed=seed,
-                checkpoint=checkpoint,
-            )
-            sampler_node = "6"
-        else:
-            graph = build_sdxl_graph(
-                prompt,
-                negative_prompt=negative_prompt,
-                width=width,
-                height=height,
-                steps=steps,
-                cfg=cfg,
-                seed=seed,
-                checkpoint=checkpoint,
-            )
-            sampler_node = "5"
+    """Full text-to-image or reference-guided generation round trip against live ComfyUI."""
+    if not is_configured():
+        raise ComfyUINotConfigured(
+            "COMFY_NOT_CONFIGURED: set COMFY_BASE_URL to a running ComfyUI instance"
+        )
+    if reference_image_bytes:
+        ref_name = upload_image_to_comfy(
+            reference_image_bytes,
+            reference_filename or f"ref_{int(time.time())}.png"
+        )
+        graph = build_img2img_graph(
+            prompt,
+            ref_name,
+            negative_prompt=negative_prompt,
+            denoise=denoise,
+            width=width,
+            height=height,
+            steps=steps,
+            cfg=cfg,
+            seed=seed,
+            checkpoint=checkpoint,
+        )
+        sampler_node = "6"
+    else:
+        graph = build_sdxl_graph(
+            prompt,
+            negative_prompt=negative_prompt,
+            width=width,
+            height=height,
+            steps=steps,
+            cfg=cfg,
+            seed=seed,
+            checkpoint=checkpoint,
+        )
+        sampler_node = "5"
 
-        prompt_id = submit_graph(graph)
-        outputs = wait_for_result(prompt_id, timeout=timeout)
+    prompt_id = submit_graph(graph)
+    outputs = wait_for_result(prompt_id, timeout=timeout)
 
-        images = []
-        for node_output in outputs.values():
-            images.extend(node_output.get("images", []) or [])
-        if not images:
-            raise ComfyUIError("COMFY_NO_IMAGE: workflow produced no image outputs")
+    images = []
+    for node_output in outputs.values():
+        images.extend(node_output.get("images", []) or [])
+    if not images:
+        raise ComfyUIError("COMFY_NO_IMAGE: workflow produced no image outputs")
 
-        data, mime = fetch_image(images[0])
-        return {
-            "bytes": data,
-            "mime_type": mime,
-            "prompt_id": prompt_id,
-            "seed": graph[sampler_node]["inputs"]["seed"],
-            "checkpoint": graph["1"]["inputs"]["ckpt_name"],
-            "width": width,
-            "height": height,
-            "steps": steps,
-            "cfg": cfg,
-            "filename": images[0].get("filename"),
-            "reference_used": bool(reference_image_bytes),
-        }
-    except Exception as exc:
-        if os.getenv("COMFY_STRICT", "0") == "1":
-            raise
-        import uuid
-
-        # Fallback generator: incorporate reference colors if provided
-        data, mime = generate_fallback_image(prompt, width, height, reference_bytes=reference_image_bytes, denoise=denoise)
-        resolved_seed = seed if seed is not None else random.randint(1000000, 9999999)
-        return {
-            "bytes": data,
-            "mime_type": mime,
-            "prompt_id": f"prompt_{uuid.uuid4().hex[:12]}",
-            "seed": resolved_seed,
-            "checkpoint": checkpoint or DEFAULT_CHECKPOINT,
-            "width": width,
-            "height": height,
-            "steps": steps,
-            "cfg": cfg,
-            "filename": f"keystone_render_{uuid.uuid4().hex[:8]}.png",
-            "reference_used": bool(reference_image_bytes),
-        }
+    data, mime = fetch_image(images[0])
+    return {
+        "bytes": data,
+        "mime_type": mime,
+        "prompt_id": prompt_id,
+        "seed": graph[sampler_node]["inputs"]["seed"],
+        "checkpoint": graph["1"]["inputs"]["ckpt_name"],
+        "width": width,
+        "height": height,
+        "steps": steps,
+        "cfg": cfg,
+        "filename": images[0].get("filename"),
+        "reference_used": bool(reference_image_bytes),
+    }
 
 
 PINKCHERRY_H3_BF16_CHECKPOINT = "PinkCherry_hybrid_v1.8_minimax_h3_pruned_bf16.safetensors"
@@ -860,7 +703,7 @@ def build_minimax_h3_prompt_graph(
             graph.pop("190", None)
 
     if "148" in graph:
-        graph["148"]["inputs"]["filename_prefix"] = "REf2va/TEST_"
+        graph["148"]["inputs"]["filename_prefix"] = "keystone/h3_"
 
     return graph
 
