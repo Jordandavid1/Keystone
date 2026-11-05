@@ -43,7 +43,12 @@ class ComfyUINotConfigured(ComfyUIError):
 
 
 def _load_repo_env() -> None:
-    """Loads KEY=VALUE pairs from the repository .env without adding a dependency."""
+    """Loads KEY=VALUE pairs from .env in dist/, cwd, or repository root."""
+    try:
+        from services.cognition.src.client import load_keystone_dotenv
+        load_keystone_dotenv()
+    except Exception:
+        pass
     global _ENV_LOADED
     if _ENV_LOADED:
         return
@@ -697,17 +702,54 @@ def generate_image(
         }
 
 
+PINKCHERRY_H3_BF16_CHECKPOINT = "PinkCherry_hybrid_v1.8_minimax_h3_pruned_bf16.safetensors"
+
+
+def _resolve_remote_unet_name(preferred: Optional[str] = None) -> str:
+    """Resolve the exact UNETLoader filename registered on the remote ComfyUI instance."""
+    target = (
+        preferred
+        or os.environ.get("COMFY_CHECKPOINT", "").strip()
+        or PINKCHERRY_H3_BF16_CHECKPOINT
+    )
+    try:
+        _, info = _request("/object_info/UNETLoader")
+        if isinstance(info, dict):
+            available = (
+                info.get("UNETLoader", {})
+                .get("input", {})
+                .get("required", {})
+                .get("unet_name", [[]])[0]
+            )
+            if isinstance(available, list) and available:
+                if target in available:
+                    return target
+                basename = target.split("/")[-1].split("\\")[-1]
+                for item in available:
+                    if item == basename or item.endswith(f"/{basename}") or item.endswith(f"\\{basename}"):
+                        return item
+                for item in available:
+                    if "pinkcherry" in item.lower() or "minimax" in item.lower():
+                        return item
+    except Exception:
+        pass
+    return target.split("/")[-1] if target.startswith("1.8-hybrid/") else target
+
+
 def build_minimax_h3_prompt_graph(
     prompt: str,
     ref_image_filename: Optional[str] = None,
     ref_audio_filename: Optional[str] = None,
     ref_video_filename: Optional[str] = None,
     duration: float = 5.0,
-    enable_lightning_lora: bool = True
+    enable_lightning_lora: bool = True,
+    unet_name: Optional[str] = None,
+    ref_image_size: str = "match",
 ) -> Dict[str, Any]:
     """
     Constructs a ComfyUI executable prompt graph directly from the user's
-    canonical PinkCherry_Ref2V.json workflow template.
+    canonical PinkCherry_Ref2V.json workflow template, targeting
+    PinkCherry_hybrid_v1.8_minimax_h3_pruned_bf16.safetensors.
     """
     wf_path = Path("PinkCherry_Ref2V.json")
     if not wf_path.exists():
@@ -722,11 +764,26 @@ def build_minimax_h3_prompt_graph(
             link_id, from_node, from_slot, to_node, to_slot = link[:5]
             link_map[link_id] = (str(from_node), from_slot)
 
+    resolved_unet = unet_name or os.environ.get("COMFY_CHECKPOINT", "").strip() or PINKCHERRY_H3_BF16_CHECKPOINT
+    if resolved_unet.startswith("1.8-hybrid/"):
+        resolved_unet = resolved_unet.split("/", 1)[1]
+
     graph: Dict[str, Any] = {}
     for node in wf.get("nodes", []):
         nid = str(node["id"])
         ntype = node.get("type")
+        if ntype == "MarkdownNote":
+            continue
+
         inputs: Dict[str, Any] = {}
+
+        # Populate named widget values for ComfyUI /prompt execution
+        named_widgets = node.get("widgets_values_named")
+        if isinstance(named_widgets, dict):
+            for k, v in named_widgets.items():
+                if k in ("videopreview", "control_after_generate", "preview"):
+                    continue
+                inputs[k] = v
 
         widgets = node.get("widgets_values")
         if isinstance(widgets, list):
@@ -745,25 +802,65 @@ def build_minimax_h3_prompt_graph(
             "inputs": inputs
         }
 
+    # Inject PinkCherry BF16 checkpoint into Node 127 (UNETLoader)
+    if "127" in graph:
+        graph["127"]["inputs"]["unet_name"] = resolved_unet
+        graph["127"]["inputs"]["weight_dtype"] = graph["127"]["inputs"].get("weight_dtype", "default")
+        graph["127"]["inputs"]["widgets_values"] = [resolved_unet, "default"]
+
     # Inject prompt text into Node 138 (Input Text (Prompt))
     if "138" in graph:
+        graph["138"]["inputs"]["value"] = prompt
         graph["138"]["inputs"]["widgets_values"] = [prompt]
-
-    # Inject reference image filename into Node 181
-    if ref_image_filename and "181" in graph:
-        graph["181"]["inputs"]["widgets_values"] = [ref_image_filename, "image"]
-
-    # Inject reference audio filename into Node 188
-    if ref_audio_filename and "188" in graph:
-        graph["188"]["inputs"]["widgets_values"] = [ref_audio_filename, ""]
 
     # Inject duration into Node 132
     if "132" in graph:
+        graph["132"]["inputs"]["value"] = float(duration)
         graph["132"]["inputs"]["widgets_values"] = [float(duration)]
 
     # Inject Lightning LoRA toggle into Node 146
     if "146" in graph:
+        graph["146"]["inputs"]["value"] = bool(enable_lightning_lora)
         graph["146"]["inputs"]["widgets_values"] = [bool(enable_lightning_lora)]
+
+    # Configure Node 136 (MiniMaxH3ReferenceToVideo) and optional reference loaders
+    if "136" in graph:
+        n136_in = graph["136"]["inputs"]
+        n136_in["ref_image_size"] = ref_image_size
+        # Always detach secondary template image slot 187
+        n136_in.pop("ref_images.ref_image_1", None)
+        graph.pop("187", None)
+
+        if ref_image_filename and "181" in graph:
+            graph["181"]["inputs"]["image"] = ref_image_filename
+            graph["181"]["inputs"]["upload"] = "image"
+            graph["181"]["inputs"]["widgets_values"] = [ref_image_filename, "image"]
+        else:
+            n136_in.pop("ref_images.ref_image_0", None)
+            graph.pop("181", None)
+
+        if ref_audio_filename and "188" in graph:
+            graph["188"]["inputs"]["audio"] = ref_audio_filename
+            graph["188"]["inputs"]["widgets_values"] = [ref_audio_filename, ""]
+            n136_in["ref_audios.ref_audio_0"] = ["188", 0]
+            n136_in.pop("ref_audios.ref_audio_1", None)
+            graph.pop("189", None)
+        else:
+            n136_in.pop("ref_audios.ref_audio_0", None)
+            n136_in.pop("ref_audios.ref_audio_1", None)
+            graph.pop("188", None)
+            graph.pop("189", None)
+
+        if ref_video_filename and "190" in graph:
+            graph["190"]["inputs"]["video"] = ref_video_filename
+            if isinstance(graph["190"]["inputs"].get("widgets_values"), dict):
+                graph["190"]["inputs"]["widgets_values"]["video"] = ref_video_filename
+        else:
+            n136_in.pop("ref_videos.ref_video_0", None)
+            graph.pop("190", None)
+
+    if "148" in graph:
+        graph["148"]["inputs"]["filename_prefix"] = "REf2va/TEST_"
 
     return graph
 
@@ -784,7 +881,7 @@ def generate_minimax_h3_video(
     """
     Executes the PinkCherry MiniMax H3 Reference-to-Video (ref2va) pipeline
     with Qwen 3.8-VL 32B text encoder (qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors),
-    joint audio-video diffusion (PinkCherry_hybrid_v1.8_int8_minimax_h3_pruned.safetensors),
+    joint audio-video diffusion (PinkCherry_hybrid_v1.8_minimax_h3_pruned_bf16.safetensors),
     and dual VAE decoders (minimax_h3_video_vae_fp16.safetensors + minimax_h3_audio_vae_fp32.safetensors)
     per PinkCherry_Ref2V.json.
     """
@@ -792,8 +889,8 @@ def generate_minimax_h3_video(
         raise ComfyUIError(
             f"COMFY_UNREACHABLE: No ComfyUI runtime configured at {comfy_base_url()}. "
             "To execute the MiniMax H3 Ref2VA pipeline with native stereo audio and Qwen 3.8, "
-            "ensure the ComfyUI daemon or Kaggle bridge is active with required weights: "
-            "PinkCherry_hybrid_v1.8_int8_minimax_h3_pruned.safetensors, "
+            "ensure the ComfyUI daemon or Colab/Kaggle bridge is active with required weights: "
+            f"{PINKCHERRY_H3_BF16_CHECKPOINT}, "
             "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors, "
             "minimax_h3_video_vae_fp16.safetensors, and "
             "minimax_h3_audio_vae_fp32.safetensors."
@@ -813,16 +910,37 @@ def generate_minimax_h3_video(
             ref_audio_filename or f"minimax_ref_audio_{int(time.time())}.wav"
         )
 
+    uploaded_video_name = None
+    if ref_video_bytes:
+        uploaded_video_name = upload_image_to_comfy(
+            ref_video_bytes,
+            ref_video_filename or f"minimax_ref_video_{int(time.time())}.mp4"
+        )
+
+    resolved_unet = _resolve_remote_unet_name()
+
     # Build real execution graph from PinkCherry_Ref2V.json
     graph = build_minimax_h3_prompt_graph(
         prompt,
         ref_image_filename=uploaded_img_name,
         ref_audio_filename=uploaded_audio_name,
+        ref_video_filename=uploaded_video_name,
         duration=float(duration_seconds),
-        enable_lightning_lora=True
+        enable_lightning_lora=True,
+        unet_name=resolved_unet,
+        ref_image_size=ref_image_size,
     )
 
-    prompt_id = submit_graph(graph)
+    # Strip widgets_values helper keys before submitting to strict ComfyUI /prompt API
+    api_graph: Dict[str, Any] = {}
+    for nid, nspec in graph.items():
+        clean_inputs = {k: v for k, v in nspec.get("inputs", {}).items() if k != "widgets_values"}
+        api_graph[nid] = {
+            "class_type": nspec["class_type"],
+            "inputs": clean_inputs,
+        }
+
+    prompt_id = submit_graph(api_graph)
     outputs = wait_for_result(prompt_id, timeout=timeout or 300.0)
 
     # Extract real video from node 148 (VHS_VideoCombine)
@@ -852,7 +970,7 @@ def generate_minimax_h3_video(
         "bytes": video_bytes,
         "mime_type": "video/mp4",
         "prompt_id": prompt_id,
-        "model": "PinkCherry_hybrid_v1.8_int8_minimax_h3_pruned.safetensors",
+        "model": resolved_unet,
         "text_encoder": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors (Qwen 3.8)",
         "audio_vae": "minimax_h3_audio_vae_fp32.safetensors",
         "video_vae": "minimax_h3_video_vae_fp16.safetensors",

@@ -620,6 +620,14 @@
    'C:\\Users\\Lesia '
    'Eden\\Downloads\\keystone-cowork\\apps\\api\\src\\auth\\security.py',
    'PYMODULE'),
+  ('apps.api.src.creative',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\apps\\api\\src\\creative\\__init__.py',
+   'PYMODULE'),
+  ('apps.api.src.creative.h3_manifest',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\apps\\api\\src\\creative\\h3_manifest.py',
+   'PYMODULE'),
   ('apps.api.src.db',
    'C:\\Users\\Lesia '
    'Eden\\Downloads\\keystone-cowork\\apps\\api\\src\\db\\__init__.py',
@@ -643,6 +651,22 @@
   ('apps.api.src.jobs.state_machine',
    'C:\\Users\\Lesia '
    'Eden\\Downloads\\keystone-cowork\\apps\\api\\src\\jobs\\state_machine.py',
+   'PYMODULE'),
+  ('apps.api.src.keystone',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\apps\\api\\src\\keystone\\__init__.py',
+   'PYMODULE'),
+  ('apps.api.src.keystone.cognition',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\apps\\api\\src\\keystone\\cognition.py',
+   'PYMODULE'),
+  ('apps.api.src.keystone.models',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\apps\\api\\src\\keystone\\models.py',
+   'PYMODULE'),
+  ('apps.api.src.keystone.prompting',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\apps\\api\\src\\keystone\\prompting.py',
    'PYMODULE'),
   ('apps.api.src.lineage',
    'C:\\Users\\Lesia '

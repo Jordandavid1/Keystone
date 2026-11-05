@@ -316,7 +316,8 @@
  {},
  0,
  [],
- [('aiosqlite-0.22.1.dist-info\\INSTALLER',
+ [('.env', 'C:\\Users\\Lesia Eden\\Downloads\\keystone-cowork\\.env', 'DATA'),
+  ('aiosqlite-0.22.1.dist-info\\INSTALLER',
    'C:\\Users\\Lesia '
    'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\aiosqlite-0.22.1.dist-info\\INSTALLER',
    'DATA'),
@@ -1820,6 +1821,10 @@
   ('sqlalchemy\\util\\typing.py',
    'C:\\Users\\Lesia '
    'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\sqlalchemy\\util\\typing.py',
+   'DATA'),
+  ('workflows\\h3-ref2va.json',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\workflows\\h3-ref2va.json',
    'DATA')],
  '3.14.8 (tags/v3.14.8:8e6e75d, Sep 30 2026, 18:19:33) [MSC v.1944 64 bit '
  '(AMD64)]',
@@ -7288,9 +7293,9 @@
    'C:\\Users\\Lesia '
    'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\uvicorn\\logging.py',
    'PYMODULE'),
+  ('_py_warnings', 'C:\\Python314\\Lib\\_py_warnings.py', 'PYMODULE'),
   ('stringprep', 'C:\\Python314\\Lib\\stringprep.py', 'PYMODULE'),
   ('_py_abc', 'C:\\Python314\\Lib\\_py_abc.py', 'PYMODULE'),
-  ('_py_warnings', 'C:\\Python314\\Lib\\_py_warnings.py', 'PYMODULE'),
   ('webbrowser', 'C:\\Python314\\Lib\\webbrowser.py', 'PYMODULE'),
   ('webview',
    'C:\\Users\\Lesia '
@@ -7625,15 +7630,46 @@
    'Eden\\Downloads\\keystone-cowork\\services\\comfy\\src\\adapters.py',
    'PYMODULE'),
   ('services.comfy', '-', 'PYMODULE'),
-  ('services.cognition.src.client',
+  ('packages.prompt_engine.playbooks',
    'C:\\Users\\Lesia '
-   'Eden\\Downloads\\keystone-cowork\\services\\cognition\\src\\client.py',
+   'Eden\\Downloads\\keystone-cowork\\packages\\prompt_engine\\playbooks.py',
    'PYMODULE'),
-  ('services.cognition.src',
+  ('packages.prompt_engine',
    'C:\\Users\\Lesia '
-   'Eden\\Downloads\\keystone-cowork\\services\\cognition\\src\\__init__.py',
+   'Eden\\Downloads\\keystone-cowork\\packages\\prompt_engine\\__init__.py',
    'PYMODULE'),
-  ('services.cognition', '-', 'PYMODULE'),
+  ('packages.prompt_engine.engine',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\packages\\prompt_engine\\engine.py',
+   'PYMODULE'),
+  ('packages.prompt_engine.compiler',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\packages\\prompt_engine\\compiler.py',
+   'PYMODULE'),
+  ('apps.api.src.keystone.prompting',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\apps\\api\\src\\keystone\\prompting.py',
+   'PYMODULE'),
+  ('apps.api.src.keystone.models',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\apps\\api\\src\\keystone\\models.py',
+   'PYMODULE'),
+  ('apps.api.src.keystone.cognition',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\apps\\api\\src\\keystone\\cognition.py',
+   'PYMODULE'),
+  ('apps.api.src.creative.h3_manifest',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\apps\\api\\src\\creative\\h3_manifest.py',
+   'PYMODULE'),
+  ('apps.api.src.creative',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\apps\\api\\src\\creative\\__init__.py',
+   'PYMODULE'),
+  ('apps.api.src.keystone',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\apps\\api\\src\\keystone\\__init__.py',
+   'PYMODULE'),
   ('apps.api.src.auth.dependencies',
    'C:\\Users\\Lesia '
    'Eden\\Downloads\\keystone-cowork\\apps\\api\\src\\auth\\dependencies.py',
@@ -7736,22 +7772,6 @@
   ('apps.api.src.routers.planning',
    'C:\\Users\\Lesia '
    'Eden\\Downloads\\keystone-cowork\\apps\\api\\src\\routers\\planning.py',
-   'PYMODULE'),
-  ('packages.prompt_engine.playbooks',
-   'C:\\Users\\Lesia '
-   'Eden\\Downloads\\keystone-cowork\\packages\\prompt_engine\\playbooks.py',
-   'PYMODULE'),
-  ('packages.prompt_engine',
-   'C:\\Users\\Lesia '
-   'Eden\\Downloads\\keystone-cowork\\packages\\prompt_engine\\__init__.py',
-   'PYMODULE'),
-  ('packages.prompt_engine.compiler',
-   'C:\\Users\\Lesia '
-   'Eden\\Downloads\\keystone-cowork\\packages\\prompt_engine\\compiler.py',
-   'PYMODULE'),
-  ('packages.prompt_engine.engine',
-   'C:\\Users\\Lesia '
-   'Eden\\Downloads\\keystone-cowork\\packages\\prompt_engine\\engine.py',
    'PYMODULE'),
   ('apps.api.src.routers.jobs',
    'C:\\Users\\Lesia '
@@ -7928,6 +7948,15 @@
    'C:\\Users\\Lesia '
    'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\click\\types.py',
    'PYMODULE'),
+  ('services.cognition.src.client',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\services\\cognition\\src\\client.py',
+   'PYMODULE'),
+  ('services.cognition.src',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\services\\cognition\\src\\__init__.py',
+   'PYMODULE'),
+  ('services.cognition', '-', 'PYMODULE'),
   ('sqlalchemy.dialects.sqlite.aiosqlite',
    'C:\\Users\\Lesia '
    'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\sqlalchemy\\dialects\\sqlite\\aiosqlite.py',
@@ -7956,13 +7985,9 @@
    'C:\\Users\\Lesia '
    'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\webview\\lib\\Microsoft.Web.WebView2.WinForms.dll',
    'BINARY'),
-  ('webview\\lib\\WebBrowserInterop.x86.dll',
+  ('webview\\lib\\runtimes\\win-x86\\native\\WebView2Loader.dll',
    'C:\\Users\\Lesia '
-   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\webview\\lib\\WebBrowserInterop.x86.dll',
-   'BINARY'),
-  ('webview\\lib\\runtimes\\win-x64\\native\\WebView2Loader.dll',
-   'C:\\Users\\Lesia '
-   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\webview\\lib\\runtimes\\win-x64\\native\\WebView2Loader.dll',
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\webview\\lib\\runtimes\\win-x86\\native\\WebView2Loader.dll',
    'BINARY'),
   ('webview\\lib\\WebBrowserInterop.x64.dll',
    'C:\\Users\\Lesia '
@@ -7972,22 +7997,26 @@
    'C:\\Users\\Lesia '
    'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\webview\\lib\\Microsoft.Web.WebView2.Core.dll',
    'BINARY'),
+  ('webview\\lib\\runtimes\\win-x64\\native\\WebView2Loader.dll',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\webview\\lib\\runtimes\\win-x64\\native\\WebView2Loader.dll',
+   'BINARY'),
   ('webview\\lib\\runtimes\\win-arm64\\native\\WebView2Loader.dll',
    'C:\\Users\\Lesia '
    'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\webview\\lib\\runtimes\\win-arm64\\native\\WebView2Loader.dll',
    'BINARY'),
-  ('webview\\lib\\runtimes\\win-x86\\native\\WebView2Loader.dll',
+  ('webview\\lib\\WebBrowserInterop.x86.dll',
    'C:\\Users\\Lesia '
-   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\webview\\lib\\runtimes\\win-x86\\native\\WebView2Loader.dll',
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\webview\\lib\\WebBrowserInterop.x86.dll',
    'BINARY'),
   ('python314.dll', 'C:\\Python314\\python314.dll', 'BINARY'),
-  ('clr_loader\\ffi\\dlls\\amd64\\ClrLoader.dll',
-   'C:\\Users\\Lesia '
-   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\clr_loader\\ffi\\dlls\\amd64\\ClrLoader.dll',
-   'BINARY'),
   ('clr_loader\\ffi\\dlls\\x86\\ClrLoader.dll',
    'C:\\Users\\Lesia '
    'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\clr_loader\\ffi\\dlls\\x86\\ClrLoader.dll',
+   'BINARY'),
+  ('clr_loader\\ffi\\dlls\\amd64\\ClrLoader.dll',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\clr_loader\\ffi\\dlls\\amd64\\ClrLoader.dll',
    'BINARY'),
   ('_decimal.pyd', 'C:\\Python314\\DLLs\\_decimal.pyd', 'EXTENSION'),
   ('_hashlib.pyd', 'C:\\Python314\\DLLs\\_hashlib.pyd', 'EXTENSION'),
@@ -8068,7 +8097,8 @@
   ('python3.dll', 'C:\\Python314\\python3.dll', 'BINARY')],
  [],
  [],
- [('aiosqlite-0.22.1.dist-info\\INSTALLER',
+ [('.env', 'C:\\Users\\Lesia Eden\\Downloads\\keystone-cowork\\.env', 'DATA'),
+  ('aiosqlite-0.22.1.dist-info\\INSTALLER',
    'C:\\Users\\Lesia '
    'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\aiosqlite-0.22.1.dist-info\\INSTALLER',
    'DATA'),
@@ -9573,6 +9603,10 @@
    'C:\\Users\\Lesia '
    'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\sqlalchemy\\util\\typing.py',
    'DATA'),
+  ('workflows\\h3-ref2va.json',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\workflows\\h3-ref2va.json',
+   'DATA'),
   ('setuptools\\_vendor\\jaraco\\text\\Lorem ipsum.txt',
    'C:\\Users\\Lesia '
    'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\setuptools\\_vendor\\jaraco\\text\\Lorem '
@@ -9586,37 +9620,49 @@
    'C:\\Users\\Lesia '
    'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\pythonnet\\runtime\\Python.Runtime.deps.json',
    'DATA'),
-  ('opentelemetry_api-1.45.1.dist-info\\licenses\\LICENSE',
+  ('opentelemetry_api-1.45.1.dist-info\\METADATA',
    'C:\\Users\\Lesia '
-   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\opentelemetry_api-1.45.1.dist-info\\licenses\\LICENSE',
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\opentelemetry_api-1.45.1.dist-info\\METADATA',
    'DATA'),
   ('opentelemetry_api-1.45.1.dist-info\\INSTALLER',
    'C:\\Users\\Lesia '
    'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\opentelemetry_api-1.45.1.dist-info\\INSTALLER',
    'DATA'),
+  ('opentelemetry_api-1.45.1.dist-info\\licenses\\LICENSE',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\opentelemetry_api-1.45.1.dist-info\\licenses\\LICENSE',
+   'DATA'),
   ('opentelemetry_api-1.45.1.dist-info\\RECORD',
    'C:\\Users\\Lesia '
    'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\opentelemetry_api-1.45.1.dist-info\\RECORD',
-   'DATA'),
-  ('opentelemetry_api-1.45.1.dist-info\\entry_points.txt',
-   'C:\\Users\\Lesia '
-   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\opentelemetry_api-1.45.1.dist-info\\entry_points.txt',
    'DATA'),
   ('opentelemetry_api-1.45.1.dist-info\\WHEEL',
    'C:\\Users\\Lesia '
    'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\opentelemetry_api-1.45.1.dist-info\\WHEEL',
    'DATA'),
-  ('opentelemetry_api-1.45.1.dist-info\\METADATA',
+  ('opentelemetry_api-1.45.1.dist-info\\entry_points.txt',
    'C:\\Users\\Lesia '
-   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\opentelemetry_api-1.45.1.dist-info\\METADATA',
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\opentelemetry_api-1.45.1.dist-info\\entry_points.txt',
    'DATA'),
-  ('webview\\js\\lib\\polyfill.js',
+  ('webview\\js\\lib\\dom_json.js',
    'C:\\Users\\Lesia '
-   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\webview\\js\\lib\\polyfill.js',
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\webview\\js\\lib\\dom_json.js',
+   'DATA'),
+  ('webview\\js\\customize.js',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\webview\\js\\customize.js',
+   'DATA'),
+  ('webview\\js\\state.js',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\webview\\js\\state.js',
    'DATA'),
   ('webview\\js\\api.js',
    'C:\\Users\\Lesia '
    'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\webview\\js\\api.js',
+   'DATA'),
+  ('webview\\js\\lib\\polyfill.js',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\webview\\js\\lib\\polyfill.js',
    'DATA'),
   ('webview\\lib\\pywebview-android.jar',
    'C:\\Users\\Lesia '
@@ -9626,45 +9672,13 @@
    'C:\\Users\\Lesia '
    'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\webview\\js\\finish.js',
    'DATA'),
-  ('webview\\js\\customize.js',
-   'C:\\Users\\Lesia '
-   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\webview\\js\\customize.js',
-   'DATA'),
-  ('webview\\js\\lib\\dom_json.js',
-   'C:\\Users\\Lesia '
-   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\webview\\js\\lib\\dom_json.js',
-   'DATA'),
-  ('webview\\js\\state.js',
-   'C:\\Users\\Lesia '
-   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\webview\\js\\state.js',
-   'DATA'),
-  ('cryptography-50.0.2.dist-info\\licenses\\LICENSE.APACHE',
-   'C:\\Users\\Lesia '
-   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\cryptography-50.0.2.dist-info\\licenses\\LICENSE.APACHE',
-   'DATA'),
   ('cryptography-50.0.2.dist-info\\RECORD',
    'C:\\Users\\Lesia '
    'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\cryptography-50.0.2.dist-info\\RECORD',
    'DATA'),
-  ('cryptography-50.0.2.dist-info\\sboms\\cryptography-rust.cyclonedx.json',
-   'C:\\Users\\Lesia '
-   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\cryptography-50.0.2.dist-info\\sboms\\cryptography-rust.cyclonedx.json',
-   'DATA'),
   ('cryptography-50.0.2.dist-info\\WHEEL',
    'C:\\Users\\Lesia '
    'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\cryptography-50.0.2.dist-info\\WHEEL',
-   'DATA'),
-  ('cryptography-50.0.2.dist-info\\licenses\\LICENSE.BSD',
-   'C:\\Users\\Lesia '
-   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\cryptography-50.0.2.dist-info\\licenses\\LICENSE.BSD',
-   'DATA'),
-  ('cryptography-50.0.2.dist-info\\sboms\\sbom.json',
-   'C:\\Users\\Lesia '
-   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\cryptography-50.0.2.dist-info\\sboms\\sbom.json',
-   'DATA'),
-  ('cryptography-50.0.2.dist-info\\licenses\\LICENSE',
-   'C:\\Users\\Lesia '
-   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\cryptography-50.0.2.dist-info\\licenses\\LICENSE',
    'DATA'),
   ('cryptography-50.0.2.dist-info\\METADATA',
    'C:\\Users\\Lesia '
@@ -9674,37 +9688,57 @@
    'C:\\Users\\Lesia '
    'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\cryptography-50.0.2.dist-info\\REQUESTED',
    'DATA'),
+  ('cryptography-50.0.2.dist-info\\licenses\\LICENSE.BSD',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\cryptography-50.0.2.dist-info\\licenses\\LICENSE.BSD',
+   'DATA'),
+  ('cryptography-50.0.2.dist-info\\sboms\\sbom.json',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\cryptography-50.0.2.dist-info\\sboms\\sbom.json',
+   'DATA'),
   ('cryptography-50.0.2.dist-info\\INSTALLER',
    'C:\\Users\\Lesia '
    'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\cryptography-50.0.2.dist-info\\INSTALLER',
+   'DATA'),
+  ('cryptography-50.0.2.dist-info\\licenses\\LICENSE',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\cryptography-50.0.2.dist-info\\licenses\\LICENSE',
+   'DATA'),
+  ('cryptography-50.0.2.dist-info\\licenses\\LICENSE.APACHE',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\cryptography-50.0.2.dist-info\\licenses\\LICENSE.APACHE',
+   'DATA'),
+  ('cryptography-50.0.2.dist-info\\sboms\\cryptography-rust.cyclonedx.json',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\cryptography-50.0.2.dist-info\\sboms\\cryptography-rust.cyclonedx.json',
+   'DATA'),
+  ('click-8.5.0.dist-info\\licenses\\LICENSE.txt',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\click-8.5.0.dist-info\\licenses\\LICENSE.txt',
    'DATA'),
   ('pydantic-2.14.1.dist-info\\METADATA',
    'C:\\Users\\Lesia '
    'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\pydantic-2.14.1.dist-info\\METADATA',
    'DATA'),
-  ('pluggy-1.7.0.dist-info\\licenses\\LICENSE',
+  ('pydantic-2.14.1.dist-info\\INSTALLER',
    'C:\\Users\\Lesia '
-   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\pluggy-1.7.0.dist-info\\licenses\\LICENSE',
-   'DATA'),
-  ('click-8.5.0.dist-info\\INSTALLER',
-   'C:\\Users\\Lesia '
-   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\click-8.5.0.dist-info\\INSTALLER',
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\pydantic-2.14.1.dist-info\\INSTALLER',
    'DATA'),
   ('click-8.5.0.dist-info\\WHEEL',
    'C:\\Users\\Lesia '
    'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\click-8.5.0.dist-info\\WHEEL',
    'DATA'),
+  ('pydantic-2.14.1.dist-info\\WHEEL',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\pydantic-2.14.1.dist-info\\WHEEL',
+   'DATA'),
   ('pluggy-1.7.0.dist-info\\WHEEL',
    'C:\\Users\\Lesia '
    'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\pluggy-1.7.0.dist-info\\WHEEL',
    'DATA'),
-  ('pluggy-1.7.0.dist-info\\METADATA',
+  ('pluggy-1.7.0.dist-info\\top_level.txt',
    'C:\\Users\\Lesia '
-   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\pluggy-1.7.0.dist-info\\METADATA',
-   'DATA'),
-  ('pydantic-2.14.1.dist-info\\RECORD',
-   'C:\\Users\\Lesia '
-   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\pydantic-2.14.1.dist-info\\RECORD',
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\pluggy-1.7.0.dist-info\\top_level.txt',
    'DATA'),
   ('click-8.5.0.dist-info\\RECORD',
    'C:\\Users\\Lesia '
@@ -9714,46 +9748,58 @@
    'C:\\Users\\Lesia '
    'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\pydantic-2.14.1.dist-info\\REQUESTED',
    'DATA'),
-  ('pydantic-2.14.1.dist-info\\WHEEL',
+  ('pydantic-2.14.1.dist-info\\RECORD',
    'C:\\Users\\Lesia '
-   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\pydantic-2.14.1.dist-info\\WHEEL',
-   'DATA'),
-  ('pluggy-1.7.0.dist-info\\RECORD',
-   'C:\\Users\\Lesia '
-   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\pluggy-1.7.0.dist-info\\RECORD',
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\pydantic-2.14.1.dist-info\\RECORD',
    'DATA'),
   ('pydantic-2.14.1.dist-info\\licenses\\LICENSE',
    'C:\\Users\\Lesia '
    'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\pydantic-2.14.1.dist-info\\licenses\\LICENSE',
    'DATA'),
-  ('pluggy-1.7.0.dist-info\\top_level.txt',
+  ('pluggy-1.7.0.dist-info\\METADATA',
    'C:\\Users\\Lesia '
-   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\pluggy-1.7.0.dist-info\\top_level.txt',
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\pluggy-1.7.0.dist-info\\METADATA',
    'DATA'),
-  ('click-8.5.0.dist-info\\licenses\\LICENSE.txt',
+  ('pluggy-1.7.0.dist-info\\licenses\\LICENSE',
    'C:\\Users\\Lesia '
-   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\click-8.5.0.dist-info\\licenses\\LICENSE.txt',
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\pluggy-1.7.0.dist-info\\licenses\\LICENSE',
    'DATA'),
-  ('pluggy-1.7.0.dist-info\\INSTALLER',
+  ('click-8.5.0.dist-info\\INSTALLER',
    'C:\\Users\\Lesia '
-   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\pluggy-1.7.0.dist-info\\INSTALLER',
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\click-8.5.0.dist-info\\INSTALLER',
+   'DATA'),
+  ('pluggy-1.7.0.dist-info\\RECORD',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\pluggy-1.7.0.dist-info\\RECORD',
    'DATA'),
   ('click-8.5.0.dist-info\\METADATA',
    'C:\\Users\\Lesia '
    'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\click-8.5.0.dist-info\\METADATA',
    'DATA'),
-  ('pydantic-2.14.1.dist-info\\INSTALLER',
+  ('pluggy-1.7.0.dist-info\\INSTALLER',
    'C:\\Users\\Lesia '
-   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\pydantic-2.14.1.dist-info\\INSTALLER',
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\pluggy-1.7.0.dist-info\\INSTALLER',
    'DATA'),
   ('base_library.zip',
    'C:\\Users\\Lesia '
    'Eden\\Downloads\\keystone-cowork\\build\\keystone-desktop\\base_library.zip',
    'DATA')],
- [('traceback', 'C:\\Python314\\Lib\\traceback.py', 'PYMODULE'),
-  ('reprlib', 'C:\\Python314\\Lib\\reprlib.py', 'PYMODULE'),
-  ('keyword', 'C:\\Python314\\Lib\\keyword.py', 'PYMODULE'),
+ [('genericpath', 'C:\\Python314\\Lib\\genericpath.py', 'PYMODULE'),
+  ('locale', 'C:\\Python314\\Lib\\locale.py', 'PYMODULE'),
+  ('sre_parse', 'C:\\Python314\\Lib\\sre_parse.py', 'PYMODULE'),
+  ('traceback', 'C:\\Python314\\Lib\\traceback.py', 'PYMODULE'),
+  ('ntpath', 'C:\\Python314\\Lib\\ntpath.py', 'PYMODULE'),
+  ('warnings', 'C:\\Python314\\Lib\\warnings.py', 'PYMODULE'),
+  ('linecache', 'C:\\Python314\\Lib\\linecache.py', 'PYMODULE'),
   ('enum', 'C:\\Python314\\Lib\\enum.py', 'PYMODULE'),
+  ('io', 'C:\\Python314\\Lib\\io.py', 'PYMODULE'),
+  ('_collections_abc', 'C:\\Python314\\Lib\\_collections_abc.py', 'PYMODULE'),
+  ('operator', 'C:\\Python314\\Lib\\operator.py', 'PYMODULE'),
+  ('collections', 'C:\\Python314\\Lib\\collections\\__init__.py', 'PYMODULE'),
+  ('weakref', 'C:\\Python314\\Lib\\weakref.py', 'PYMODULE'),
+  ('keyword', 'C:\\Python314\\Lib\\keyword.py', 'PYMODULE'),
+  ('sre_constants', 'C:\\Python314\\Lib\\sre_constants.py', 'PYMODULE'),
+  ('sre_compile', 'C:\\Python314\\Lib\\sre_compile.py', 'PYMODULE'),
   ('encodings.zlib_codec',
    'C:\\Python314\\Lib\\encodings\\zlib_codec.py',
    'PYMODULE'),
@@ -10004,26 +10050,14 @@
   ('re._compiler', 'C:\\Python314\\Lib\\re\\_compiler.py', 'PYMODULE'),
   ('re._casefix', 'C:\\Python314\\Lib\\re\\_casefix.py', 'PYMODULE'),
   ('re', 'C:\\Python314\\Lib\\re\\__init__.py', 'PYMODULE'),
-  ('ntpath', 'C:\\Python314\\Lib\\ntpath.py', 'PYMODULE'),
   ('copyreg', 'C:\\Python314\\Lib\\copyreg.py', 'PYMODULE'),
-  ('sre_constants', 'C:\\Python314\\Lib\\sre_constants.py', 'PYMODULE'),
-  ('_weakrefset', 'C:\\Python314\\Lib\\_weakrefset.py', 'PYMODULE'),
   ('heapq', 'C:\\Python314\\Lib\\heapq.py', 'PYMODULE'),
+  ('functools', 'C:\\Python314\\Lib\\functools.py', 'PYMODULE'),
+  ('types', 'C:\\Python314\\Lib\\types.py', 'PYMODULE'),
+  ('posixpath', 'C:\\Python314\\Lib\\posixpath.py', 'PYMODULE'),
+  ('_weakrefset', 'C:\\Python314\\Lib\\_weakrefset.py', 'PYMODULE'),
+  ('reprlib', 'C:\\Python314\\Lib\\reprlib.py', 'PYMODULE'),
+  ('codecs', 'C:\\Python314\\Lib\\codecs.py', 'PYMODULE'),
   ('abc', 'C:\\Python314\\Lib\\abc.py', 'PYMODULE'),
   ('stat', 'C:\\Python314\\Lib\\stat.py', 'PYMODULE'),
-  ('weakref', 'C:\\Python314\\Lib\\weakref.py', 'PYMODULE'),
-  ('locale', 'C:\\Python314\\Lib\\locale.py', 'PYMODULE'),
-  ('warnings', 'C:\\Python314\\Lib\\warnings.py', 'PYMODULE'),
-  ('collections', 'C:\\Python314\\Lib\\collections\\__init__.py', 'PYMODULE'),
-  ('functools', 'C:\\Python314\\Lib\\functools.py', 'PYMODULE'),
-  ('io', 'C:\\Python314\\Lib\\io.py', 'PYMODULE'),
-  ('codecs', 'C:\\Python314\\Lib\\codecs.py', 'PYMODULE'),
-  ('genericpath', 'C:\\Python314\\Lib\\genericpath.py', 'PYMODULE'),
-  ('operator', 'C:\\Python314\\Lib\\operator.py', 'PYMODULE'),
-  ('_collections_abc', 'C:\\Python314\\Lib\\_collections_abc.py', 'PYMODULE'),
-  ('types', 'C:\\Python314\\Lib\\types.py', 'PYMODULE'),
-  ('linecache', 'C:\\Python314\\Lib\\linecache.py', 'PYMODULE'),
-  ('sre_parse', 'C:\\Python314\\Lib\\sre_parse.py', 'PYMODULE'),
-  ('sre_compile', 'C:\\Python314\\Lib\\sre_compile.py', 'PYMODULE'),
-  ('posixpath', 'C:\\Python314\\Lib\\posixpath.py', 'PYMODULE'),
   ('os', 'C:\\Python314\\Lib\\os.py', 'PYMODULE')])

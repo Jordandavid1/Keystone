@@ -16,9 +16,54 @@ from typing import Any, Dict, List, Optional, Union
 import urllib.request
 import urllib.error
 
+from pathlib import Path
+import sys
 from packages.contracts.src.models import ProposedAction, PromptIntent, CognitiveResult
 
 PINNED_CHECKPOINT = "huihui-ai/Huihui-Qwen3.8-27B-abliterated"
+ALLOWED_SERVED_ALIASES = {
+    PINNED_CHECKPOINT,
+    "huihui-qwen3.8-abliterated",
+    "huihui-qwen3.8-27b-abliterated",
+}
+
+
+_DOTENV_MTIMES: Dict[str, float] = {}
+
+
+def load_keystone_dotenv() -> None:
+    """Loads .env from executable folder (dist/), current working directory, and repo root."""
+    candidates = []
+    if getattr(sys, "frozen", False):
+        candidates.append(Path(sys.executable).resolve().parent / ".env")
+    candidates.extend([
+        Path.cwd() / ".env",
+        Path(__file__).resolve().parents[3] / ".env",
+        Path(__file__).resolve().parents[3] / "dist" / ".env",
+    ])
+    for env_path in candidates:
+        try:
+            if not env_path.is_file():
+                continue
+            key_path = str(env_path.resolve())
+            mtime = env_path.stat().st_mtime
+            prev_mtime = _DOTENV_MTIMES.get(key_path)
+            file_changed = prev_mtime is not None and mtime > prev_mtime
+            _DOTENV_MTIMES[key_path] = mtime
+            for raw in env_path.read_text(encoding="utf-8", errors="ignore").splitlines():
+                line = raw.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, _, v = line.partition("=")
+                k = k.strip()
+                v = v.strip().strip('"').strip("'")
+                if k and (k not in os.environ or file_changed):
+                    os.environ[k] = v
+        except Exception:
+            pass
+
+
+load_keystone_dotenv()
 
 
 class CognitionConnector:
@@ -31,27 +76,58 @@ class CognitionConnector:
     PINNED_CHECKPOINT = PINNED_CHECKPOINT
 
     def __init__(self, base_url: Optional[str] = None, api_key: Optional[str] = None):
+        load_keystone_dotenv()
         self._explicit_base_url = base_url.rstrip("/") if base_url else None
-        self.base_url = (
-            self._explicit_base_url
-            or os.getenv("COGNITION_BASE_URL", "http://localhost:8000/v1").rstrip("/")
+        env_base = (
+            os.getenv("COGNITION_BASE_URL", "").strip()
+            or os.getenv("OPENAI_BASE_URL", "").strip()
+            or "http://localhost:8000/v1"
         )
-        self.api_key = api_key or os.getenv("COGNITION_API_KEY", "")
+        self.base_url = (self._explicit_base_url or env_base).rstrip("/")
+        self.api_key = (
+            api_key
+            or os.getenv("COGNITION_API_KEY", "").strip()
+            or os.getenv("OPENAI_API_KEY", "").strip()
+        )
+
+    def resolve_api_key(self) -> str:
+        load_keystone_dotenv()
+        return (
+            self.api_key
+            or os.getenv("COGNITION_API_KEY", "").strip()
+            or os.getenv("OPENAI_API_KEY", "").strip()
+        )
+
+    def resolve_served_model(self) -> str:
+        load_keystone_dotenv()
+        env_model = os.getenv("OPENAI_MODEL", "").strip()
+        if env_model and env_model in ALLOWED_SERVED_ALIASES:
+            return env_model
+        return self.PINNED_CHECKPOINT
 
     def resolve_active_endpoint(self) -> str:
         """
         Dynamically resolves the live vLLM endpoint URL in priority order:
         1. Explicit constructor base_url (if passed by caller)
-        2. Active ephemeral Kaggle worker registered in WorkerBridge (zero-redeploy discovery)
-        3. COGNITION_BASE_URL environment variable
+        2. Active ephemeral Kaggle/Colab worker registered in WorkerBridge
+        3. COGNITION_BASE_URL or OPENAI_BASE_URL environment variable
         4. Default local fallback (http://localhost:8000/v1)
         """
+        load_keystone_dotenv()
         if self._explicit_base_url:
             return self._explicit_base_url
 
+        env_url = (
+            os.getenv("COGNITION_BASE_URL", "").strip()
+            or os.getenv("OPENAI_BASE_URL", "").strip()
+        ).rstrip("/")
+        if env_url and not env_url.endswith("/v1"):
+            env_url = f"{env_url}/v1"
+
+        default_placeholder = "https://kaggle-cognition-t4x2.trycloudflare.com"
+
         try:
             from services.harness.src.worker_bridge import worker_bridge
-            # Check for active cognition workers by capability or worker_type
             cognition_caps = (
                 "cognition.qwen27b",
                 "cognition.reasoning",
@@ -62,20 +138,22 @@ class CognitionConnector:
                 matched = worker_bridge.route_for_capability(cap)
                 if matched:
                     tunnel = matched[0].tunnel_url.rstrip("/")
+                    if env_url and tunnel == default_placeholder:
+                        return env_url
                     return tunnel if tunnel.endswith("/v1") else f"{tunnel}/v1"
 
-            # Also check any active worker whose worker_type is cognition/vllm/gateway
             for worker in worker_bridge.list_workers(active_only=True):
                 w_type = str(worker.get("worker_type", "")).lower()
                 if any(k in w_type for k in ("cognition", "vllm", "qwen", "gateway")):
                     tunnel = str(worker["tunnel_url"]).rstrip("/")
+                    if env_url and tunnel == default_placeholder:
+                        return env_url
                     return tunnel if tunnel.endswith("/v1") else f"{tunnel}/v1"
         except Exception:
             pass
 
-        env_url = os.getenv("COGNITION_BASE_URL", "").strip()
         if env_url:
-            return env_url.rstrip("/")
+            return env_url
 
         return self.base_url
 
@@ -241,6 +319,7 @@ class CognitionConnector:
         Returns parsed response dict with ProposedAction payload and telemetry.
         """
         req_payload = self.build_completion_request(prompt, options)
+        req_payload["model"] = self.resolve_served_model()
         active_base_url = self.resolve_active_endpoint()
         endpoint = f"{active_base_url}/chat/completions"
         start_time = time.time()
@@ -250,10 +329,14 @@ class CognitionConnector:
             req = urllib.request.Request(
                 endpoint,
                 data=req_data,
-                headers={"Content-Type": "application/json"}
+                headers={
+                    "Content-Type": "application/json",
+                    "User-Agent": "Keystone/2.0",
+                }
             )
-            if self.api_key:
-                req.add_header("Authorization", f"Bearer {self.api_key}")
+            api_key = self.resolve_api_key()
+            if api_key:
+                req.add_header("Authorization", f"Bearer {api_key}")
 
             with urllib.request.urlopen(req, timeout=10) as resp:
                 raw_data = json.loads(resp.read().decode("utf-8"))

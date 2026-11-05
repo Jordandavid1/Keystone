@@ -192,6 +192,7 @@ imports:
  &#8226;   <a href="#re._constants">re._constants</a>
  &#8226;   <a href="#re._parser">re._parser</a>
  &#8226;   <a href="#reprlib">reprlib</a>
+ &#8226;   <a href="#services.cognition.src.client">services.cognition.src.client</a>
  &#8226;   <a href="#socket">socket</a>
  &#8226;   <a href="#sqlalchemy">sqlalchemy</a>
  &#8226;   <a href="#sqlalchemy.connectors">sqlalchemy.connectors</a>
@@ -2042,10 +2043,14 @@ imported by:
  &#8226;   <a href="#anyio.to_thread">anyio.to_thread</a>
  &#8226;   <a href="#apps.api.src.auth.dependencies">apps.api.src.auth.dependencies</a>
  &#8226;   <a href="#apps.api.src.auth.security">apps.api.src.auth.security</a>
+ &#8226;   <a href="#apps.api.src.creative.h3_manifest">apps.api.src.creative.h3_manifest</a>
  &#8226;   <a href="#apps.api.src.db.models">apps.api.src.db.models</a>
  &#8226;   <a href="#apps.api.src.db.session">apps.api.src.db.session</a>
  &#8226;   <a href="#apps.api.src.intelligence_router">apps.api.src.intelligence_router</a>
  &#8226;   <a href="#apps.api.src.jobs.state_machine">apps.api.src.jobs.state_machine</a>
+ &#8226;   <a href="#apps.api.src.keystone.cognition">apps.api.src.keystone.cognition</a>
+ &#8226;   <a href="#apps.api.src.keystone.models">apps.api.src.keystone.models</a>
+ &#8226;   <a href="#apps.api.src.keystone.prompting">apps.api.src.keystone.prompting</a>
  &#8226;   <a href="#apps.api.src.lineage.dag">apps.api.src.lineage.dag</a>
  &#8226;   <a href="#apps.api.src.repositories.api_keys">apps.api.src.repositories.api_keys</a>
  &#8226;   <a href="#apps.api.src.repositories.assets">apps.api.src.repositories.assets</a>
@@ -7349,6 +7354,7 @@ imported by:
  &#8226;   <a href="#anyio.abc._subprocesses">anyio.abc._subprocesses</a>
  &#8226;   <a href="#anyio.abc._tasks">anyio.abc._tasks</a>
  &#8226;   <a href="#anyio.abc._testing">anyio.abc._testing</a>
+ &#8226;   <a href="#apps.api.src.keystone.models">apps.api.src.keystone.models</a>
  &#8226;   <a href="#apps.api.src.storage.service">apps.api.src.storage.service</a>
  &#8226;   <a href="#click.core">click.core</a>
  &#8226;   <a href="#click.types">click.types</a>
@@ -9187,9 +9193,11 @@ imports:
   <div class="import">
 imported by:
     <a href="#apps.api.src.auth">apps.api.src.auth</a>
+ &#8226;   <a href="#apps.api.src.creative">apps.api.src.creative</a>
  &#8226;   <a href="#apps.api.src.db">apps.api.src.db</a>
  &#8226;   <a href="#apps.api.src.intelligence_router">apps.api.src.intelligence_router</a>
  &#8226;   <a href="#apps.api.src.jobs">apps.api.src.jobs</a>
+ &#8226;   <a href="#apps.api.src.keystone">apps.api.src.keystone</a>
  &#8226;   <a href="#apps.api.src.lineage">apps.api.src.lineage</a>
  &#8226;   <a href="#apps.api.src.main">apps.api.src.main</a>
  &#8226;   <a href="#apps.api.src.repositories">apps.api.src.repositories</a>
@@ -9277,6 +9285,43 @@ imported by:
     <a href="#apps.api.src.auth">apps.api.src.auth</a>
  &#8226;   <a href="#apps.api.src.auth.dependencies">apps.api.src.auth.dependencies</a>
  &#8226;   <a href="#apps.api.src.routers.auth">apps.api.src.routers.auth</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="apps.api.src.creative"></a>
+  <a target="code" href="///C:/Users/Lesia%20Eden/Downloads/keystone-cowork/apps/api/src/creative/__init__.py" type="text/plain"><tt>apps.api.src.creative</tt></a>
+<span class="moduletype">Package</span>  <div class="import">
+imports:
+    <a href="#apps.api.src">apps.api.src</a>
+ &#8226;   <a href="#apps.api.src.creative.h3_manifest">apps.api.src.creative.h3_manifest</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#apps.api.src.creative.h3_manifest">apps.api.src.creative.h3_manifest</a>
+ &#8226;   <a href="#apps.api.src.keystone.prompting">apps.api.src.keystone.prompting</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="apps.api.src.creative.h3_manifest"></a>
+  <a target="code" href="///C:/Users/Lesia%20Eden/Downloads/keystone-cowork/apps/api/src/creative/h3_manifest.py" type="text/plain"><tt>apps.api.src.creative.h3_manifest</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#__future__">__future__</a>
+ &#8226;   <a href="#apps.api.src.creative">apps.api.src.creative</a>
+ &#8226;   <a href="#apps.api.src.keystone.models">apps.api.src.keystone.models</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#apps.api.src.creative">apps.api.src.creative</a>
+ &#8226;   <a href="#apps.api.src.keystone.prompting">apps.api.src.keystone.prompting</a>
 
   </div>
 
@@ -9432,6 +9477,112 @@ imports:
 imported by:
     <a href="#apps.api.src.jobs">apps.api.src.jobs</a>
  &#8226;   <a href="#apps.api.src.routers.jobs">apps.api.src.routers.jobs</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="apps.api.src.keystone"></a>
+  <a target="code" href="///C:/Users/Lesia%20Eden/Downloads/keystone-cowork/apps/api/src/keystone/__init__.py" type="text/plain"><tt>apps.api.src.keystone</tt></a>
+<span class="moduletype">Package</span>  <div class="import">
+imports:
+    <a href="#apps.api.src">apps.api.src</a>
+ &#8226;   <a href="#apps.api.src.keystone.cognition">apps.api.src.keystone.cognition</a>
+ &#8226;   <a href="#apps.api.src.keystone.prompting">apps.api.src.keystone.prompting</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#apps.api.src.keystone.cognition">apps.api.src.keystone.cognition</a>
+ &#8226;   <a href="#apps.api.src.keystone.models">apps.api.src.keystone.models</a>
+ &#8226;   <a href="#apps.api.src.keystone.prompting">apps.api.src.keystone.prompting</a>
+ &#8226;   <a href="#apps.api.src.routers.assets">apps.api.src.routers.assets</a>
+ &#8226;   <a href="#apps.api.src.routers.cognition">apps.api.src.routers.cognition</a>
+ &#8226;   <a href="#apps.api.src.routers.planning">apps.api.src.routers.planning</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="apps.api.src.keystone.cognition"></a>
+  <a target="code" href="///C:/Users/Lesia%20Eden/Downloads/keystone-cowork/apps/api/src/keystone/cognition.py" type="text/plain"><tt>apps.api.src.keystone.cognition</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#__future__">__future__</a>
+ &#8226;   <a href="#apps.api.src.keystone">apps.api.src.keystone</a>
+ &#8226;   <a href="#apps.api.src.keystone.models">apps.api.src.keystone.models</a>
+ &#8226;   <a href="#json">json</a>
+ &#8226;   <a href="#os">os</a>
+ &#8226;   <a href="#packages.prompt_engine.compiler">packages.prompt_engine.compiler</a>
+ &#8226;   <a href="#packages.prompt_engine.playbooks">packages.prompt_engine.playbooks</a>
+ &#8226;   <a href="#pydantic">pydantic</a>
+ &#8226;   <a href="#pydantic.BaseModel">pydantic.BaseModel</a>
+ &#8226;   <a href="#re">re</a>
+ &#8226;   <a href="#services.cognition.src.client">services.cognition.src.client</a>
+ &#8226;   <a href="#typing">typing</a>
+ &#8226;   <a href="#urllib.request">urllib.request</a>
+ &#8226;   <a href="#uuid">uuid</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#apps.api.src.keystone">apps.api.src.keystone</a>
+ &#8226;   <a href="#apps.api.src.keystone.prompting">apps.api.src.keystone.prompting</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="apps.api.src.keystone.models"></a>
+  <a target="code" href="///C:/Users/Lesia%20Eden/Downloads/keystone-cowork/apps/api/src/keystone/models.py" type="text/plain"><tt>apps.api.src.keystone.models</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#__future__">__future__</a>
+ &#8226;   <a href="#abc">abc</a>
+ &#8226;   <a href="#apps.api.src.keystone">apps.api.src.keystone</a>
+ &#8226;   <a href="#pydantic">pydantic</a>
+ &#8226;   <a href="#pydantic.BaseModel">pydantic.BaseModel</a>
+ &#8226;   <a href="#typing">typing</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#apps.api.src.creative.h3_manifest">apps.api.src.creative.h3_manifest</a>
+ &#8226;   <a href="#apps.api.src.keystone.cognition">apps.api.src.keystone.cognition</a>
+ &#8226;   <a href="#apps.api.src.keystone.prompting">apps.api.src.keystone.prompting</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="apps.api.src.keystone.prompting"></a>
+  <a target="code" href="///C:/Users/Lesia%20Eden/Downloads/keystone-cowork/apps/api/src/keystone/prompting.py" type="text/plain"><tt>apps.api.src.keystone.prompting</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#__future__">__future__</a>
+ &#8226;   <a href="#apps.api.src.creative">apps.api.src.creative</a>
+ &#8226;   <a href="#apps.api.src.creative.h3_manifest">apps.api.src.creative.h3_manifest</a>
+ &#8226;   <a href="#apps.api.src.keystone">apps.api.src.keystone</a>
+ &#8226;   <a href="#apps.api.src.keystone.cognition">apps.api.src.keystone.cognition</a>
+ &#8226;   <a href="#apps.api.src.keystone.models">apps.api.src.keystone.models</a>
+ &#8226;   <a href="#datetime">datetime</a>
+ &#8226;   <a href="#hashlib">hashlib</a>
+ &#8226;   <a href="#json">json</a>
+ &#8226;   <a href="#sqlite3">sqlite3</a>
+ &#8226;   <a href="#typing">typing</a>
+ &#8226;   <a href="#uuid">uuid</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#apps.api.src.keystone">apps.api.src.keystone</a>
+ &#8226;   <a href="#apps.api.src.routers.assets">apps.api.src.routers.assets</a>
+ &#8226;   <a href="#apps.api.src.routers.cognition">apps.api.src.routers.cognition</a>
+ &#8226;   <a href="#apps.api.src.routers.planning">apps.api.src.routers.planning</a>
 
   </div>
 
@@ -9777,6 +9928,8 @@ imports:
  &#8226;   <a href="#apps.api.src.auth.dependencies">apps.api.src.auth.dependencies</a>
  &#8226;   <a href="#apps.api.src.db.models">apps.api.src.db.models</a>
  &#8226;   <a href="#apps.api.src.db.session">apps.api.src.db.session</a>
+ &#8226;   <a href="#apps.api.src.keystone">apps.api.src.keystone</a>
+ &#8226;   <a href="#apps.api.src.keystone.prompting">apps.api.src.keystone.prompting</a>
  &#8226;   <a href="#apps.api.src.lineage.dag">apps.api.src.lineage.dag</a>
  &#8226;   <a href="#apps.api.src.repositories.assets">apps.api.src.repositories.assets</a>
  &#8226;   <a href="#apps.api.src.repositories.projects">apps.api.src.repositories.projects</a>
@@ -9923,6 +10076,8 @@ imports:
     <a href="#__future__">__future__</a>
  &#8226;   <a href="#apps.api.src.auth.dependencies">apps.api.src.auth.dependencies</a>
  &#8226;   <a href="#apps.api.src.db.session">apps.api.src.db.session</a>
+ &#8226;   <a href="#apps.api.src.keystone">apps.api.src.keystone</a>
+ &#8226;   <a href="#apps.api.src.keystone.prompting">apps.api.src.keystone.prompting</a>
  &#8226;   <a href="#apps.api.src.repositories.assets">apps.api.src.repositories.assets</a>
  &#8226;   <a href="#apps.api.src.repositories.sessions">apps.api.src.repositories.sessions</a>
  &#8226;   <a href="#apps.api.src.routers">apps.api.src.routers</a>
@@ -9931,6 +10086,7 @@ imports:
  &#8226;   <a href="#fastapi">fastapi</a>
  &#8226;   <a href="#json">json</a>
  &#8226;   <a href="#os">os</a>
+ &#8226;   <a href="#packages.prompt_engine.playbooks">packages.prompt_engine.playbooks</a>
  &#8226;   <a href="#pydantic">pydantic</a>
  &#8226;   <a href="#pydantic.BaseModel">pydantic.BaseModel</a>
  &#8226;   <a href="#re">re</a>
@@ -9960,6 +10116,7 @@ imports:
     <a href="#__future__">__future__</a>
  &#8226;   <a href="#apps.api.src.routers">apps.api.src.routers</a>
  &#8226;   <a href="#fastapi">fastapi</a>
+ &#8226;   <a href="#hashlib">hashlib</a>
  &#8226;   <a href="#packages.contracts.src.models">packages.contracts.src.models</a>
  &#8226;   <a href="#pydantic">pydantic</a>
  &#8226;   <a href="#pydantic.BaseModel">pydantic.BaseModel</a>
@@ -10051,6 +10208,8 @@ imported by:
 <span class="moduletype">SourceModule</span>  <div class="import">
 imports:
     <a href="#__future__">__future__</a>
+ &#8226;   <a href="#apps.api.src.keystone">apps.api.src.keystone</a>
+ &#8226;   <a href="#apps.api.src.keystone.prompting">apps.api.src.keystone.prompting</a>
  &#8226;   <a href="#apps.api.src.routers">apps.api.src.routers</a>
  &#8226;   <a href="#fastapi">fastapi</a>
  &#8226;   <a href="#packages.contracts.src.models">packages.contracts.src.models</a>
@@ -10180,6 +10339,7 @@ imports:
  &#8226;   <a href="#os">os</a>
  &#8226;   <a href="#packages.contracts.src.models">packages.contracts.src.models</a>
  &#8226;   <a href="#pathlib">pathlib</a>
+ &#8226;   <a href="#services.cognition.src.client">services.cognition.src.client</a>
  &#8226;   <a href="#services.harness.src.kaggle_daemon">services.harness.src.kaggle_daemon</a>
  &#8226;   <a href="#sys">sys</a>
  &#8226;   <a href="#typing">typing</a>
@@ -16243,6 +16403,7 @@ imported by:
  &#8226;   <a href="#apps.api.src.db.models">apps.api.src.db.models</a>
  &#8226;   <a href="#apps.api.src.intelligence_router">apps.api.src.intelligence_router</a>
  &#8226;   <a href="#apps.api.src.jobs.state_machine">apps.api.src.jobs.state_machine</a>
+ &#8226;   <a href="#apps.api.src.keystone.prompting">apps.api.src.keystone.prompting</a>
  &#8226;   <a href="#apps.api.src.lineage.dag">apps.api.src.lineage.dag</a>
  &#8226;   <a href="#apps.api.src.repositories.api_keys">apps.api.src.repositories.api_keys</a>
  &#8226;   <a href="#apps.api.src.repositories.assets">apps.api.src.repositories.assets</a>
@@ -21897,7 +22058,9 @@ imported by:
     <a href="#_pytest._py.path">_pytest._py.path</a>
  &#8226;   <a href="#apps.api.src.auth.security">apps.api.src.auth.security</a>
  &#8226;   <a href="#apps.api.src.intelligence_router">apps.api.src.intelligence_router</a>
+ &#8226;   <a href="#apps.api.src.keystone.prompting">apps.api.src.keystone.prompting</a>
  &#8226;   <a href="#apps.api.src.routers.billing">apps.api.src.routers.billing</a>
+ &#8226;   <a href="#apps.api.src.routers.creative">apps.api.src.routers.creative</a>
  &#8226;   <a href="#apps.api.src.storage.service">apps.api.src.storage.service</a>
  &#8226;   <a href="#bottle">bottle</a>
  &#8226;   <a href="#cryptography.x509.extensions">cryptography.x509.extensions</a>
@@ -23509,6 +23672,8 @@ imported by:
     <a href="#_pytest.cacheprovider">_pytest.cacheprovider</a>
  &#8226;   <a href="#apps.api.src.auth.security">apps.api.src.auth.security</a>
  &#8226;   <a href="#apps.api.src.intelligence_router">apps.api.src.intelligence_router</a>
+ &#8226;   <a href="#apps.api.src.keystone.cognition">apps.api.src.keystone.cognition</a>
+ &#8226;   <a href="#apps.api.src.keystone.prompting">apps.api.src.keystone.prompting</a>
  &#8226;   <a href="#apps.api.src.routers.billing">apps.api.src.routers.billing</a>
  &#8226;   <a href="#apps.api.src.routers.cognition">apps.api.src.routers.cognition</a>
  &#8226;   <a href="#apps.api.src.server">apps.api.src.server</a>
@@ -26099,6 +26264,7 @@ imported by:
  &#8226;   <a href="#apps.api.src.auth.security">apps.api.src.auth.security</a>
  &#8226;   <a href="#apps.api.src.db.session">apps.api.src.db.session</a>
  &#8226;   <a href="#apps.api.src.intelligence_router">apps.api.src.intelligence_router</a>
+ &#8226;   <a href="#apps.api.src.keystone.cognition">apps.api.src.keystone.cognition</a>
  &#8226;   <a href="#apps.api.src.routers.admin">apps.api.src.routers.admin</a>
  &#8226;   <a href="#apps.api.src.routers.billing">apps.api.src.routers.billing</a>
  &#8226;   <a href="#apps.api.src.routers.cognition">apps.api.src.routers.cognition</a>
@@ -26512,7 +26678,8 @@ imports:
   </div>
   <div class="import">
 imported by:
-    <a href="#apps.api.src.routers.planning">apps.api.src.routers.planning</a>
+    <a href="#apps.api.src.keystone.cognition">apps.api.src.keystone.cognition</a>
+ &#8226;   <a href="#apps.api.src.routers.planning">apps.api.src.routers.planning</a>
  &#8226;   <a href="#packages.prompt_engine">packages.prompt_engine</a>
  &#8226;   <a href="#packages.prompt_engine.engine">packages.prompt_engine.engine</a>
 
@@ -26556,7 +26723,9 @@ imports:
   </div>
   <div class="import">
 imported by:
-    <a href="#apps.api.src.routers.planning">apps.api.src.routers.planning</a>
+    <a href="#apps.api.src.keystone.cognition">apps.api.src.keystone.cognition</a>
+ &#8226;   <a href="#apps.api.src.routers.cognition">apps.api.src.routers.cognition</a>
+ &#8226;   <a href="#apps.api.src.routers.planning">apps.api.src.routers.planning</a>
  &#8226;   <a href="#packages.prompt_engine">packages.prompt_engine</a>
  &#8226;   <a href="#packages.prompt_engine.compiler">packages.prompt_engine.compiler</a>
  &#8226;   <a href="#packages.prompt_engine.engine">packages.prompt_engine.engine</a>
@@ -27203,6 +27372,7 @@ imported by:
  &#8226;   <a href="#pydantic.version">pydantic.version</a>
  &#8226;   <a href="#pythonnet">pythonnet</a>
  &#8226;   <a href="#services.audio.src.elevenlabs">services.audio.src.elevenlabs</a>
+ &#8226;   <a href="#services.cognition.src.client">services.cognition.src.client</a>
  &#8226;   <a href="#services.comfy.src.client">services.comfy.src.client</a>
  &#8226;   <a href="#setuptools._distutils.compilers.C.base">setuptools._distutils.compilers.C.base</a>
  &#8226;   <a href="#setuptools._distutils.compilers.C.cygwin">setuptools._distutils.compilers.C.cygwin</a>
@@ -28289,6 +28459,8 @@ imports:
   <div class="import">
 imported by:
     <a href="#apps.api.src.intelligence_router">apps.api.src.intelligence_router</a>
+ &#8226;   <a href="#apps.api.src.keystone.cognition">apps.api.src.keystone.cognition</a>
+ &#8226;   <a href="#apps.api.src.keystone.models">apps.api.src.keystone.models</a>
  &#8226;   <a href="#apps.api.src.main">apps.api.src.main</a>
  &#8226;   <a href="#apps.api.src.routers.admin">apps.api.src.routers.admin</a>
  &#8226;   <a href="#apps.api.src.routers.assets">apps.api.src.routers.assets</a>
@@ -28380,6 +28552,8 @@ imported by:
 <span class="moduletype">MissingModule</span>  <div class="import">
 imported by:
     <a href="#apps.api.src.intelligence_router">apps.api.src.intelligence_router</a>
+ &#8226;   <a href="#apps.api.src.keystone.cognition">apps.api.src.keystone.cognition</a>
+ &#8226;   <a href="#apps.api.src.keystone.models">apps.api.src.keystone.models</a>
  &#8226;   <a href="#apps.api.src.main">apps.api.src.main</a>
  &#8226;   <a href="#apps.api.src.routers.admin">apps.api.src.routers.admin</a>
  &#8226;   <a href="#apps.api.src.routers.assets">apps.api.src.routers.assets</a>
@@ -40507,6 +40681,7 @@ imported by:
  &#8226;   <a href="#_strptime">_strptime</a>
  &#8226;   <a href="#anyio.streams.tls">anyio.streams.tls</a>
  &#8226;   <a href="#apps.api.src.intelligence_router">apps.api.src.intelligence_router</a>
+ &#8226;   <a href="#apps.api.src.keystone.cognition">apps.api.src.keystone.cognition</a>
  &#8226;   <a href="#apps.api.src.routers.assets">apps.api.src.routers.assets</a>
  &#8226;   <a href="#apps.api.src.routers.cognition">apps.api.src.routers.cognition</a>
  &#8226;   <a href="#apps.api.src.storage.service">apps.api.src.storage.service</a>
@@ -41382,8 +41557,10 @@ imports:
  &#8226;   <a href="#json">json</a>
  &#8226;   <a href="#os">os</a>
  &#8226;   <a href="#packages.contracts.src.models">packages.contracts.src.models</a>
+ &#8226;   <a href="#pathlib">pathlib</a>
  &#8226;   <a href="#services.cognition.src">services.cognition.src</a>
  &#8226;   <a href="#services.harness.src.worker_bridge">services.harness.src.worker_bridge</a>
+ &#8226;   <a href="#sys">sys</a>
  &#8226;   <a href="#time">time</a>
  &#8226;   <a href="#typing">typing</a>
  &#8226;   <a href="#urllib.error">urllib.error</a>
@@ -41393,8 +41570,13 @@ imports:
   </div>
   <div class="import">
 imported by:
-    <a href="#apps.api.src.routers.cognition">apps.api.src.routers.cognition</a>
+    <a href="#apps.api.src.keystone.cognition">apps.api.src.keystone.cognition</a>
+ &#8226;   <a href="#apps.api.src.routers.cognition">apps.api.src.routers.cognition</a>
+ &#8226;   <a href="#apps.api.src.server">apps.api.src.server</a>
+ &#8226;   <a href="#launcher.py">launcher.py</a>
  &#8226;   <a href="#services.cognition.src">services.cognition.src</a>
+ &#8226;   <a href="#services.comfy.src.client">services.comfy.src.client</a>
+ &#8226;   <a href="#services.harness.src.kaggle_daemon">services.harness.src.kaggle_daemon</a>
 
   </div>
 
@@ -41469,6 +41651,7 @@ imports:
  &#8226;   <a href="#os">os</a>
  &#8226;   <a href="#pathlib">pathlib</a>
  &#8226;   <a href="#random">random</a>
+ &#8226;   <a href="#services.cognition.src.client">services.cognition.src.client</a>
  &#8226;   <a href="#services.comfy.src">services.comfy.src</a>
  &#8226;   <a href="#services.harness.src.worker_bridge">services.harness.src.worker_bridge</a>
  &#8226;   <a href="#struct">struct</a>
@@ -41586,6 +41769,7 @@ imports:
  &#8226;   <a href="#json">json</a>
  &#8226;   <a href="#logging">logging</a>
  &#8226;   <a href="#os">os</a>
+ &#8226;   <a href="#services.cognition.src.client">services.cognition.src.client</a>
  &#8226;   <a href="#services.harness.src">services.harness.src</a>
  &#8226;   <a href="#services.harness.src.worker_bridge">services.harness.src.worker_bridge</a>
  &#8226;   <a href="#threading">threading</a>
@@ -56458,6 +56642,7 @@ imported by:
  &#8226;   <a href="#aiosqlite.cursor">aiosqlite.cursor</a>
  &#8226;   <a href="#aiosqlite.tests.perf">aiosqlite.tests.perf</a>
  &#8226;   <a href="#aiosqlite.tests.smoke">aiosqlite.tests.smoke</a>
+ &#8226;   <a href="#apps.api.src.keystone.prompting">apps.api.src.keystone.prompting</a>
  &#8226;   <a href="#launcher.py">launcher.py</a>
  &#8226;   <a href="#sqlalchemy.dialects.sqlite.pysqlite">sqlalchemy.dialects.sqlite.pysqlite</a>
  &#8226;   <a href="#sqlite3">sqlite3</a>
@@ -58052,6 +58237,7 @@ imported by:
  &#8226;   <a href="#reprlib">reprlib</a>
  &#8226;   <a href="#runpy">runpy</a>
  &#8226;   <a href="#selectors">selectors</a>
+ &#8226;   <a href="#services.cognition.src.client">services.cognition.src.client</a>
  &#8226;   <a href="#setuptools">setuptools</a>
  &#8226;   <a href="#setuptools._distutils">setuptools._distutils</a>
  &#8226;   <a href="#setuptools._distutils.cmd">setuptools._distutils.cmd</a>
@@ -59280,6 +59466,9 @@ imported by:
  &#8226;   <a href="#apps.api.src.db.session">apps.api.src.db.session</a>
  &#8226;   <a href="#apps.api.src.intelligence_router">apps.api.src.intelligence_router</a>
  &#8226;   <a href="#apps.api.src.jobs.state_machine">apps.api.src.jobs.state_machine</a>
+ &#8226;   <a href="#apps.api.src.keystone.cognition">apps.api.src.keystone.cognition</a>
+ &#8226;   <a href="#apps.api.src.keystone.models">apps.api.src.keystone.models</a>
+ &#8226;   <a href="#apps.api.src.keystone.prompting">apps.api.src.keystone.prompting</a>
  &#8226;   <a href="#apps.api.src.lineage.dag">apps.api.src.lineage.dag</a>
  &#8226;   <a href="#apps.api.src.main">apps.api.src.main</a>
  &#8226;   <a href="#apps.api.src.repositories.api_keys">apps.api.src.repositories.api_keys</a>
@@ -60621,6 +60810,7 @@ imports:
   <div class="import">
 imported by:
     <a href="#_pytest.pastebin">_pytest.pastebin</a>
+ &#8226;   <a href="#apps.api.src.keystone.cognition">apps.api.src.keystone.cognition</a>
  &#8226;   <a href="#apps.api.src.routers.cognition">apps.api.src.routers.cognition</a>
  &#8226;   <a href="#clr_loader.util.coreclr_errors">clr_loader.util.coreclr_errors</a>
  &#8226;   <a href="#http.cookiejar">http.cookiejar</a>
@@ -60735,6 +60925,8 @@ imported by:
  &#8226;   <a href="#apps.api.src.auth.dependencies">apps.api.src.auth.dependencies</a>
  &#8226;   <a href="#apps.api.src.db.models">apps.api.src.db.models</a>
  &#8226;   <a href="#apps.api.src.intelligence_router">apps.api.src.intelligence_router</a>
+ &#8226;   <a href="#apps.api.src.keystone.cognition">apps.api.src.keystone.cognition</a>
+ &#8226;   <a href="#apps.api.src.keystone.prompting">apps.api.src.keystone.prompting</a>
  &#8226;   <a href="#apps.api.src.lineage.dag">apps.api.src.lineage.dag</a>
  &#8226;   <a href="#apps.api.src.repositories.api_keys">apps.api.src.repositories.api_keys</a>
  &#8226;   <a href="#apps.api.src.repositories.assets">apps.api.src.repositories.assets</a>

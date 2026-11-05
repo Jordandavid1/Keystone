@@ -15,18 +15,40 @@ import urllib.error
 import urllib.request
 from typing import Any, Dict, List, Optional
 
+from services.cognition.src.client import load_keystone_dotenv
+
+load_keystone_dotenv()
+
 logger = logging.getLogger("keystone.kaggle_daemon")
 
 PINNED_CHECKPOINT = "huihui-ai/Huihui-Qwen3.8-27B-abliterated"
+
+
+def _resolve_cognition_tunnel() -> str:
+    load_keystone_dotenv()
+    return (
+        os.getenv("OPENAI_BASE_URL", "").strip()
+        or os.getenv("COGNITION_BASE_URL", "").strip()
+        or os.getenv("KAGGLE_COGNITION_TUNNEL", "").strip()
+        or "https://showing-deutsche-snow-activists.trycloudflare.com/v1"
+    )
+
+
+def _resolve_comfy_tunnel() -> str:
+    load_keystone_dotenv()
+    return (
+        os.getenv("COMFY_BASE_URL", "").strip()
+        or os.getenv("KEYSTONE_COMFY_URL", "").strip()
+        or os.getenv("KAGGLE_COMFYUI_TUNNEL", "").strip()
+        or "https://nature-particle-previews-tion.trycloudflare.com"
+    )
+
 
 KAGGLE_WORKERS: List[Dict[str, Any]] = [
     {
         "worker_id": "kaggle-cognition-t4x2",
         "worker_type": "cognition",
-        "tunnel_url": os.getenv(
-            "KAGGLE_COGNITION_TUNNEL",
-            "https://kaggle-cognition-t4x2.trycloudflare.com"
-        ),
+        "tunnel_url": _resolve_cognition_tunnel(),
         "capabilities": [
             "cognition.qwen27b",
             "cognition.reasoning",
@@ -46,15 +68,14 @@ KAGGLE_WORKERS: List[Dict[str, Any]] = [
     {
         "worker_id": "kaggle-creative-comfyui",
         "worker_type": "creative",
-        "tunnel_url": os.getenv(
-            "KAGGLE_COMFYUI_TUNNEL",
-            "https://kaggle-creative-comfyui.trycloudflare.com"
-        ),
+        "tunnel_url": _resolve_comfy_tunnel(),
         "capabilities": [
             "image.generation",
             "image.editing",
             "video.i2v",
             "video.t2v",
+            "video.reference_to_video",
+            "video.minimax_h3_ref2va",
             "identity.face_swap",
             "image.upscale",
             "comfyui",
@@ -94,14 +115,20 @@ class KaggleWorkerDaemon:
         """Direct in-memory registration via worker_bridge."""
         from services.harness.src.worker_bridge import worker_bridge
         for w in KAGGLE_WORKERS:
+            tunnel_url = (
+                _resolve_cognition_tunnel()
+                if w["worker_type"] == "cognition"
+                else _resolve_comfy_tunnel()
+            )
+            w["tunnel_url"] = tunnel_url
             worker_bridge.register_worker(
                 worker_id=w["worker_id"],
                 worker_type=w["worker_type"],
-                tunnel_url=w["tunnel_url"],
+                tunnel_url=tunnel_url,
                 capabilities=w["capabilities"],
                 hardware=w["hardware"]
             )
-            logger.info("Registered worker %s in-process", w["worker_id"])
+            logger.info("Registered worker %s in-process (%s)", w["worker_id"], tunnel_url)
 
     def register_workers_http(self) -> None:
         """Registers workers via HTTP API endpoint (/internal/workers/register)."""

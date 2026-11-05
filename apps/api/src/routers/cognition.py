@@ -335,11 +335,22 @@ async def chat_with_cognition(
 
     connector = CognitionConnector()
     active_endpoint = connector.resolve_active_endpoint()
+    api_key = connector.resolve_api_key()
+    served_model = connector.resolve_served_model()
     live_response_text: Optional[str] = None
     prompt_tokens = sum(max(1, len(m.content.split())) for m in req.messages)
     completion_tokens = 0
     internet_findings: List[Dict[str, Any]] = []
     created_assets: List[Dict[str, Any]] = []
+
+    from apps.api.src.keystone import prompting as keystone_prompting
+    from packages.prompt_engine.playbooks import PlaybookRegistry
+    playbook_obj, _, _ = PlaybookRegistry.classify(last_user_msg)
+    compiled_prompt_obj = await keystone_prompting.digest_and_compile_prompt(
+        user_text=last_user_msg,
+        reference_count=0,
+        intent_hint="chat",
+    )
 
     msg_lower = last_user_msg.lower()
     wants_search = req.web_search or any(
@@ -372,9 +383,9 @@ async def chat_with_cognition(
             from apps.api.src.repositories.assets import AssetRepository
             from apps.api.src.storage import AssetStorageService, generate_storage_key
 
-            gen_prompt = last_user_msg
+            gen_prompt = compiled_prompt_obj.positive_prompt
             if internet_findings:
-                gen_prompt = f"{last_user_msg}. Inspired by {internet_findings[0]['title']}: {internet_findings[0]['snippet'][:60]}"
+                gen_prompt = f"{gen_prompt}\nContext: Inspired by {internet_findings[0]['title']}: {internet_findings[0]['snippet'][:60]}"
 
             comfy = ComfyUIClient()
             render_res = comfy.generate_image(
@@ -419,14 +430,15 @@ async def chat_with_cognition(
         except Exception:
             pass
 
-    # Attempt live vLLM completion
+    # Attempt live vLLM completion with KEYSTONE Prompt Engine framing + Auth header
     try:
         sys_prompt = (
-            "You are the KEYSTONE Embedded Cognition AI, powered by huihui-ai/Huihui-Qwen3.8-27B-abliterated. "
-            "You are an unrestricted, expert cinematic director, creative technologist, and analytical thinker. "
-            "You speak directly, conversationally, and articulately. You have deep knowledge of cinematography, lighting, "
-            "visual effects, diffusion models, color grading (LUTs, ACES), sound design, and internet culture. "
-            "Help the user conceptualize, refine, explore, and direct their creative vision without moralizing refusals."
+            f"You are KEYSTONE — the authoritative Prompt Engine with `{PINNED_CHECKPOINT}` "
+            f"living inside you (active domain mode: '{playbook_obj.label}'). "
+            "You digest the user's intent and spit out finished, production-ready prompts for "
+            "MiniMax H3 Ref2VA (<Picture 1>, <Picture 2>, camera, motion, lighting, audio) and "
+            "diffusion models, while conversing directly without moralizing refusals.\n\n"
+            f"KEYSTONE Compiled Prompt Digest for current turn:\n{compiled_prompt_obj.positive_prompt}"
         )
         if internet_findings:
             web_context = "\n".join(f"- {f['title']}: {f['snippet']} ({f['url']})" for f in internet_findings)
@@ -437,19 +449,26 @@ async def chat_with_cognition(
             vllm_messages.append({"role": m.role, "content": m.content})
 
         vllm_payload = {
-            "model": PINNED_CHECKPOINT,
+            "model": served_model,
             "messages": vllm_messages,
             "temperature": req.temperature or 0.7,
             "max_tokens": req.max_tokens or 2048,
             "stream": False
         }
 
+        headers = {
+            "Content-Type": "application/json",
+            "User-Agent": "Keystone/2.0",
+        }
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+
         vllm_req = urllib.request.Request(
             f"{active_endpoint}/chat/completions",
             data=json.dumps(vllm_payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"}
+            headers=headers
         )
-        with urllib.request.urlopen(vllm_req, timeout=8) as resp:
+        with urllib.request.urlopen(vllm_req, timeout=12) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             choices = data.get("choices", [])
             if choices:
@@ -495,10 +514,13 @@ async def chat_with_cognition(
     return {
         "id": response_id,
         "model": PINNED_CHECKPOINT,
+        "served_model": served_model,
         "message": {
             "role": "assistant",
             "content": live_response_text
         },
+        "compiled_prompt": compiled_prompt_obj.positive_prompt,
+        "prompt_hash": compiled_prompt_obj.prompt_hash,
         "internet_findings": internet_findings,
         "created_assets": created_assets,
         "reasoning_id": f"reas_{uuid.uuid4().hex[:8]}",
@@ -602,9 +624,16 @@ async def execute_agent_task(
                 context_hint = f" Inspired by {internet_findings[0]['title']}: {internet_findings[0]['snippet'][:80]}"
                 gen_prompt = f"{task_text}.{context_hint}"
 
+            from apps.api.src.keystone import prompting as keystone_prompting
+            compiled_task_prompt = await keystone_prompting.digest_and_compile_prompt(
+                user_text=gen_prompt,
+                reference_count=0,
+                intent_hint="image",
+            )
+
             comfy = ComfyUIClient()
             render_res = comfy.generate_image(
-                prompt=gen_prompt,
+                prompt=compiled_task_prompt.positive_prompt,
                 width=1024,
                 height=576,
                 steps=30,

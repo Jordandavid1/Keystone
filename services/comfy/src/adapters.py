@@ -308,7 +308,7 @@ class MiniMaxH3Adapter(CreativeAdapterBase):
     MiniMax H3 Omni-Modal Reference-to-Video (ref2va) generation adapter.
     Jointly synthesizes video with native synced stereo audio.
     Powered by Qwen3.8-VL 32B text encoder (qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors)
-    and minimax_h3_ref2va_pruned_int8_convrot.safetensors per PinkCherry_Ref2V.json.
+    and PinkCherry_hybrid_v1.8_minimax_h3_pruned_bf16.safetensors per PinkCherry_Ref2V.json.
     """
 
     def __init__(self):
@@ -342,7 +342,7 @@ class MiniMaxH3Adapter(CreativeAdapterBase):
     def build_workflow_graph(self, params: Dict[str, Any], prompt: str) -> Dict[str, Any]:
         return {
             "116": {"class_type": "MarkdownNote", "inputs": {"note": "PinkCherry MiniMax H3 Ref2VA Pipeline"}},
-            "unet": {"class_type": "UNETLoader", "inputs": {"unet_name": "minimax_h3_ref2va_pruned_int8_convrot.safetensors"}},
+            "unet": {"class_type": "UNETLoader", "inputs": {"unet_name": "PinkCherry_hybrid_v1.8_minimax_h3_pruned_bf16.safetensors"}},
             "clip": {"class_type": "CLIPLoader", "inputs": {"clip_name": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors"}},
             "video_vae": {"class_type": "VAELoader", "inputs": {"vae_name": "minimax_h3_video_vae_fp16.safetensors"}},
             "audio_vae": {"class_type": "VAELoader", "inputs": {"vae_name": "minimax_h3_audio_vae_fp32.safetensors"}},

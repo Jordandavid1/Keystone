@@ -43,6 +43,8 @@ const state = {
   gridVisible: false,
   zoomLevel: 1,
   assets: [],
+  favoriteAssetIds: JSON.parse(localStorage.getItem('keystone.favoriteAssetIds') || '[]'),
+  filterFavorites: false,
   selectedAssetId: null,
   activeReferenceAssetId: null,
   agentChatHistory: [],
@@ -208,8 +210,13 @@ function renderSidebarAssetStream() {
   if (!container) return;
   const countEl = document.getElementById('navAssetsCount');
   if (countEl) countEl.textContent = String(state.assets.length);
-  if (!state.assets.length) {
-    container.innerHTML = '<div class="asset-empty-state">No persisted assets yet.</div>';
+  const visibleAssets = state.filterFavorites
+    ? state.assets.filter(a => state.favoriteAssetIds.includes(a.id))
+    : state.assets;
+  if (!visibleAssets.length) {
+    container.innerHTML = state.filterFavorites
+      ? '<div class="asset-empty-state">No favorited assets yet. Click ☆ on any asset card to pin it to Favorites.</div>'
+      : '<div class="asset-empty-state">No persisted assets yet.</div>';
     return;
   }
 
@@ -217,32 +224,53 @@ function renderSidebarAssetStream() {
   const downloadButton = document.getElementById('downloadAssetBtn');
   if (downloadButton) downloadButton.disabled = !selectedAsset || !selectedAsset.imageUrl;
 
-  container.innerHTML = state.assets.map(asset => {
+  container.innerHTML = visibleAssets.map(asset => {
     const isSel = asset.id === state.selectedAssetId;
+    const isFav = state.favoriteAssetIds.includes(asset.id);
     return `
-      <div class="asset-mini-card ${isSel ? 'selected' : ''}" data-asset-id="${asset.id}">
+      <div class="asset-mini-card ${isSel ? 'selected' : ''}" data-asset-id="${asset.id}" style="position: relative;">
         <div class="asset-mini-thumb">
           ${asset.imageUrl && asset.type !== 'audio'
             ? `<img src="${asset.imageUrl}" alt="${asset.title}" />`
             : asset.type === 'video' ? '🎬' : (asset.type === 'audio' ? '🎙️' : '🖼️')}
         </div>
-        <div class="asset-mini-meta">
+        <div class="asset-mini-meta" style="flex: 1; min-width: 0;">
           <div class="asset-mini-title">${asset.title}</div>
           <div class="asset-mini-sub">
             <span style="color: #a5b4fc; font-family: var(--font-mono);">${asset.relationship}</span>
             ${assetFacts(asset) ? `<span>•</span><span>${assetFacts(asset)}</span>` : ''}
           </div>
         </div>
+        <button class="btn-fav-asset" data-fav-id="${asset.id}" title="${isFav ? 'Remove from Favorites' : 'Add to Favorites'}" style="background: transparent; border: none; color: ${isFav ? '#f59e0b' : 'var(--text-muted)'}; font-size: 14px; cursor: pointer; padding: 4px 6px; line-height: 1;">
+          ${isFav ? '★' : '☆'}
+        </button>
       </div>
     `;
   }).join('');
 
   container.querySelectorAll('.asset-mini-card').forEach(card => {
-    card.addEventListener('click', () => {
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('.btn-fav-asset')) return;
       state.selectedAssetId = card.dataset.assetId;
       renderSidebarAssetStream();
       renderInspector();
       renderCanvasStage();
+    });
+  });
+
+  container.querySelectorAll('.btn-fav-asset').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const favId = btn.dataset.favId;
+      if (!favId) return;
+      const idx = state.favoriteAssetIds.indexOf(favId);
+      if (idx >= 0) {
+        state.favoriteAssetIds.splice(idx, 1);
+      } else {
+        state.favoriteAssetIds.push(favId);
+      }
+      localStorage.setItem('keystone.favoriteAssetIds', JSON.stringify(state.favoriteAssetIds));
+      renderSidebarAssetStream();
     });
   });
 }
@@ -1156,39 +1184,41 @@ async function fetchRemoteConfig() {
 
 async function fetchWorkerTelemetry() {
   try {
-    const res = await fetch('/internal/workers');
-    if (!res.ok) return;
-    const data = await res.json();
+    const [res, cogRes] = await Promise.all([
+      fetch('/internal/workers'),
+      fetch('/v1/cognition/status').catch(() => null)
+    ]);
+    const data = res && res.ok ? await res.json() : { workers: [] };
+    const cogData = cogRes && cogRes.ok ? await cogRes.json() : {};
     const workers = data.workers || [];
     const activeWorkers = workers.filter(w => w.status === 'ACTIVE');
 
     state.workerTelemetry.activeCount = activeWorkers.length;
     state.workerTelemetry.workers = activeWorkers;
+    state.workerTelemetry.cognitionStatus = cogData;
 
     const statusTextEl = document.getElementById('workerStatusText');
     const statusDotEl = document.getElementById('workerStatusDot');
     const vramBadgeEl = document.getElementById('workerVramBadge');
-    const engineHealthTextEl = document.getElementById('engineHealthText');
+    const engineHealthTextEl = document.getElementById('statusEngineHealthText') || document.getElementById('engineHealthText');
+
+    let totalVram = 0;
+    let usedVram = 0;
+    activeWorkers.forEach(w => {
+      const hw = w.hardware || {};
+      totalVram += hw.vram_total_gib || 15.0;
+      const metrics = w.metrics || {};
+      usedVram += metrics.gpu_memory_used_gib || (hw.vram_total_gib ? hw.vram_total_gib * 0.75 : 12.0);
+    });
 
     if (activeWorkers.length > 0) {
       if (statusDotEl) statusDotEl.style.background = '#34d399';
       if (statusTextEl) {
-        statusTextEl.textContent = `KAGGLE T4×2: ${activeWorkers.length} ACTIVE`;
+        statusTextEl.textContent = `GPU BRIDGE: ${activeWorkers.length} ACTIVE`;
       }
-
-      let totalVram = 0;
-      let usedVram = 0;
-      activeWorkers.forEach(w => {
-        const hw = w.hardware || {};
-        totalVram += hw.vram_total_gib || 15.0;
-        const metrics = w.metrics || {};
-        usedVram += metrics.gpu_memory_used_gib || (hw.vram_total_gib ? hw.vram_total_gib * 0.75 : 12.0);
-      });
-
       if (vramBadgeEl) {
         vramBadgeEl.textContent = `VRAM: ${usedVram.toFixed(1)}/${totalVram.toFixed(0)}G`;
       }
-
       if (engineHealthTextEl) {
         const hasCognition = activeWorkers.some(w =>
           (w.capabilities || []).some(c => c.includes('qwen') || c.includes('cognition'))
@@ -1197,12 +1227,57 @@ async function fetchWorkerTelemetry() {
           (w.capabilities || []).some(c => c.includes('comfy') || c.includes('image.generation'))
         );
         engineHealthTextEl.textContent =
-          `KEYSTONE 2.0 • Qwen-27B (${hasCognition ? 'T4×2 Active' : 'Standby'}) • ComfyUI (${hasComfy ? 'Active' : 'Standby'}) • ${activeWorkers.length} Nodes`;
+          `KEYSTONE 2.0 • Qwen-27B (${hasCognition ? 'Active' : 'Standby'}) • ComfyUI (${hasComfy ? 'Online' : 'Standby'}) • ${activeWorkers.length} Nodes`;
       }
     } else {
       if (statusDotEl) statusDotEl.style.background = '#f59e0b';
-      if (statusTextEl) statusTextEl.textContent = 'KAGGLE: CONNECTING';
+      if (statusTextEl) statusTextEl.textContent = 'GPU BRIDGE: CONNECTING';
       if (vramBadgeEl) vramBadgeEl.textContent = 'DISCOVERING';
+    }
+
+    // Dynamically update Worker Telemetry Modal & Settings Engine tab
+    const workerModalState = document.getElementById('workerModalState');
+    const workerModalVram = document.getElementById('workerModalVram');
+    const workerModalLatency = document.getElementById('workerModalLatency');
+    const workerModalId = document.getElementById('workerModalId');
+    const workerModalModel = document.getElementById('workerModalModel');
+    const workerModalDriver = document.getElementById('workerModalDriver');
+    const workerModalTunnel = document.getElementById('workerModalTunnel');
+    const settingsCogText = document.getElementById('settingsCognitionEndpointText');
+    const settingsComfyText = document.getElementById('settingsComfyStatusText');
+
+    const cogWorker = activeWorkers.find(w => (w.capabilities || []).some(c => c.includes('cognition') || c.includes('qwen'))) || activeWorkers[0];
+    const comfyWorker = activeWorkers.find(w => (w.capabilities || []).some(c => c.includes('comfy') || c.includes('image.generation'))) || activeWorkers[1] || activeWorkers[0];
+    const activeEndpoint = cogData.active_endpoint || (cogWorker && cogWorker.tunnel_url) || 'Live Cognition Endpoint';
+    const comfyTunnel = (comfyWorker && comfyWorker.tunnel_url) || 'Live ComfyUI Endpoint';
+
+    if (workerModalState) {
+      workerModalState.textContent = activeWorkers.length > 0 ? `ACTIVE (${activeWorkers.length} NODES)` : (cogData.state || 'STANDBY');
+    }
+    if (workerModalVram && totalVram > 0) {
+      workerModalVram.textContent = `${usedVram.toFixed(1)} / ${totalVram.toFixed(1)} GB`;
+    }
+    if (workerModalLatency) {
+      const lat = (cogWorker && cogWorker.metrics && cogWorker.metrics.latency_ms) || 12;
+      workerModalLatency.textContent = `${lat} ms`;
+    }
+    if (workerModalId) {
+      workerModalId.textContent = activeWorkers.map(w => w.worker_id).join(', ') || 'gpu-cluster-primary';
+    }
+    if (workerModalModel) {
+      workerModalModel.textContent = cogData.pinned_model || 'huihui-ai/Huihui-Qwen3.8-27B-abliterated';
+    }
+    if (workerModalDriver) {
+      workerModalDriver.textContent = activeEndpoint;
+    }
+    if (workerModalTunnel) {
+      workerModalTunnel.textContent = comfyTunnel;
+    }
+    if (settingsCogText) {
+      settingsCogText.textContent = `Cognition Endpoint: ${activeEndpoint}`;
+    }
+    if (settingsComfyText) {
+      settingsComfyText.textContent = `ComfyUI Tunnel: ${comfyTunnel} • Execution Envelopes Enforced`;
     }
   } catch (err) {
     console.warn('Worker telemetry fetch error:', err);
@@ -1364,9 +1439,10 @@ function relationshipForIntent(intent) {
 }
 
 async function requestComfyRender(jobId, promptText, authorizedArguments) {
-  const isImg2Img = state.generationMode === 'img2img' && Boolean(state.activeReferenceAssetId);
-  const refAssetId = isImg2Img ? state.activeReferenceAssetId : null;
-  const parentAssetId = null;
+  const effectiveRefId = state.activeReferenceAssetId || (state.activeIntent === 'edit' ? state.selectedAssetId : null);
+  const isImg2Img = (state.generationMode === 'img2img' || state.activeIntent === 'edit') && Boolean(effectiveRefId);
+  const refAssetId = isImg2Img ? effectiveRefId : null;
+  const parentAssetId = refAssetId || null;
 
   return apiRequest('/v1/assets/generate', {
     method: 'POST',
@@ -1667,10 +1743,33 @@ async function runKeystoneGeneration() {
   let generation = null;
 
   try {
-    if (state.activeIntent !== 'create') {
-      throw new Error('Only text-to-image creation is currently connected to a real workflow.');
-    }
     const compiled = await compilePromptPreview();
+    if (state.activeIntent === 'animate') {
+      await triggerMiniMaxH3VideoGeneration({
+        prompt: (compiled && compiled.positive_prompt) || promptText,
+        referenceAssetId: state.activeReferenceAssetId || state.selectedAssetId || null,
+        duration: state.minimaxDuration || 5,
+        resolution: state.minimaxResolution || '720p',
+        denoise: state.minimaxDenoise || 0.65
+      });
+      submitBtn.disabled = false;
+      return;
+    }
+    if (state.activeIntent === 'analyze') {
+      stageText.textContent = 'Analyzing with KEYSTONE Prompt Engine & Qwen 27B...';
+      subMeta.textContent = compiled && compiled.prompt_hash
+        ? `Compiled SHA-256: ${compiled.prompt_hash.slice(0, 12)}... • Dispatching to Qwen 27B Cognition`
+        : 'Dispatching to Qwen 27B Cognition';
+      if (typeof window.openAgentChat === 'function') {
+        window.openAgentChat();
+      }
+      if (typeof window.sendAgentPrompt === 'function') {
+        await window.sendAgentPrompt(promptText);
+      }
+      banner.classList.add('hidden');
+      submitBtn.disabled = false;
+      return;
+    }
     if (!compiled) {
       throw new Error(state.lastCompileError || 'Prompt compilation failed; no job was created.');
     }
@@ -2222,54 +2321,32 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // VS Code Activity Bar Switching
-  document.querySelectorAll('.activity-icon-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.activity-icon-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      const act = btn.dataset.activity;
-      if (act === 'explorer') {
-        document.querySelector('[data-mode="single"]')?.click();
-      } else if (act === 'nodes') {
-        document.querySelector('[data-mode="lineage"]')?.click();
-      } else if (act === 'motion') {
-        const hud = document.getElementById('higgsfieldMotionHud');
-        if (hud) hud.classList.toggle('hidden');
-      } else if (act === 'thinking' || act === 'settings') {
-        const devBtn = document.getElementById('toggleDevDrawerBtn');
-        if (devBtn) devBtn.click();
-      } else if (act === 'personas') {
-        openPersonasModal(false);
-      } else if (act === 'audio') {
-        openPersonasModal(true);
-      }
-    });
-  });
-
-  // Left Sidebar Navigation
-  document.querySelectorAll('#primaryNavList .nav-item').forEach(item => {
-    item.addEventListener('click', () => {
-      document.querySelectorAll('#primaryNavList .nav-item').forEach(n => n.classList.remove('active'));
-      item.classList.add('active');
-      const nav = item.dataset.nav;
-      if (nav === 'assets') {
-        document.querySelector('[data-mode="lineage"]').click();
-      } else if (nav === 'favorites') {
-        document.querySelector('[data-mode="variations"]').click();
-      } else if (nav === 'personas') {
-        openPersonasModal(false);
-      } else {
-        document.querySelector('[data-mode="single"]').click();
-      }
-    });
-  });
-
-  // Intent Pills
+  // Intent Pills (Create, Edit, Animate, Analyze)
   document.querySelectorAll('.intent-pill').forEach(pill => {
     pill.addEventListener('click', () => {
       document.querySelectorAll('.intent-pill').forEach(p => p.classList.remove('active'));
       pill.classList.add('active');
       state.activeIntent = pill.dataset.intent;
+      const submitBtnSpan = document.querySelector('#composerSubmitBtn span');
+      if (submitBtnSpan) {
+        const labels = {
+          create: 'Generate',
+          edit: 'Edit Image',
+          animate: 'Animate Video',
+          analyze: 'Digest & Analyze'
+        };
+        submitBtnSpan.textContent = labels[state.activeIntent] || 'Generate';
+      }
+      if (state.activeIntent === 'edit') {
+        if (!state.activeReferenceAssetId && state.selectedAssetId) {
+          const sel = getSelectedAsset();
+          if (sel) setActiveReference(sel);
+        } else {
+          setGenerationMode('img2img');
+        }
+      } else if (state.activeIntent === 'create' && !state.activeReferenceAssetId) {
+        setGenerationMode('text2image');
+      }
       compilePromptPreview();
     });
   });
@@ -2643,15 +2720,28 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // LUT Presets
+  // LUT Presets & @LUT Context Pill
   const lutNameLabel = document.getElementById('activeLutName');
+  const ctxLutPill = document.getElementById('ctxLutPill');
+  const ctxLutVal = document.getElementById('ctxLutVal');
+  const btnRemoveLutCtx = document.getElementById('btnRemoveLutCtx');
+
   document.querySelectorAll('#lutPresetsGrid .lut-pill').forEach(pill => {
     pill.addEventListener('click', () => {
       document.querySelectorAll('#lutPresetsGrid .lut-pill').forEach(p => p.classList.remove('active'));
       pill.classList.add('active');
       state.activeLut = pill.dataset.lut;
+      const labelText = pill.querySelector('span:last-child')?.textContent || state.activeLut;
       if (lutNameLabel) {
-        lutNameLabel.textContent = pill.querySelector('span:last-child').textContent;
+        lutNameLabel.textContent = labelText;
+      }
+      if (ctxLutPill && ctxLutVal) {
+        if (state.activeLut && state.activeLut !== 'none') {
+          ctxLutPill.style.display = 'flex';
+          ctxLutVal.textContent = labelText;
+        } else {
+          ctxLutPill.style.display = 'none';
+        }
       }
       const primaryImg = document.getElementById('primaryStageImage');
       if (primaryImg) applyActiveGradeFilter(primaryImg);
@@ -2659,6 +2749,18 @@ document.addEventListener('DOMContentLoaded', () => {
       if (compareAfter) applyActiveGradeFilter(compareAfter);
     });
   });
+
+  if (btnRemoveLutCtx) {
+    btnRemoveLutCtx.addEventListener('click', () => {
+      const nonePill = document.querySelector('#lutPresetsGrid [data-lut="none"]');
+      if (nonePill) {
+        nonePill.click();
+      } else {
+        state.activeLut = 'none';
+        if (ctxLutPill) ctxLutPill.style.display = 'none';
+      }
+    });
+  }
 
   // Grade Sliders
   const setupSlider = (id, prop, valId, suffix = '') => {
@@ -3227,6 +3329,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  window.sendAgentPrompt = sendAgentPrompt;
   const openAgentChat = () => {
     if (agentChatModal) {
       agentChatModal.classList.remove('hidden');
@@ -3756,7 +3859,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ============================================================================
-  // VS Code Activity Rail & Left Sidebar Navigation Items
+  // VS Code Activity Rail, Left Sidebar Navigation & Status Bar Items
   // ============================================================================
   document.querySelectorAll('.activity-icon-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -3764,7 +3867,13 @@ document.addEventListener('DOMContentLoaded', () => {
       document.querySelectorAll('.activity-icon-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
 
-      if (activity === 'settings') {
+      if (activity === 'explorer') {
+        if (regionSidebar && regionSidebar.classList.contains('collapsed')) {
+          regionSidebar.classList.remove('collapsed');
+          if (toggleSidebarCollapseBtn) toggleSidebarCollapseBtn.textContent = '‹';
+        }
+        document.querySelector('[data-mode="single"]')?.click();
+      } else if (activity === 'settings') {
         openSettingsModal();
       } else if (activity === 'chat') {
         openAgentChat();
@@ -3784,7 +3893,8 @@ document.addEventListener('DOMContentLoaded', () => {
           document.getElementById('anatomyPre')?.scrollIntoView({ behavior: 'smooth' });
         }
       } else if (activity === 'motion') {
-        document.querySelector('[data-mode="video"]')?.click();
+        const hud = document.getElementById('higgsfieldMotionHud');
+        if (hud) hud.classList.toggle('hidden');
         document.getElementById('higgsfieldMotionCard')?.scrollIntoView({ behavior: 'smooth' });
       } else if (activity === 'nodes') {
         document.querySelector('[data-mode="lineage"]')?.click();
@@ -3807,14 +3917,48 @@ document.addEventListener('DOMContentLoaded', () => {
       } else if (nav === 'agent-chat') {
         openAgentChat();
       } else if (nav === 'assets') {
+        state.filterFavorites = false;
+        renderSidebarAssetStream();
         document.querySelector('[data-mode="variations"]')?.click();
       } else if (nav === 'favorites') {
-        state.filterFavorites = !state.filterFavorites;
+        state.filterFavorites = true;
         renderSidebarAssetStream();
       } else if (nav === 'create') {
+        state.filterFavorites = false;
+        renderSidebarAssetStream();
         document.querySelector('[data-mode="single"]')?.click();
       }
     });
+  });
+
+  // Footer Status Bar Interactive Items
+  const statusBellBtn = document.getElementById('statusBellBtn');
+  if (statusBellBtn) statusBellBtn.addEventListener('click', openWorkerModal);
+
+  const statusGitItem = document.getElementById('statusGitItem');
+  if (statusGitItem) statusGitItem.addEventListener('click', () => {
+    document.querySelector('[data-mode="lineage"]')?.click();
+  });
+
+  const statusSyncItem = document.getElementById('statusSyncItem');
+  if (statusSyncItem) statusSyncItem.addEventListener('click', async () => {
+    await Promise.all([hydratePersistedAssets(), fetchWorkerTelemetry(), fetchRemoteConfig()]);
+  });
+
+  const statusErrorItem = document.getElementById('statusErrorItem');
+  if (statusErrorItem) statusErrorItem.addEventListener('click', () => {
+    const devBody = document.getElementById('devDrawerBody');
+    const devChev = document.getElementById('devDrawerChevron');
+    if (devBody) {
+      devBody.hidden = false;
+      if (devChev) devChev.textContent = '[Collapse −]';
+      devBody.scrollIntoView({ behavior: 'smooth' });
+    }
+  });
+
+  const statusPlaybookText = document.getElementById('statusPlaybookText');
+  if (statusPlaybookText) statusPlaybookText.addEventListener('click', () => {
+    document.getElementById('playbookGrid')?.scrollIntoView({ behavior: 'smooth' });
   });
 
   // Keyboard Shortcuts (VS Code & DaVinci)

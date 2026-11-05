@@ -40,6 +40,12 @@ BASE_DIR = get_base_dir()
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
+try:
+    from services.cognition.src.client import load_keystone_dotenv
+    load_keystone_dotenv()
+except Exception:
+    pass
+
 
 def find_free_port(preferred: int = 8000) -> int:
     """Checks if preferred port is available; otherwise finds an ephemeral free port."""

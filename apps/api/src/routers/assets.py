@@ -379,11 +379,23 @@ async def generate_asset(
                 detail="Project not found or access denied",
             )
 
+    # KEYSTONE Prompt Authority + Embedded Cognition digest step:
+    # Digests raw user prompt + reference count via KEYSTONE & seated Qwen model,
+    # producing the finished positive_prompt that the downstream model ingests.
+    from apps.api.src.keystone import prompting as keystone_prompting
+    compiled_prompt_obj = await keystone_prompting.digest_and_compile_prompt(
+        user_text=req.prompt,
+        reference_count=1 if ref_bytes else 0,
+        intent_hint=req.mode or "generate",
+        job_id=str(req.job_id),
+    )
+    final_positive_prompt = compiled_prompt_obj.positive_prompt
+
     try:
         if req.mode == "minimax_h3" or "minimax" in (req.mode or "").lower():
             result = await run_in_threadpool(
                 comfy_client.generate_minimax_h3_video,
-                req.prompt,
+                final_positive_prompt,
                 ref_image_bytes=ref_bytes,
                 duration_seconds=5,
                 resolution="720p"
@@ -391,8 +403,8 @@ async def generate_asset(
         else:
             result = await run_in_threadpool(
                 comfy_client.generate_image,
-                req.prompt,
-                negative_prompt=req.negative_prompt or None,
+                final_positive_prompt,
+                negative_prompt=req.negative_prompt or compiled_prompt_obj.negative_prompt or None,
                 width=req.width,
                 height=req.height,
                 steps=req.steps,
@@ -431,6 +443,9 @@ async def generate_asset(
         "kind": "keystone_comfy_render",
         "title": req.title,
         "prompt": req.prompt,
+        "compiled_prompt": final_positive_prompt,
+        "prompt_hash": compiled_prompt_obj.prompt_hash,
+        "cognition_provenance": compiled_prompt_obj.provenance.get("cognition"),
         "seed": result.get("seed"),
         "steps": result.get("steps"),
         "cfg": result.get("cfg"),

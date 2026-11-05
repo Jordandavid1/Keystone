@@ -17,6 +17,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
+try:
+    from services.cognition.src.client import load_keystone_dotenv
+    load_keystone_dotenv()
+except Exception:
+    pass
+
 # 1. Import pre-built baseline app (preserves main.py byte-identical)
 from apps.api.src.main import app, PlanRequest
 

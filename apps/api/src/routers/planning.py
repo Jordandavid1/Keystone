@@ -33,10 +33,10 @@ class CompileRequestModel(BaseModel):
 @router.post(
     "/plan",
     summary="Generate Execution Plan (plan.v1)",
-    description="Transforms a high-level goal into a deterministic, finishable 6-step path conforming to plan.v1."
+    description="Transforms a high-level goal into a deterministic, finishable 6-step path conforming to plan.v1 plus the digested KEYSTONE compiled prompt."
 )
-def plan_goal(request: PlanRequestModel) -> Dict[str, Any]:
-    """Generates a plan.v1 structure using the heuristic planning engine."""
+async def plan_goal(request: PlanRequestModel) -> Dict[str, Any]:
+    """Generates a plan.v1 structure and digests the goal via KEYSTONE + Embedded Cognition."""
     options = dict(request.options)
     if request.answers:
         options["answers"] = request.answers
@@ -44,6 +44,20 @@ def plan_goal(request: PlanRequestModel) -> Dict[str, Any]:
     result = generate(request.goal, options)
     if "error" in result:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result["error"]["message"])
+
+    try:
+        from apps.api.src.keystone import prompting as keystone_prompting
+        compiled = await keystone_prompting.digest_and_compile_prompt(
+            user_text=request.goal,
+            reference_count=int(options.get("reference_count", 0)),
+            intent_hint="plan",
+        )
+        result["compiledPrompt"] = compiled.positive_prompt
+        result["promptHash"] = compiled.prompt_hash
+        result["cognitionProvenance"] = compiled.provenance.get("cognition")
+    except Exception:
+        pass
+
     return result
 
 

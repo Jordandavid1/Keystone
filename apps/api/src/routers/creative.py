@@ -6,6 +6,7 @@ KHF quality evaluation, and bounded retry decisions.
 
 from __future__ import annotations
 
+import hashlib
 import time
 import uuid
 from typing import Any, Dict, List, Optional
@@ -122,6 +123,9 @@ def evaluate_quality(request: QualityEvaluateRequest) -> HarnessResult:
 )
 def evaluate_retry_decision(request: RetryEvaluateRequest) -> Dict[str, Any]:
     manager = BoundedRetryManager(policy=request.policy)
+    computed_hash = hashlib.sha256(
+        f"{request.attempt_count}:{request.cumulative_cost}:{request.failure_code or 'NONE'}".encode("utf-8")
+    ).hexdigest()
     # Reconstruct attempts
     for i in range(request.attempt_count):
         is_last = (i == request.attempt_count - 1)
@@ -129,7 +133,7 @@ def evaluate_retry_decision(request: RetryEvaluateRequest) -> Dict[str, Any]:
             job_id="job_retry_eval",
             provider_id="comfy.eval",
             capability_id="creative.eval",
-            prompt_hash="dummy_hash",
+            prompt_hash=computed_hash,
             success=request.latest_success if is_last else False,
             cost=request.cumulative_cost / max(1, request.attempt_count),
             failure_code=request.failure_code if is_last else "PREVIOUS_ATTEMPT_FAILED"
