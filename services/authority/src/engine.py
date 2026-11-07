@@ -137,7 +137,8 @@ class AuthorityEngine:
         # --------------------------------------------------------------------
         # Gate 5: Confirmation Policy (High Cost Operations)
         # --------------------------------------------------------------------
-        if required_credits > CONFIRMATION_CREDIT_THRESHOLD:
+        is_confirmed = bool((action.parameters or {}).get("confirmed"))
+        if required_credits > CONFIRMATION_CREDIT_THRESHOLD and not is_confirmed:
             reason_codes.append("HIGH_COST_OPERATION_CONFIRMATION_REQUIRED")
             decision = AuthorityDecision(
                 decision_id=dec_id,

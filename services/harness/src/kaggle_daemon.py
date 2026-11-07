@@ -148,7 +148,7 @@ class KaggleWorkerDaemon:
                 logger.warning("Failed to register worker %s via HTTP: %s", w["worker_id"], e)
 
     def pulse_heartbeat(self) -> None:
-        """Sends a heartbeat pulse for all registered Kaggle workers."""
+        """Probes configured worker tunnels in real time and sends live telemetry heartbeats."""
         now = time.time()
         uptime = int(now - self._started_at)
         self._pulse_count += 1
@@ -163,32 +163,72 @@ class KaggleWorkerDaemon:
             if not tunnel_url:
                 continue
             wid = w["worker_id"]
+            t0 = time.perf_counter()
+            reachable = False
+            vram_used_gib = 0.0
+            vram_total_gib = 0.0
+            gpu_util_pct = 0.0
+
             if wid == "kaggle-cognition-t4x2":
+                try:
+                    base = tunnel_url.rstrip("/")
+                    models_url = f"{base}/models" if base.endswith("/v1") else f"{base}/v1/models"
+                    api_key = os.getenv("OPENAI_API_KEY", "keystone-live-key")
+                    req = urllib.request.Request(
+                        models_url,
+                        headers={"Authorization": f"Bearer {api_key}", "User-Agent": "KEYSTONE-DaemonProbe/2.0"},
+                        method="GET",
+                    )
+                    with urllib.request.urlopen(req, timeout=4.0) as resp:
+                        reachable = (resp.status == 200)
+                except Exception:
+                    reachable = False
+                latency_ms = round((time.perf_counter() - t0) * 1000.0, 1)
                 metrics = {
-                    "gpu_utilization_pct": 14.5 + (self._pulse_count % 5) * 2.1,
-                    "gpu_memory_used_gib": 27.2,
-                    "gpu_memory_total_gib": 30.0,
-                    "gpu_temperature_c": 54 + (self._pulse_count % 3),
+                    "reachable": reachable,
+                    "latency_ms": latency_ms,
+                    "gpu_utilization_pct": gpu_util_pct,
+                    "gpu_memory_used_gib": vram_used_gib,
+                    "gpu_memory_total_gib": vram_total_gib,
                     "active_jobs": 0,
-                    "completed_jobs": 42 + self._pulse_count,
                     "uptime_seconds": uptime,
-                    "pinned_checkpoint": PINNED_CHECKPOINT
+                    "pinned_checkpoint": PINNED_CHECKPOINT,
                 }
             else:
+                try:
+                    from services.comfy.src.client import ComfyUIClient
+                    stats = ComfyUIClient(base_url=tunnel_url).get_system_stats()
+                    reachable = True
+                    devices = stats.get("devices") or []
+                    if devices:
+                        total_b = sum(float(d.get("vram_total", 0)) for d in devices)
+                        free_b = sum(float(d.get("vram_free", 0)) for d in devices)
+                        vram_total_gib = round(total_b / (1024 ** 3), 2)
+                        vram_used_gib = round(max(0.0, total_b - free_b) / (1024 ** 3), 2)
+                        if vram_total_gib > 0:
+                            gpu_util_pct = round((vram_used_gib / vram_total_gib) * 100.0, 1)
+                except Exception:
+                    reachable = False
+                latency_ms = round((time.perf_counter() - t0) * 1000.0, 1)
                 metrics = {
-                    "gpu_utilization_pct": 22.0 + (self._pulse_count % 7) * 3.2,
-                    "gpu_memory_used_gib": 18.4,
-                    "gpu_memory_total_gib": 30.0,
-                    "gpu_temperature_c": 58 + (self._pulse_count % 4),
+                    "reachable": reachable,
+                    "latency_ms": latency_ms,
+                    "gpu_utilization_pct": gpu_util_pct,
+                    "gpu_memory_used_gib": vram_used_gib,
+                    "gpu_memory_total_gib": vram_total_gib,
                     "active_jobs": 0,
-                    "completed_jobs": 28 + self._pulse_count,
                     "uptime_seconds": uptime,
-                    "framework": "ComfyUI"
+                    "framework": "ComfyUI",
                 }
+
+            if not reachable:
+                continue
 
             if self.in_process:
                 from services.harness.src.worker_bridge import worker_bridge
                 try:
+                    if not worker_bridge.get_worker(wid):
+                        self.register_workers_in_process()
                     worker_bridge.heartbeat(worker_id=wid, metrics=metrics, timestamp=now)
                 except Exception as e:
                     logger.warning("In-process heartbeat failed for %s: %s", wid, e)

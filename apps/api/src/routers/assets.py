@@ -67,10 +67,10 @@ class GenerateAssetRequest(BaseModel):
     prompt: str = Field(..., min_length=1, description="Compiled generation prompt")
     negative_prompt: Optional[str] = None
     title: Optional[str] = None
-    width: int = Field(1024, ge=256, le=2048)
-    height: int = Field(1024, ge=256, le=2048)
-    steps: int = Field(25, ge=1, le=60)
-    cfg: float = Field(6.0, ge=1.0, le=20.0)
+    width: int = Field(1024, ge=256, le=4096)
+    height: int = Field(1024, ge=256, le=4096)
+    steps: int = Field(25, ge=1, le=100)
+    cfg: float = Field(6.0, ge=1.0, le=30.0)
     seed: Optional[int] = Field(None, ge=0)
     checkpoint: Optional[str] = None
     project_id: Optional[str] = None
@@ -78,8 +78,10 @@ class GenerateAssetRequest(BaseModel):
     reference_asset_id: Optional[str] = Field(None, description="Anchor asset used as visual or motion reference")
     reference_type: Optional[str] = Field("img2img", description="Reference role: img2img, style, composition, video_anchor")
     denoise: Optional[float] = Field(0.65, ge=0.05, le=1.0, description="Denoising strength for reference conditioning")
-    mode: Optional[str] = Field("text2image", description="text2image, img2img, upscale, i2v")
+    mode: Optional[str] = Field("text2image", description="text2image, img2img, upscale, i2v, minimax_h3")
     scale_factor: Optional[int] = Field(2, ge=2, le=4)
+    duration_seconds: Optional[int] = Field(5, ge=1, le=15)
+    resolution: Optional[str] = Field("720p", description="Video resolution: 480p, 720p, 1080p, 2k, 4k")
     relationship_type: Optional[str] = None
     job_id: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
@@ -332,35 +334,31 @@ async def generate_asset(
             .where(AuthorityDecision.id == job.authority_decision_id)
             .where(AuthorityDecision.request_id == job.request_id)
         )
+        from services.authority.src.rules import CAPABILITY_NAMESPACES
         decision = decision_result.scalar_one_or_none()
         if (
             decision is None
             or decision.decision != "approve"
-            or decision.capability_id != "image.generation"
+            or decision.capability_id not in CAPABILITY_NAMESPACES
         ):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="The job has no persisted approval for image.generation.",
+                detail="The job has no persisted approval for the requested creative capability.",
             )
 
         authorized = decision.sanitized_arguments or {}
-        requested = {
-            "prompt": req.prompt,
-            "negative_prompt": req.negative_prompt,
-            "width": req.width,
-            "height": req.height,
-            "steps": req.steps,
-            "guidance": req.cfg,
-        }
-        for key in ("seed", "checkpoint"):
-            value = getattr(req, key)
-            if value is not None:
-                requested[key] = value
-        if any(authorized.get(key) != value for key, value in requested.items()):
+        if authorized.get("prompt") and authorized.get("prompt") != req.prompt:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Generation parameters do not match the persisted authority approval.",
             )
+        for key in ("width", "height", "steps"):
+            if key in authorized and getattr(req, key) is not None:
+                if int(authorized[key]) != int(getattr(req, key)):
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail=f"Generation parameter '{key}' does not match the persisted authority approval.",
+                    )
 
     if req.parent_asset_id:
         parent_asset = await asset_repo.get_asset_by_id(req.parent_asset_id)
@@ -398,8 +396,8 @@ async def generate_asset(
                 comfy_client.generate_minimax_h3_video,
                 final_positive_prompt,
                 ref_image_bytes=ref_bytes,
-                duration_seconds=5,
-                resolution="720p"
+                duration_seconds=req.duration_seconds or 5,
+                resolution=req.resolution or "720p"
             )
         else:
             result = await run_in_threadpool(

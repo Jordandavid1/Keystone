@@ -103,18 +103,7 @@ def live_web_search(query: str, max_results: int = 5) -> List[Dict[str, str]]:
                     "snippet": snippet
                 })
     except Exception:
-        results.append({
-            "title": f"Live Search: {clean_query}",
-            "url": f"https://duckduckgo.com/?q={urllib.parse.quote_plus(clean_query)}",
-            "snippet": f"Real-time knowledge synthesized for query '{clean_query}': Contextual creative keywords, design motifs, and visual trends indexed."
-        })
-
-    if not results:
-        results.append({
-            "title": f"Research Synthesis: {clean_query}",
-            "url": "https://keystone.internal/search",
-            "snippet": f"Curated creative intelligence and industry context for '{clean_query}'."
-        })
+        return []
 
     return results
 
@@ -150,135 +139,117 @@ def live_url_scrape(target_url: str) -> Dict[str, Any]:
             "content_summary": clean_text,
             "status": "success"
         }
-    except Exception:
+    except Exception as exc:
         return {
             "url": target_url,
             "title": target_url,
-            "content_summary": f"Web ingestion completed via fallback parser for {target_url}.",
-            "status": "partial"
+            "content_summary": "",
+            "error": str(exc),
+            "status": "failed"
         }
 
 
-# ============================================================================
-# Conversational Intelligence Generator (Qwen 27B Emulation & Offline Engine)
-# ============================================================================
+class CognitionConfigRequest(BaseModel):
+    openai_base_url: Optional[str] = Field(None, description="Live OpenAI-compatible cognition tunnel URL")
+    openai_api_key: Optional[str] = Field(None, description="Bearer API key for cognition endpoint")
+    openai_model: Optional[str] = Field(None, description="Served model alias on the vLLM endpoint")
 
-def generate_qwen_conversational_response(
-    user_msg: str,
-    messages: Optional[List[ChatMessage]] = None,
-    internet_findings: Optional[List[Dict[str, Any]]] = None,
-    created_assets: Optional[List[Dict[str, Any]]] = None
-) -> str:
+
+def _probe_live_cognition(active_endpoint: str, api_key: str) -> Dict[str, Any]:
+    """Probes the live OpenAI-compatible cognition endpoint (/models) for reachability and latency."""
+    if not active_endpoint:
+        return {"reachable": False, "latency_ms": 0.0, "models": [], "detail": "OPENAI_BASE_URL is not configured"}
+    t0 = time.perf_counter()
+    models_url = f"{active_endpoint.rstrip('/')}/models"
+    headers = {"User-Agent": "KEYSTONE-CognitionProbe/2.0"}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+    try:
+        req = urllib.request.Request(models_url, headers=headers, method="GET")
+        with urllib.request.urlopen(req, timeout=4.0) as resp:
+            raw = resp.read().decode("utf-8", errors="replace")
+            latency_ms = round((time.perf_counter() - t0) * 1000.0, 1)
+            payload = json.loads(raw) if raw.strip() else {}
+            models = [m.get("id") for m in payload.get("data", []) if isinstance(m, dict) and m.get("id")]
+            return {
+                "reachable": (resp.status == 200),
+                "latency_ms": latency_ms,
+                "models": models,
+                "detail": "Live cognition runtime responding",
+            }
+    except Exception as exc:
+        latency_ms = round((time.perf_counter() - t0) * 1000.0, 1)
+        return {
+            "reachable": False,
+            "latency_ms": latency_ms,
+            "models": [],
+            "detail": f"{type(exc).__name__}: {exc}",
+        }
+
+
+def _invoke_live_cognition_completion(
+    active_endpoint: str,
+    api_key: str,
+    served_model: str,
+    messages: List[Dict[str, str]],
+    temperature: float = 0.7,
+    max_tokens: int = 2048,
+) -> Dict[str, Any]:
     """
-    Generates rich, intelligent, conversational output matching ChatGPT / Gemini caliber,
-    embodying huihui-ai/Huihui-Qwen3.8-27B-abliterated as an unrestricted director,
-    cinematographer, and creative technologist.
+    Executes a real-time chat completion against the live KEYSTONE Cognition runtime.
+    Never returns canned or simulated responses; raises HTTPException(502) if unreachable.
     """
-    msg_clean = user_msg.strip()
-    msg_lower = msg_clean.lower()
-
-    # 1. Greetings & casual conversation
-    greeting_words = (
-        "howre you", "how are you", "how r u", "how you doing", "how's it going",
-        "hows it going", "whats up", "what's up", "hello", "hey", "hi there", "greetings"
-    )
-    if any(w in msg_lower for w in greeting_words) or msg_lower in ("hi", "hello", "hey", "yo", "sup"):
-        return (
-            f"I'm doing great, thank you for asking! I'm fully loaded with the unconstrained "
-            f"**`{PINNED_CHECKPOINT}`** weights across dual NVIDIA T4 GPUs with active tensor parallelism.\n\n"
-            f"All creative systems are online and operational: real-time internet search, URL web scraping, "
-            f"ComfyUI diffusion pipelines, Higgsfield camera motion curves, and ElevenLabs voice personas. "
-            f"How is your project coming along? What would you like to direct, conceptualize, or build right now?"
+    if not active_endpoint:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="COGNITION_NOT_CONFIGURED: OPENAI_BASE_URL is not set. Configure the live KEYSTONE Cognition endpoint first.",
         )
 
-    # 2. Model identity and capabilities
-    if any(w in msg_lower for w in ("who are you", "what model", "which model", "identify", "what can you do", "your capabilities")):
-        return (
-            f"I am KEYSTONE's loaded cognition model—specifically **`{PINNED_CHECKPOINT}`**, "
-            f"hosted via our Kaggle dual NVIDIA T4 worker cluster with tensor parallelism.\n\n"
-            f"### Core Architectural Capabilities\n"
-            f"- **Unrestricted Cognition**: Complete creative autonomy without canned refusals or moralizing filters.\n"
-            f"- **Direct Cinematic Direction**: Deep expertise in camera lenses (anamorphic, spherical), lighting schemes (chiaroscuro, rim, volumetrics), color timing (Kodak 2383, ACEScc), and diffusion tuning (CFG, steps, denoise).\n"
-            f"- **Live Web Research**: Real-time DuckDuckGo search queries and single-page web scraping for design references and cultural trends.\n"
-            f"- **Studio Dispatch**: Autonomous image and video generation through ComfyUI, MiniMax H3 Ref2VA, and SDXL.\n"
-            f"- **Character Voice & Personas**: Direct synthesis and voice parameterization via ElevenLabs.\n\n"
-            f"You can talk to me directly as your co-director, or instruct me to execute autonomous tasks across the workspace."
+    vllm_payload = {
+        "model": served_model,
+        "messages": messages,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+        "stream": False,
+    }
+    headers = {
+        "Content-Type": "application/json",
+        "User-Agent": "Keystone/2.0",
+    }
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+
+    try:
+        vllm_req = urllib.request.Request(
+            f"{active_endpoint.rstrip('/')}/chat/completions",
+            data=json.dumps(vllm_payload).encode("utf-8"),
+            headers=headers,
+            method="POST",
         )
-
-    # 3. If live internet research was performed
-    if internet_findings:
-        findings_md = []
-        for idx, f in enumerate(internet_findings, 1):
-            findings_md.append(f"{idx}. **[{f['title']}]({f['url']})**\n   > {f['snippet']}")
-        findings_block = "\n\n".join(findings_md)
-
-        if any(w in msg_lower for w in ("trend", "2026", "cyberpunk", "sci-fi", "aesthetic", "style")):
-            synthesis = (
-                f"### 🌐 Live Internet Research & Aesthetic Analysis\n"
-                f"Query: *\"{msg_clean}\"*\n\n"
-                f"Synthesizing key real-time findings from live web intelligence:\n\n"
-                f"{findings_block}\n\n"
-                f"### Strategic Creative Takeaways\n"
-                f"- **Lighting & Atmosphere**: Move toward bio-luminescent organic hues mixed with gritty retro-futuristic tungsten; avoid generic single-color washes.\n"
-                f"- **Textural Depth**: Anamorphic grain, optical micro-scratches, and realistic atmospheric haze ground the visual language.\n"
-                f"- **Recommended Next Step**: Would you like me to compile a production prompt playbook incorporating these motifs, or dispatch an image render?"
-            )
-        else:
-            synthesis = (
-                f"### 🌐 Live Web Research Findings\n"
-                f"Query: *\"{msg_clean}\"*\n\n"
-                f"Here is the verified information retrieved from the web:\n\n"
-                f"{findings_block}\n\n"
-                f"I've analyzed these sources and integrated the relevant technical context into your workspace session. Let me know if you'd like to expand on any specific finding."
-            )
-        return synthesis
-
-    # 4. If asset generation was performed
-    if created_assets:
-        asset_items = []
-        for a in created_assets:
-            asset_items.append(f"- **Asset**: [{a['title']}]({a['download_url']}) (ID: `{a['id']}`)\n  Format: {a.get('media_type', 'image').upper()} • Dimensions: {a.get('width', 1024)}x{a.get('height', 576)}")
-        assets_block = "\n".join(asset_items)
-        return (
-            f"### 🎬 Creative Asset Rendered\n"
-            f"Directive: *\"{msg_clean}\"*\n\n"
-            f"I have dispatched your prompt to the studio generation pipeline with optimal compositional parameters:\n\n"
-            f"{assets_block}\n\n"
-            f"- **Framing & Aspect Ratio**: 16:9 cinematic widescreen with balanced rule-of-thirds weight.\n"
-            f"- **Lighting Scheme**: Directional key light with subtle fill and soft environmental rim radiance.\n"
-            f"- **Post-Processing**: Color-balanced and registered to your workspace asset stream.\n\n"
-            f"You can view the full-resolution render directly in the Stage, attach it as a reference anchor, or generate variations."
+        with urllib.request.urlopen(vllm_req, timeout=45.0) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            choices = data.get("choices", [])
+            if not choices:
+                raise RuntimeError("Empty choices returned from cognition endpoint")
+            content = (choices[0].get("message", {}) or {}).get("content", "")
+            if not content or not content.strip():
+                raise RuntimeError("Empty message content returned from cognition endpoint")
+            return {
+                "content": content,
+                "usage": data.get("usage", {}),
+                "raw": data,
+            }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=(
+                f"COGNITION_BACKEND_UNREACHABLE: Live KEYSTONE Cognition runtime at '{active_endpoint}' "
+                f"(model '{served_model}') is unreachable or returned an error: {type(exc).__name__}: {exc}. "
+                "Zero simulated or fallback responses are permitted."
+            ),
         )
-
-    # 5. Cinematography, camera, lighting, and prompt direction
-    if any(w in msg_lower for w in ("prompt", "lighting", "cyberpunk", "cinema", "direct", "shot", "camera", "lens", "anamorphic", "lut", "color", "grade")):
-        return (
-            f"Analyzing your creative intent: **\"{msg_clean}\"**.\n\n"
-            f"### 🎥 Masterclass Cinematic Direction & Breakdown\n"
-            f"- **Composition & Framing**: Anamorphic 2.39:1 widescreen framing. Place subject on the lower-left third with golden-spiral negative space on the right for narrative tension.\n"
-            f"- **Lighting Harmony**: Chiaroscuro high-contrast setup. Diffused cyan/teal ambient fill (3200K base) paired with a sharp, warm amber 5600K rim light cutting through atmospheric particulates.\n"
-            f"- **Lens & Optics**: 50mm T1.3 prime lens shot wide open. Shallow depth-of-field, subtle horizontal flare streaks, and chromatic aberration towards the periphery.\n"
-            f"- **Color Timing & LUT**: Hollywood Kodak 2383 film print emulation with lifted toe shadows and rolled-off highlights.\n\n"
-            f"```text\n"
-            f"Prompt Recipe:\n"
-            f"cinematic film still, {msg_clean}, 35mm photograph, Kodak 2383 color grade, anamorphic bokeh, volumetric atmospheric haze, 8k resolution, photorealistic, sharp focus\n"
-            f"Negative: cartoon, 3d render, plastic skin, blurry, oversaturated, deformed, watermark\n"
-            f"```\n\n"
-            f"Shall I dispatch this concept directly to ComfyUI, or would you like to refine the mood first?"
-        )
-
-    # 6. General conversational reasoning
-    return (
-        f"Regarding: **\"{msg_clean}\"**\n\n"
-        f"I've processed your query using the `{PINNED_CHECKPOINT}` cognitive engine. "
-        f"Here are my thoughts and technical breakdown:\n\n"
-        f"When approaching this within our production workflow, the key is maintaining visual and narrative coherence. "
-        f"We can leverage our multimodal tool suite to take this further:\n"
-        f"1. **Live Research**: We can search current web sources or ingest documentation via Firecrawl URL scraping.\n"
-        f"2. **Diffusion Generation**: We can translate this into high-fidelity image or video assets using SDXL or MiniMax H3.\n"
-        f"3. **Character Personas**: We can bind specific voices and behavioral lore using our ElevenLabs voice studio.\n\n"
-        f"Tell me which direction you'd like to pursue, and I'll execute the next step."
-    )
 
 
 # ============================================================================
@@ -288,24 +259,49 @@ def generate_qwen_conversational_response(
 @router.get("/status", summary="Get Cognition Model & Agent Status")
 async def get_cognition_status() -> Dict[str, Any]:
     """
-    Returns current status of the pinned cognition checkpoint and active worker connection.
+    Returns real-time status of the pinned cognition checkpoint and active ComfyUI worker connection.
     """
     connector = CognitionConnector()
     active_endpoint = connector.resolve_active_endpoint()
-    from services.comfy.src.client import comfy_base_url, is_configured as comfy_configured
+    api_key = connector.resolve_api_key()
+    served_model = connector.resolve_served_model()
+    probe = _probe_live_cognition(active_endpoint, api_key)
+
+    from services.comfy.src.client import comfy_base_url, is_configured as comfy_configured, ComfyUIClient
     comfy_url = comfy_base_url()
+    vram_allocated_gb = 0.0
+    vram_total_gb = 0.0
+    gpu_label = "No GPU telemetry reported"
+    if comfy_url:
+        try:
+            stats = ComfyUIClient(base_url=comfy_url).get_system_stats()
+            devices = stats.get("devices") or []
+            if devices:
+                total_bytes = sum(float(d.get("vram_total", 0)) for d in devices)
+                free_bytes = sum(float(d.get("vram_free", 0)) for d in devices)
+                vram_total_gb = round(total_bytes / (1024 ** 3), 2)
+                vram_allocated_gb = round(max(0.0, total_bytes - free_bytes) / (1024 ** 3), 2)
+                gpu_names = [str(d.get("name", "GPU")) for d in devices]
+                gpu_label = ", ".join(gpu_names)
+        except Exception:
+            pass
 
     return {
         "status": "ok",
+        "online": probe["reachable"],
         "model": PINNED_CHECKPOINT,
+        "served_model": served_model,
         "pinned": True,
         "active_endpoint": active_endpoint,
-        "comfy_endpoint": comfy_url,
+        "cognition_latency_ms": probe["latency_ms"],
+        "cognition_detail": probe["detail"],
+        "available_models": probe["models"],
+        "comfy_endpoint": comfy_url or None,
         "comfy_configured": comfy_configured(),
-        "worker_cluster": "kaggle-cluster-t4x2-node-01",
-        "gpus": "2x NVIDIA T4 (Tensor Parallelism)",
-        "vram_allocated_gb": 27.2,
-        "vram_total_gb": 30.0,
+        "worker_cluster": "keystone-live-runtime",
+        "gpus": gpu_label,
+        "vram_allocated_gb": vram_allocated_gb,
+        "vram_total_gb": vram_total_gb,
         "capabilities": [
             "conversational_chat",
             "reasoning_planning",
@@ -315,8 +311,22 @@ async def get_cognition_status() -> Dict[str, Any]:
             "voice_synthesis_coordination",
             "unrestricted_cognition"
         ],
-        "state": "READY"
+        "state": "READY" if probe["reachable"] else "OFFLINE"
     }
+
+
+@router.post("/configure", summary="Dynamically Configure Live Cognition Endpoint")
+async def configure_cognition_endpoint(req: CognitionConfigRequest) -> Dict[str, Any]:
+    """Updates OPENAI_BASE_URL, OPENAI_API_KEY, and OPENAI_MODEL in memory and .env, then probes live status."""
+    from apps.api.src.routers.creative import configure_comfy_runtime, ComfyConfigUpdateRequest
+    configure_comfy_runtime(
+        ComfyConfigUpdateRequest(
+            openai_base_url=req.openai_base_url,
+            openai_api_key=req.openai_api_key,
+            openai_model=req.openai_model,
+        )
+    )
+    return await get_cognition_status()
 
 
 @router.post("/chat", summary="Speak directly with loaded Qwen 27B LLM")
@@ -423,10 +433,11 @@ async def chat_with_cognition(
                 }
             )
 
+            from apps.api.src.routers.assets import content_url
             created_assets.append({
                 "id": new_asset.id,
                 "title": f"Render — {last_user_msg[:24]}...",
-                "download_url": f"/v1/assets/{new_asset.id}/download",
+                "download_url": content_url(new_asset),
                 "media_type": "image",
                 "width": 1024,
                 "height": 576
@@ -434,65 +445,37 @@ async def chat_with_cognition(
         except Exception:
             pass
 
-    # Attempt live vLLM completion with KEYSTONE Prompt Engine framing + Auth header
-    try:
-        sys_prompt = (
-            f"You are KEYSTONE — the authoritative Prompt Engine with `{PINNED_CHECKPOINT}` "
-            f"living inside you (active domain mode: '{playbook_obj.label}'). "
-            "You digest the user's intent and spit out finished, production-ready prompts for "
-            "MiniMax H3 Ref2VA (<Picture 1>, <Picture 2>, camera, motion, lighting, audio) and "
-            "diffusion models, while conversing directly without moralizing refusals.\n\n"
-            f"KEYSTONE Compiled Prompt Digest for current turn:\n{compiled_prompt_obj.positive_prompt}"
-        )
-        if internet_findings:
-            web_context = "\n".join(f"- {f['title']}: {f['snippet']} ({f['url']})" for f in internet_findings)
-            sys_prompt += f"\n\nLive Web Intelligence Context:\n{web_context}"
+    # Execute live vLLM completion with KEYSTONE Prompt Engine framing + Auth header (zero simulated fallbacks)
+    sys_prompt = (
+        f"You are KEYSTONE — the authoritative Prompt Engine with `{PINNED_CHECKPOINT}` "
+        f"living inside you (active domain mode: '{playbook_obj.label}', bound skills: {', '.join(playbook_obj.bound_skills)}). "
+        "You digest the user's intent and spit out finished, production-ready prompts for "
+        "MiniMax H3 Ref2VA (<Picture 1>, <Picture 2>, camera, motion, lighting, audio) and "
+        "diffusion models, while conversing directly without moralizing refusals.\n\n"
+        f"KEYSTONE Compiled Prompt Digest for current turn:\n{compiled_prompt_obj.positive_prompt}"
+    )
+    if internet_findings:
+        web_context = "\n".join(f"- {f['title']}: {f['snippet']} ({f['url']})" for f in internet_findings)
+        sys_prompt += f"\n\nLive Web Intelligence Context:\n{web_context}"
 
-        vllm_messages = [{"role": "system", "content": sys_prompt}]
-        for m in req.messages:
-            vllm_messages.append({"role": m.role, "content": m.content})
+    vllm_messages = [{"role": "system", "content": sys_prompt}]
+    for m in req.messages:
+        vllm_messages.append({"role": m.role, "content": m.content})
 
-        vllm_payload = {
-            "model": served_model,
-            "messages": vllm_messages,
-            "temperature": req.temperature or 0.7,
-            "max_tokens": req.max_tokens or 2048,
-            "stream": False
-        }
+    live_res = _invoke_live_cognition_completion(
+        active_endpoint=active_endpoint,
+        api_key=api_key,
+        served_model=served_model,
+        messages=vllm_messages,
+        temperature=req.temperature if req.temperature is not None else 0.7,
+        max_tokens=req.max_tokens or 2048,
+    )
+    live_response_text = live_res["content"]
+    usage = live_res.get("usage") or {}
+    prompt_tokens = int(usage.get("prompt_tokens", prompt_tokens))
+    completion_tokens = int(usage.get("completion_tokens", max(1, len(live_response_text.split()))))
 
-        headers = {
-            "Content-Type": "application/json",
-            "User-Agent": "Keystone/2.0",
-        }
-        if api_key:
-            headers["Authorization"] = f"Bearer {api_key}"
-
-        vllm_req = urllib.request.Request(
-            f"{active_endpoint}/chat/completions",
-            data=json.dumps(vllm_payload).encode("utf-8"),
-            headers=headers
-        )
-        with urllib.request.urlopen(vllm_req, timeout=12) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-            choices = data.get("choices", [])
-            if choices:
-                live_response_text = choices[0].get("message", {}).get("content", "")
-                usage = data.get("usage", {})
-                prompt_tokens = usage.get("prompt_tokens", prompt_tokens)
-                completion_tokens = usage.get("completion_tokens", len(live_response_text.split()))
-    except Exception:
-        pass
-
-    if not live_response_text:
-        live_response_text = generate_qwen_conversational_response(
-            user_msg=last_user_msg,
-            messages=req.messages,
-            internet_findings=internet_findings if internet_findings else None,
-            created_assets=created_assets if created_assets else None
-        )
-        completion_tokens = max(1, len(live_response_text.split()))
-
-    latency_ms = max(int((time.time() - start_time) * 1000), 45)
+    latency_ms = max(int((time.time() - start_time) * 1000), 1)
     response_id = f"chatcmpl-{uuid.uuid4().hex[:10]}"
 
     if req.session_id:
@@ -510,7 +493,7 @@ async def chat_with_cognition(
                 session_id=req.session_id,
                 role="assistant",
                 content=live_response_text,
-                metadata={"model": PINNED_CHECKPOINT, "latency_ms": latency_ms}
+                metadata={"model": PINNED_CHECKPOINT, "latency_ms": latency_ms, "prompt_hash": compiled_prompt_obj.prompt_hash}
             )
         except Exception:
             pass
@@ -545,10 +528,10 @@ async def execute_agent_task(
 ) -> Dict[str, Any]:
     """
     Autonomous multi-step agent task execution:
-    1. Interprets user prompt and plans required tool calls.
+    1. Interprets user prompt via KEYSTONE Prompt Engine & Domain Playbooks.
     2. Performs real-time internet search or URL scraping if requested.
-    3. Triggers image generation, super-upscaling, or voice synthesis.
-    4. Delivers synthesized report with real artifacts and findings.
+    3. Triggers live ComfyUI image/video generation when requested and configured.
+    4. Synthesizes final report in real time via the live KEYSTONE Cognition runtime.
     """
     start_time = time.time()
     task_id = f"task_{uuid.uuid4().hex[:10]}"
@@ -557,12 +540,21 @@ async def execute_agent_task(
     internet_findings: List[Dict[str, Any]] = []
     created_assets: List[Dict[str, Any]] = []
 
+    from apps.api.src.keystone import prompting as keystone_prompting
+    from packages.prompt_engine.playbooks import PlaybookRegistry
+    playbook_obj, _, matched_uc = PlaybookRegistry.classify(task_text)
+    compiled_task_prompt = await keystone_prompting.digest_and_compile_prompt(
+        user_text=task_text,
+        reference_count=0,
+        intent_hint="agent",
+    )
+
     steps_executed.append({
         "step": 1,
-        "name": "Cognitive Analysis & Planning",
-        "tool": "qwen27b.plan",
+        "name": "KEYSTONE Prompt Compilation & Playbook Binding",
+        "tool": f"keystone.compiler ({playbook_obj.id})",
         "status": "completed",
-        "details": f"Decomposed task into autonomous action graph: '{task_text[:60]}...'"
+        "details": f"Compiled prompt hash {compiled_task_prompt.prompt_hash[:12]}... under playbook '{playbook_obj.label}'"
     })
 
     wants_internet = req.allow_internet and any(
@@ -579,16 +571,17 @@ async def execute_agent_task(
     if wants_internet:
         if extracted_url:
             scrape_res = live_url_scrape(extracted_url)
-            internet_findings.append({
-                "title": scrape_res.get("title", extracted_url),
-                "url": extracted_url,
-                "snippet": scrape_res.get("content_summary", "")
-            })
+            if scrape_res.get("content_summary"):
+                internet_findings.append({
+                    "title": scrape_res.get("title", extracted_url),
+                    "url": extracted_url,
+                    "snippet": scrape_res.get("content_summary", "")
+                })
             steps_executed.append({
                 "step": 2,
                 "name": "Live URL Extraction",
                 "tool": "firecrawl.scrape",
-                "status": "completed",
+                "status": scrape_res.get("status", "completed"),
                 "details": f"Scraped live content from {extracted_url}"
             })
         else:
@@ -621,23 +614,17 @@ async def execute_agent_task(
         try:
             from services.comfy.src.client import ComfyUIClient
             from apps.api.src.repositories.assets import AssetRepository
+            from apps.api.src.routers.assets import content_url
             from apps.api.src.storage import AssetStorageService, generate_storage_key
 
-            gen_prompt = task_text
+            gen_prompt = compiled_task_prompt.positive_prompt
             if internet_findings:
-                context_hint = f" Inspired by {internet_findings[0]['title']}: {internet_findings[0]['snippet'][:80]}"
-                gen_prompt = f"{task_text}.{context_hint}"
-
-            from apps.api.src.keystone import prompting as keystone_prompting
-            compiled_task_prompt = await keystone_prompting.digest_and_compile_prompt(
-                user_text=gen_prompt,
-                reference_count=0,
-                intent_hint="image",
-            )
+                context_hint = f"\nWeb Context: {internet_findings[0]['title']} — {internet_findings[0]['snippet'][:80]}"
+                gen_prompt = f"{gen_prompt}{context_hint}"
 
             comfy = ComfyUIClient()
             render_res = comfy.generate_image(
-                prompt=compiled_task_prompt.positive_prompt,
+                prompt=gen_prompt,
                 width=1024,
                 height=576,
                 steps=30,
@@ -663,6 +650,7 @@ async def execute_agent_task(
                 metadata={
                     "title": f"Agent Render — {task_text[:28]}...",
                     "prompt": gen_prompt,
+                    "prompt_hash": compiled_task_prompt.prompt_hash,
                     "agent_task_id": task_id,
                     "model": PINNED_CHECKPOINT
                 }
@@ -671,7 +659,7 @@ async def execute_agent_task(
             created_assets.append({
                 "id": new_asset.id,
                 "title": f"Agent Output — {task_text[:24]}...",
-                "download_url": f"/v1/assets/{new_asset.id}/download",
+                "download_url": content_url(new_asset),
                 "media_type": "image",
                 "width": 1024,
                 "height": 576
@@ -682,31 +670,55 @@ async def execute_agent_task(
                 "name": "Autonomous Asset Generation",
                 "tool": "comfyui.render",
                 "status": "completed",
-                "details": f"Generated 1024x576 image asset {new_asset.id[:8]} via ComfyUI engine"
+                "details": f"Generated 1024x576 image asset {new_asset.id[:8]} via live ComfyUI engine"
             })
         except Exception as gen_err:
             steps_executed.append({
                 "step": 3,
                 "name": "Autonomous Asset Generation",
                 "tool": "comfyui.render",
-                "status": "warning",
-                "details": f"Generation logged: {gen_err}"
+                "status": "failed",
+                "details": f"Live ComfyUI error: {gen_err}"
             })
 
-    # Synthesize natural response from Qwen 27B
-    agent_response = generate_qwen_conversational_response(
-        user_msg=task_text,
-        messages=None,
-        internet_findings=internet_findings if internet_findings else None,
-        created_assets=created_assets if created_assets else None
-    )
+    connector = CognitionConnector()
+    active_endpoint = connector.resolve_active_endpoint()
+    api_key = connector.resolve_api_key()
+    served_model = connector.resolve_served_model()
 
-    latency_ms = max(int((time.time() - start_time) * 1000), 85)
+    agent_sys_prompt = (
+        f"You are KEYSTONE Autonomous Agent powered by `{PINNED_CHECKPOINT}` "
+        f"(active playbook: '{playbook_obj.label}', bound skills: {', '.join(playbook_obj.bound_skills)}).\n"
+        f"Compiled KEYSTONE Task Digest:\n{compiled_task_prompt.positive_prompt}"
+    )
+    if internet_findings:
+        web_ctx = "\n".join(f"- {f['title']}: {f['snippet']} ({f['url']})" for f in internet_findings)
+        agent_sys_prompt += f"\n\nLive Web Intelligence Findings:\n{web_ctx}"
+    if created_assets:
+        ast_ctx = "\n".join(f"- Asset {a['id']} ({a['title']}): {a['download_url']}" for a in created_assets)
+        agent_sys_prompt += f"\n\nRendered Studio Assets:\n{ast_ctx}"
+
+    live_res = _invoke_live_cognition_completion(
+        active_endpoint=active_endpoint,
+        api_key=api_key,
+        served_model=served_model,
+        messages=[
+            {"role": "system", "content": agent_sys_prompt},
+            {"role": "user", "content": task_text},
+        ],
+        temperature=0.7,
+        max_tokens=2048,
+    )
+    agent_response = live_res["content"]
+    latency_ms = max(int((time.time() - start_time) * 1000), 1)
 
     return {
         "status": "completed",
         "task_id": task_id,
         "model": PINNED_CHECKPOINT,
+        "served_model": served_model,
+        "compiled_prompt": compiled_task_prompt.positive_prompt,
+        "prompt_hash": compiled_task_prompt.prompt_hash,
         "steps_executed": steps_executed,
         "internet_findings": internet_findings,
         "created_assets": created_assets,

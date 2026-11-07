@@ -901,6 +901,9 @@ def generate_minimax_h3_video(
 class ComfyUIClient:
     """Thin object wrapper so callers can depend on an injectable client."""
 
+    def base_url(self) -> str:
+        return comfy_base_url()
+
     def is_configured(self) -> bool:
         return is_configured()
 

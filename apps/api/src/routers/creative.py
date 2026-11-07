@@ -141,3 +141,167 @@ def evaluate_retry_decision(request: RetryEvaluateRequest) -> Dict[str, Any]:
 
     decision = manager.evaluate_retry()
     return decision.to_dict()
+
+
+class ComfyConfigUpdateRequest(BaseModel):
+    comfy_base_url: Optional[str] = Field(None, description="Live ComfyUI base or Cloudflare tunnel URL")
+    comfy_api_key: Optional[str] = Field(None, description="Optional Bearer/API key for ComfyUI")
+    comfy_auth_token: Optional[str] = Field(None, description="Optional auth token alias for ComfyUI")
+    openai_base_url: Optional[str] = Field(None, description="Live OpenAI-compatible Qwen cognition tunnel URL")
+    openai_api_key: Optional[str] = Field(None, description="Optional API key for Qwen cognition endpoint")
+    openai_model: Optional[str] = Field(None, description="Optional served model alias for Qwen cognition endpoint")
+
+
+@router.get(
+    "/comfy/status",
+    summary="ComfyUI & MiniMax H3 Live Runtime Status",
+    description="Returns live ComfyUI wiring status, workflow graph readiness, H3 health check, and registered creative adapters."
+)
+def get_comfy_runtime_status() -> Dict[str, Any]:
+    import os
+    import urllib.request
+    from services.comfy.src.client import comfy_client
+    from apps.api.src.creative import h3
+
+    comfy_url = comfy_client.base_url()
+    h3_info = h3.describe()
+    h3_health = h3.health() if comfy_url else {"configured": False, "reachable": False, "detail": "COMFY_BASE_URL is not set"}
+    online = bool(h3_health.get("reachable"))
+    cognition_endpoint = (os.getenv("OPENAI_BASE_URL") or os.getenv("COGNITION_BASE_URL") or "").strip().rstrip("/")
+    cognition_online = False
+    if cognition_endpoint:
+        try:
+            models_url = f"{cognition_endpoint}/models" if cognition_endpoint.endswith("/v1") else f"{cognition_endpoint}/v1/models"
+            api_key = os.getenv("OPENAI_API_KEY", "keystone-live-key")
+            req = urllib.request.Request(
+                models_url,
+                headers={"Authorization": f"Bearer {api_key}", "User-Agent": "KEYSTONE-RuntimeProbe/2.0"},
+                method="GET",
+            )
+            with urllib.request.urlopen(req, timeout=3.0) as resp:
+                cognition_online = (resp.status == 200)
+        except Exception:
+            cognition_online = False
+
+    return {
+        "status": "ok",
+        "online": online,
+        "base_url": comfy_url or None,
+        "comfy_configured": comfy_client.is_configured(),
+        "comfy_base_url": comfy_url or None,
+        "cognition_endpoint": cognition_endpoint or None,
+        "cognition_online": cognition_online,
+        "openai_base_url": cognition_endpoint or None,
+        "openai_model": os.getenv("OPENAI_MODEL", "huihui-qwen3.8-abliterated"),
+        "h3": h3_info,
+        "h3_health": h3_health,
+        "adapters": list(ADAPTER_REGISTRY.keys()),
+        "workflows": {
+            "sdxl_txt2img": "ready",
+            "sdxl_img2img": "ready",
+            "upscale_4x": "ready",
+            "minimax_h3_ref2va": "ready" if h3.workflow_path() else "missing"
+        }
+    }
+
+
+@router.post(
+    "/comfy/configure",
+    summary="Dynamically Configure ComfyUI & Cognition Tunnel URLs",
+    description="Updates COMFY_BASE_URL / KEYSTONE_COMFY_URL and OPENAI_BASE_URL in memory, .env, and WorkerBridge."
+)
+def configure_comfy_runtime(req: ComfyConfigUpdateRequest) -> Dict[str, Any]:
+    import os
+    from pathlib import Path
+    from services.harness.src.worker_bridge import worker_bridge
+
+    updates: Dict[str, str] = {}
+    if req.comfy_base_url is not None:
+        clean_comfy = req.comfy_base_url.strip().rstrip("/")
+        if clean_comfy.endswith("/v1"):
+            clean_comfy = clean_comfy[:-3].rstrip("/")
+        os.environ["COMFY_BASE_URL"] = clean_comfy
+        os.environ["KEYSTONE_COMFY_URL"] = clean_comfy
+        os.environ["KAGGLE_COMFYUI_TUNNEL"] = clean_comfy
+        updates["COMFY_BASE_URL"] = clean_comfy
+        updates["KEYSTONE_COMFY_URL"] = clean_comfy
+        updates["KAGGLE_COMFYUI_TUNNEL"] = clean_comfy
+        if clean_comfy:
+            worker_bridge.register_worker(
+                worker_id="kaggle-creative-comfyui",
+                worker_type="creative_worker",
+                tunnel_url=clean_comfy,
+                capabilities=[
+                    "creative.comfyui",
+                    "image.generation",
+                    "image.editing",
+                    "video.i2v",
+                    "video.t2v",
+                    "video.minimax_h3_ref2va",
+                    "identity.facefusion",
+                    "upscale.clarity",
+                ],
+                hardware={"gpu": "NVIDIA T4 x2", "vram_total_gib": 30.0},
+            )
+
+    effective_comfy_key = req.comfy_api_key if req.comfy_api_key is not None else req.comfy_auth_token
+    if effective_comfy_key is not None:
+        clean_key = effective_comfy_key.strip()
+        os.environ["KEYSTONE_COMFY_API_KEY"] = clean_key
+        os.environ["COMFY_BEARER_TOKEN"] = clean_key
+        updates["KEYSTONE_COMFY_API_KEY"] = clean_key
+
+    if req.openai_base_url is not None:
+        clean_oai = req.openai_base_url.strip().rstrip("/")
+        if clean_oai and not clean_oai.endswith("/v1"):
+            clean_oai = f"{clean_oai}/v1"
+        os.environ["OPENAI_BASE_URL"] = clean_oai
+        os.environ["COGNITION_BASE_URL"] = clean_oai
+        os.environ["KAGGLE_COGNITION_TUNNEL"] = clean_oai[:-3] if clean_oai.endswith("/v1") else clean_oai
+        updates["OPENAI_BASE_URL"] = clean_oai
+        updates["COGNITION_BASE_URL"] = clean_oai
+        if clean_oai:
+            worker_bridge.register_worker(
+                worker_id="kaggle-cognition-t4x2",
+                worker_type="cognition_worker",
+                tunnel_url=clean_oai,
+                capabilities=["cognition.qwen_27b", "cognition.reasoning", "planning.propose"],
+                hardware={"gpu": "NVIDIA T4 x2", "vram_total_gib": 30.0},
+            )
+
+    if req.openai_api_key is not None:
+        clean_okey = req.openai_api_key.strip()
+        os.environ["OPENAI_API_KEY"] = clean_okey
+        updates["OPENAI_API_KEY"] = clean_okey
+
+    if req.openai_model is not None and req.openai_model.strip():
+        clean_omodel = req.openai_model.strip()
+        os.environ["OPENAI_MODEL"] = clean_omodel
+        updates["OPENAI_MODEL"] = clean_omodel
+
+    # Persist to .env if writable
+    if updates:
+        repo_root = Path(__file__).resolve().parents[4]
+        for env_path in (repo_root / ".env", repo_root / "dist" / ".env"):
+            if env_path.parent.exists():
+                try:
+                    lines = env_path.read_text(encoding="utf-8").splitlines() if env_path.exists() else []
+                    written_keys = set()
+                    new_lines = []
+                    for line in lines:
+                        stripped = line.strip()
+                        if "=" in stripped and not stripped.startswith("#"):
+                            k = stripped.split("=", 1)[0].strip()
+                            if k in updates:
+                                new_lines.append(f"{k}={updates[k]}")
+                                written_keys.add(k)
+                                continue
+                        new_lines.append(line)
+                    for k, v in updates.items():
+                        if k not in written_keys:
+                            new_lines.append(f"{k}={v}")
+                    env_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+                except Exception:
+                    pass
+
+    return get_comfy_runtime_status()

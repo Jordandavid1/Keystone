@@ -80,14 +80,30 @@ def compile_prompt_intent(request: CompileRequestModel) -> Dict[str, Any]:
 
 @router.get(
     "/playbooks",
-    summary="List Domain Playbooks",
-    description="Returns the 13 canonical domain playbooks preserved in KEYSTONE."
+    summary="List All 16 Domain Playbooks with Preloaded Use-Case Context & Skills",
+    description="Returns all 16 canonical domain playbooks preserved in KEYSTONE with preloaded domain_context, use_cases, skills, criticalSlots, and 6-step paths."
 )
 def list_playbooks() -> Dict[str, Any]:
-    """Lists all 13 first-class domain playbooks."""
+    """Lists all 16 first-class domain playbooks with full context and skills."""
     playbooks = PlaybookRegistry.list_playbooks()
     return {
         "status": "ok",
         "count": len(playbooks),
         "playbooks": [p.to_dict() for p in playbooks]
+    }
+
+
+@router.get(
+    "/playbooks/{playbook_id}",
+    summary="Get Domain Playbook Context, Use Cases & Skills",
+    description="Returns a single domain playbook by ID with its preloaded use-case context, bound skills, critical slots, and 6-step execution path."
+)
+def get_playbook_detail(playbook_id: str) -> Dict[str, Any]:
+    """Returns full playbook definition including preloaded use cases and skills."""
+    if not PlaybookRegistry.exists(playbook_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Playbook '{playbook_id}' not found")
+    pb = PlaybookRegistry.get(playbook_id)
+    return {
+        "status": "ok",
+        "playbook": pb.to_dict()
     }

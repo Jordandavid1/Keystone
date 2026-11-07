@@ -36,11 +36,11 @@ class UserRepository:
         )
         self.session.add(user)
 
-        # Automatically initialize credit account for user with 100 welcome credits
+        # Automatically initialize credit account for user with 100,000 studio credits
         credit_account = CreditAccount(
             id=str(uuid.uuid4()),
             user_id=user_id_str,
-            balance=100,
+            balance=100000,
             held_balance=0,
             currency="credits",
             status="active"

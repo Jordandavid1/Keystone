@@ -79,6 +79,11 @@ def build_step_prompt_anatomy(
         f"Overall Goal: {raw_goal}",
         f'Execution Sequence: Step {index + 1} of {total} in the "{playbook.label}" path.',
     ]
+    if playbook.domain_context and playbook.domain_context.get("domain_brief"):
+        context.append(f"Domain Context: {playbook.domain_context['domain_brief']}")
+    if playbook.skills:
+        skill_names = ", ".join(s.get("name", s.get("id", "")) for s in playbook.skills)
+        context.append(f"Bound Domain Skills: {skill_names}")
     if signals.get("timeframe"):
         context.append(f"Timeframe Constraint: {signals['timeframe']}")
     if signals.get("audience"):
@@ -164,7 +169,10 @@ def generate(goal: str, options: Optional[Dict[str, Any]] = None) -> Dict[str, A
             "id": p.id,
             "label": p.label,
             "confidence": match_res["confidence"],
-            "runnerUp": match_res["runnerUp"]
+            "runnerUp": match_res["runnerUp"],
+            "context": p.domain_context,
+            "useCases": p.use_cases,
+            "skills": p.skills,
         },
         "signals": signals,
         "clarifyingQuestions": clarifying_questions,

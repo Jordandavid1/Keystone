@@ -624,6 +624,10 @@
    'C:\\Users\\Lesia '
    'Eden\\Downloads\\keystone-cowork\\apps\\api\\src\\creative\\__init__.py',
    'PYMODULE'),
+  ('apps.api.src.creative.h3',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\apps\\api\\src\\creative\\h3.py',
+   'PYMODULE'),
   ('apps.api.src.creative.h3_manifest',
    'C:\\Users\\Lesia '
    'Eden\\Downloads\\keystone-cowork\\apps\\api\\src\\creative\\h3_manifest.py',
@@ -1734,6 +1738,98 @@
    'PYMODULE'),
   ('inspect', 'C:\\Python314\\Lib\\inspect.py', 'PYMODULE'),
   ('ipaddress', 'C:\\Python314\\Lib\\ipaddress.py', 'PYMODULE'),
+  ('jinja2',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\jinja2\\__init__.py',
+   'PYMODULE'),
+  ('jinja2._identifier',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\jinja2\\_identifier.py',
+   'PYMODULE'),
+  ('jinja2.async_utils',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\jinja2\\async_utils.py',
+   'PYMODULE'),
+  ('jinja2.bccache',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\jinja2\\bccache.py',
+   'PYMODULE'),
+  ('jinja2.compiler',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\jinja2\\compiler.py',
+   'PYMODULE'),
+  ('jinja2.constants',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\jinja2\\constants.py',
+   'PYMODULE'),
+  ('jinja2.debug',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\jinja2\\debug.py',
+   'PYMODULE'),
+  ('jinja2.defaults',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\jinja2\\defaults.py',
+   'PYMODULE'),
+  ('jinja2.environment',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\jinja2\\environment.py',
+   'PYMODULE'),
+  ('jinja2.exceptions',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\jinja2\\exceptions.py',
+   'PYMODULE'),
+  ('jinja2.ext',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\jinja2\\ext.py',
+   'PYMODULE'),
+  ('jinja2.filters',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\jinja2\\filters.py',
+   'PYMODULE'),
+  ('jinja2.idtracking',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\jinja2\\idtracking.py',
+   'PYMODULE'),
+  ('jinja2.lexer',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\jinja2\\lexer.py',
+   'PYMODULE'),
+  ('jinja2.loaders',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\jinja2\\loaders.py',
+   'PYMODULE'),
+  ('jinja2.nodes',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\jinja2\\nodes.py',
+   'PYMODULE'),
+  ('jinja2.optimizer',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\jinja2\\optimizer.py',
+   'PYMODULE'),
+  ('jinja2.parser',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\jinja2\\parser.py',
+   'PYMODULE'),
+  ('jinja2.runtime',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\jinja2\\runtime.py',
+   'PYMODULE'),
+  ('jinja2.sandbox',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\jinja2\\sandbox.py',
+   'PYMODULE'),
+  ('jinja2.tests',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\jinja2\\tests.py',
+   'PYMODULE'),
+  ('jinja2.utils',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\jinja2\\utils.py',
+   'PYMODULE'),
+  ('jinja2.visitor',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\jinja2\\visitor.py',
+   'PYMODULE'),
   ('json', 'C:\\Python314\\Lib\\json\\__init__.py', 'PYMODULE'),
   ('json.decoder', 'C:\\Python314\\Lib\\json\\decoder.py', 'PYMODULE'),
   ('json.encoder', 'C:\\Python314\\Lib\\json\\encoder.py', 'PYMODULE'),
@@ -1742,6 +1838,286 @@
   ('logging.config', 'C:\\Python314\\Lib\\logging\\config.py', 'PYMODULE'),
   ('logging.handlers', 'C:\\Python314\\Lib\\logging\\handlers.py', 'PYMODULE'),
   ('lzma', 'C:\\Python314\\Lib\\lzma.py', 'PYMODULE'),
+  ('markdown_it',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\__init__.py',
+   'PYMODULE'),
+  ('markdown_it._punycode',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\_punycode.py',
+   'PYMODULE'),
+  ('markdown_it.common',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\common\\__init__.py',
+   'PYMODULE'),
+  ('markdown_it.common.entities',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\common\\entities.py',
+   'PYMODULE'),
+  ('markdown_it.common.html_blocks',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\common\\html_blocks.py',
+   'PYMODULE'),
+  ('markdown_it.common.html_re',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\common\\html_re.py',
+   'PYMODULE'),
+  ('markdown_it.common.normalize_url',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\common\\normalize_url.py',
+   'PYMODULE'),
+  ('markdown_it.common.utils',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\common\\utils.py',
+   'PYMODULE'),
+  ('markdown_it.helpers',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\helpers\\__init__.py',
+   'PYMODULE'),
+  ('markdown_it.helpers.parse_link_destination',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\helpers\\parse_link_destination.py',
+   'PYMODULE'),
+  ('markdown_it.helpers.parse_link_label',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\helpers\\parse_link_label.py',
+   'PYMODULE'),
+  ('markdown_it.helpers.parse_link_title',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\helpers\\parse_link_title.py',
+   'PYMODULE'),
+  ('markdown_it.main',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\main.py',
+   'PYMODULE'),
+  ('markdown_it.parser_block',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\parser_block.py',
+   'PYMODULE'),
+  ('markdown_it.parser_core',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\parser_core.py',
+   'PYMODULE'),
+  ('markdown_it.parser_inline',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\parser_inline.py',
+   'PYMODULE'),
+  ('markdown_it.presets',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\presets\\__init__.py',
+   'PYMODULE'),
+  ('markdown_it.presets.commonmark',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\presets\\commonmark.py',
+   'PYMODULE'),
+  ('markdown_it.presets.default',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\presets\\default.py',
+   'PYMODULE'),
+  ('markdown_it.presets.zero',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\presets\\zero.py',
+   'PYMODULE'),
+  ('markdown_it.renderer',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\renderer.py',
+   'PYMODULE'),
+  ('markdown_it.ruler',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\ruler.py',
+   'PYMODULE'),
+  ('markdown_it.rules_block',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\rules_block\\__init__.py',
+   'PYMODULE'),
+  ('markdown_it.rules_block.blockquote',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\rules_block\\blockquote.py',
+   'PYMODULE'),
+  ('markdown_it.rules_block.code',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\rules_block\\code.py',
+   'PYMODULE'),
+  ('markdown_it.rules_block.fence',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\rules_block\\fence.py',
+   'PYMODULE'),
+  ('markdown_it.rules_block.heading',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\rules_block\\heading.py',
+   'PYMODULE'),
+  ('markdown_it.rules_block.hr',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\rules_block\\hr.py',
+   'PYMODULE'),
+  ('markdown_it.rules_block.html_block',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\rules_block\\html_block.py',
+   'PYMODULE'),
+  ('markdown_it.rules_block.lheading',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\rules_block\\lheading.py',
+   'PYMODULE'),
+  ('markdown_it.rules_block.list',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\rules_block\\list.py',
+   'PYMODULE'),
+  ('markdown_it.rules_block.paragraph',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\rules_block\\paragraph.py',
+   'PYMODULE'),
+  ('markdown_it.rules_block.reference',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\rules_block\\reference.py',
+   'PYMODULE'),
+  ('markdown_it.rules_block.state_block',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\rules_block\\state_block.py',
+   'PYMODULE'),
+  ('markdown_it.rules_block.table',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\rules_block\\table.py',
+   'PYMODULE'),
+  ('markdown_it.rules_core',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\rules_core\\__init__.py',
+   'PYMODULE'),
+  ('markdown_it.rules_core.block',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\rules_core\\block.py',
+   'PYMODULE'),
+  ('markdown_it.rules_core.inline',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\rules_core\\inline.py',
+   'PYMODULE'),
+  ('markdown_it.rules_core.linkify',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\rules_core\\linkify.py',
+   'PYMODULE'),
+  ('markdown_it.rules_core.normalize',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\rules_core\\normalize.py',
+   'PYMODULE'),
+  ('markdown_it.rules_core.replacements',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\rules_core\\replacements.py',
+   'PYMODULE'),
+  ('markdown_it.rules_core.smartquotes',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\rules_core\\smartquotes.py',
+   'PYMODULE'),
+  ('markdown_it.rules_core.state_core',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\rules_core\\state_core.py',
+   'PYMODULE'),
+  ('markdown_it.rules_core.text_join',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\rules_core\\text_join.py',
+   'PYMODULE'),
+  ('markdown_it.rules_inline',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\rules_inline\\__init__.py',
+   'PYMODULE'),
+  ('markdown_it.rules_inline.autolink',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\rules_inline\\autolink.py',
+   'PYMODULE'),
+  ('markdown_it.rules_inline.backticks',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\rules_inline\\backticks.py',
+   'PYMODULE'),
+  ('markdown_it.rules_inline.balance_pairs',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\rules_inline\\balance_pairs.py',
+   'PYMODULE'),
+  ('markdown_it.rules_inline.emphasis',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\rules_inline\\emphasis.py',
+   'PYMODULE'),
+  ('markdown_it.rules_inline.entity',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\rules_inline\\entity.py',
+   'PYMODULE'),
+  ('markdown_it.rules_inline.escape',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\rules_inline\\escape.py',
+   'PYMODULE'),
+  ('markdown_it.rules_inline.fragments_join',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\rules_inline\\fragments_join.py',
+   'PYMODULE'),
+  ('markdown_it.rules_inline.html_inline',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\rules_inline\\html_inline.py',
+   'PYMODULE'),
+  ('markdown_it.rules_inline.image',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\rules_inline\\image.py',
+   'PYMODULE'),
+  ('markdown_it.rules_inline.link',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\rules_inline\\link.py',
+   'PYMODULE'),
+  ('markdown_it.rules_inline.linkify',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\rules_inline\\linkify.py',
+   'PYMODULE'),
+  ('markdown_it.rules_inline.newline',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\rules_inline\\newline.py',
+   'PYMODULE'),
+  ('markdown_it.rules_inline.state_inline',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\rules_inline\\state_inline.py',
+   'PYMODULE'),
+  ('markdown_it.rules_inline.strikethrough',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\rules_inline\\strikethrough.py',
+   'PYMODULE'),
+  ('markdown_it.rules_inline.text',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\rules_inline\\text.py',
+   'PYMODULE'),
+  ('markdown_it.token',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\token.py',
+   'PYMODULE'),
+  ('markdown_it.utils',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markdown_it\\utils.py',
+   'PYMODULE'),
+  ('markupsafe',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markupsafe\\__init__.py',
+   'PYMODULE'),
+  ('markupsafe._native',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\markupsafe\\_native.py',
+   'PYMODULE'),
+  ('mdurl',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\mdurl\\__init__.py',
+   'PYMODULE'),
+  ('mdurl._decode',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\mdurl\\_decode.py',
+   'PYMODULE'),
+  ('mdurl._encode',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\mdurl\\_encode.py',
+   'PYMODULE'),
+  ('mdurl._format',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\mdurl\\_format.py',
+   'PYMODULE'),
+  ('mdurl._parse',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\mdurl\\_parse.py',
+   'PYMODULE'),
+  ('mdurl._url',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\mdurl\\_url.py',
+   'PYMODULE'),
   ('mimetypes', 'C:\\Python314\\Lib\\mimetypes.py', 'PYMODULE'),
   ('multipart',
    'C:\\Users\\Lesia '
@@ -2112,6 +2488,7 @@
    'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\proxy_tools\\__init__.py',
    'PYMODULE'),
   ('pstats', 'C:\\Python314\\Lib\\pstats.py', 'PYMODULE'),
+  ('pty', 'C:\\Python314\\Lib\\pty.py', 'PYMODULE'),
   ('py',
    'C:\\Users\\Lesia '
    'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\py.py',
@@ -3960,6 +4337,370 @@
   ('queue', 'C:\\Python314\\Lib\\queue.py', 'PYMODULE'),
   ('quopri', 'C:\\Python314\\Lib\\quopri.py', 'PYMODULE'),
   ('random', 'C:\\Python314\\Lib\\random.py', 'PYMODULE'),
+  ('rich',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\__init__.py',
+   'PYMODULE'),
+  ('rich.__main__',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\__main__.py',
+   'PYMODULE'),
+  ('rich._emoji_codes',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\_emoji_codes.py',
+   'PYMODULE'),
+  ('rich._emoji_replace',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\_emoji_replace.py',
+   'PYMODULE'),
+  ('rich._export_format',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\_export_format.py',
+   'PYMODULE'),
+  ('rich._extension',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\_extension.py',
+   'PYMODULE'),
+  ('rich._fileno',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\_fileno.py',
+   'PYMODULE'),
+  ('rich._inspect',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\_inspect.py',
+   'PYMODULE'),
+  ('rich._log_render',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\_log_render.py',
+   'PYMODULE'),
+  ('rich._loop',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\_loop.py',
+   'PYMODULE'),
+  ('rich._null_file',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\_null_file.py',
+   'PYMODULE'),
+  ('rich._palettes',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\_palettes.py',
+   'PYMODULE'),
+  ('rich._pick',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\_pick.py',
+   'PYMODULE'),
+  ('rich._ratio',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\_ratio.py',
+   'PYMODULE'),
+  ('rich._spinners',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\_spinners.py',
+   'PYMODULE'),
+  ('rich._stack',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\_stack.py',
+   'PYMODULE'),
+  ('rich._timer',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\_timer.py',
+   'PYMODULE'),
+  ('rich._unicode_data',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\_unicode_data\\__init__.py',
+   'PYMODULE'),
+  ('rich._unicode_data._versions',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\_unicode_data\\_versions.py',
+   'PYMODULE'),
+  ('rich._unicode_data.unicode10-0-0',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\_unicode_data\\unicode10-0-0.py',
+   'PYMODULE'),
+  ('rich._unicode_data.unicode11-0-0',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\_unicode_data\\unicode11-0-0.py',
+   'PYMODULE'),
+  ('rich._unicode_data.unicode12-0-0',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\_unicode_data\\unicode12-0-0.py',
+   'PYMODULE'),
+  ('rich._unicode_data.unicode12-1-0',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\_unicode_data\\unicode12-1-0.py',
+   'PYMODULE'),
+  ('rich._unicode_data.unicode13-0-0',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\_unicode_data\\unicode13-0-0.py',
+   'PYMODULE'),
+  ('rich._unicode_data.unicode14-0-0',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\_unicode_data\\unicode14-0-0.py',
+   'PYMODULE'),
+  ('rich._unicode_data.unicode15-0-0',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\_unicode_data\\unicode15-0-0.py',
+   'PYMODULE'),
+  ('rich._unicode_data.unicode15-1-0',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\_unicode_data\\unicode15-1-0.py',
+   'PYMODULE'),
+  ('rich._unicode_data.unicode16-0-0',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\_unicode_data\\unicode16-0-0.py',
+   'PYMODULE'),
+  ('rich._unicode_data.unicode17-0-0',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\_unicode_data\\unicode17-0-0.py',
+   'PYMODULE'),
+  ('rich._unicode_data.unicode4-1-0',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\_unicode_data\\unicode4-1-0.py',
+   'PYMODULE'),
+  ('rich._unicode_data.unicode5-0-0',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\_unicode_data\\unicode5-0-0.py',
+   'PYMODULE'),
+  ('rich._unicode_data.unicode5-1-0',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\_unicode_data\\unicode5-1-0.py',
+   'PYMODULE'),
+  ('rich._unicode_data.unicode5-2-0',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\_unicode_data\\unicode5-2-0.py',
+   'PYMODULE'),
+  ('rich._unicode_data.unicode6-0-0',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\_unicode_data\\unicode6-0-0.py',
+   'PYMODULE'),
+  ('rich._unicode_data.unicode6-1-0',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\_unicode_data\\unicode6-1-0.py',
+   'PYMODULE'),
+  ('rich._unicode_data.unicode6-2-0',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\_unicode_data\\unicode6-2-0.py',
+   'PYMODULE'),
+  ('rich._unicode_data.unicode6-3-0',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\_unicode_data\\unicode6-3-0.py',
+   'PYMODULE'),
+  ('rich._unicode_data.unicode7-0-0',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\_unicode_data\\unicode7-0-0.py',
+   'PYMODULE'),
+  ('rich._unicode_data.unicode8-0-0',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\_unicode_data\\unicode8-0-0.py',
+   'PYMODULE'),
+  ('rich._unicode_data.unicode9-0-0',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\_unicode_data\\unicode9-0-0.py',
+   'PYMODULE'),
+  ('rich._win32_console',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\_win32_console.py',
+   'PYMODULE'),
+  ('rich._windows',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\_windows.py',
+   'PYMODULE'),
+  ('rich._windows_renderer',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\_windows_renderer.py',
+   'PYMODULE'),
+  ('rich._wrap',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\_wrap.py',
+   'PYMODULE'),
+  ('rich.abc',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\abc.py',
+   'PYMODULE'),
+  ('rich.align',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\align.py',
+   'PYMODULE'),
+  ('rich.ansi',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\ansi.py',
+   'PYMODULE'),
+  ('rich.box',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\box.py',
+   'PYMODULE'),
+  ('rich.cells',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\cells.py',
+   'PYMODULE'),
+  ('rich.color',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\color.py',
+   'PYMODULE'),
+  ('rich.color_triplet',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\color_triplet.py',
+   'PYMODULE'),
+  ('rich.columns',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\columns.py',
+   'PYMODULE'),
+  ('rich.console',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\console.py',
+   'PYMODULE'),
+  ('rich.constrain',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\constrain.py',
+   'PYMODULE'),
+  ('rich.containers',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\containers.py',
+   'PYMODULE'),
+  ('rich.control',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\control.py',
+   'PYMODULE'),
+  ('rich.default_styles',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\default_styles.py',
+   'PYMODULE'),
+  ('rich.emoji',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\emoji.py',
+   'PYMODULE'),
+  ('rich.errors',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\errors.py',
+   'PYMODULE'),
+  ('rich.file_proxy',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\file_proxy.py',
+   'PYMODULE'),
+  ('rich.highlighter',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\highlighter.py',
+   'PYMODULE'),
+  ('rich.json',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\json.py',
+   'PYMODULE'),
+  ('rich.jupyter',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\jupyter.py',
+   'PYMODULE'),
+  ('rich.live',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\live.py',
+   'PYMODULE'),
+  ('rich.live_render',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\live_render.py',
+   'PYMODULE'),
+  ('rich.markdown',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\markdown.py',
+   'PYMODULE'),
+  ('rich.markup',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\markup.py',
+   'PYMODULE'),
+  ('rich.measure',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\measure.py',
+   'PYMODULE'),
+  ('rich.padding',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\padding.py',
+   'PYMODULE'),
+  ('rich.pager',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\pager.py',
+   'PYMODULE'),
+  ('rich.palette',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\palette.py',
+   'PYMODULE'),
+  ('rich.panel',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\panel.py',
+   'PYMODULE'),
+  ('rich.pretty',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\pretty.py',
+   'PYMODULE'),
+  ('rich.protocol',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\protocol.py',
+   'PYMODULE'),
+  ('rich.region',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\region.py',
+   'PYMODULE'),
+  ('rich.repr',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\repr.py',
+   'PYMODULE'),
+  ('rich.rule',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\rule.py',
+   'PYMODULE'),
+  ('rich.scope',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\scope.py',
+   'PYMODULE'),
+  ('rich.screen',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\screen.py',
+   'PYMODULE'),
+  ('rich.segment',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\segment.py',
+   'PYMODULE'),
+  ('rich.spinner',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\spinner.py',
+   'PYMODULE'),
+  ('rich.status',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\status.py',
+   'PYMODULE'),
+  ('rich.style',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\style.py',
+   'PYMODULE'),
+  ('rich.styled',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\styled.py',
+   'PYMODULE'),
+  ('rich.syntax',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\syntax.py',
+   'PYMODULE'),
+  ('rich.table',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\table.py',
+   'PYMODULE'),
+  ('rich.terminal_theme',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\terminal_theme.py',
+   'PYMODULE'),
+  ('rich.text',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\text.py',
+   'PYMODULE'),
+  ('rich.theme',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\theme.py',
+   'PYMODULE'),
+  ('rich.themes',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\themes.py',
+   'PYMODULE'),
+  ('rich.traceback',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\rich\\traceback.py',
+   'PYMODULE'),
   ('rlcompleter', 'C:\\Python314\\Lib\\rlcompleter.py', 'PYMODULE'),
   ('runpy', 'C:\\Python314\\Lib\\runpy.py', 'PYMODULE'),
   ('secrets', 'C:\\Python314\\Lib\\secrets.py', 'PYMODULE'),
@@ -5700,6 +6441,94 @@
    'C:\\Users\\Lesia '
    'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\typing_inspection\\typing_objects.py',
    'PYMODULE'),
+  ('tzdata',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\tzdata\\__init__.py',
+   'PYMODULE'),
+  ('tzdata.zoneinfo',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\tzdata\\zoneinfo\\__init__.py',
+   'PYMODULE'),
+  ('tzdata.zoneinfo.Africa',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\tzdata\\zoneinfo\\Africa\\__init__.py',
+   'PYMODULE'),
+  ('tzdata.zoneinfo.America',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\tzdata\\zoneinfo\\America\\__init__.py',
+   'PYMODULE'),
+  ('tzdata.zoneinfo.America.Argentina',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\tzdata\\zoneinfo\\America\\Argentina\\__init__.py',
+   'PYMODULE'),
+  ('tzdata.zoneinfo.America.Indiana',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\tzdata\\zoneinfo\\America\\Indiana\\__init__.py',
+   'PYMODULE'),
+  ('tzdata.zoneinfo.America.Kentucky',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\tzdata\\zoneinfo\\America\\Kentucky\\__init__.py',
+   'PYMODULE'),
+  ('tzdata.zoneinfo.America.North_Dakota',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\tzdata\\zoneinfo\\America\\North_Dakota\\__init__.py',
+   'PYMODULE'),
+  ('tzdata.zoneinfo.Antarctica',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\tzdata\\zoneinfo\\Antarctica\\__init__.py',
+   'PYMODULE'),
+  ('tzdata.zoneinfo.Arctic',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\tzdata\\zoneinfo\\Arctic\\__init__.py',
+   'PYMODULE'),
+  ('tzdata.zoneinfo.Asia',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\tzdata\\zoneinfo\\Asia\\__init__.py',
+   'PYMODULE'),
+  ('tzdata.zoneinfo.Atlantic',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\tzdata\\zoneinfo\\Atlantic\\__init__.py',
+   'PYMODULE'),
+  ('tzdata.zoneinfo.Australia',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\tzdata\\zoneinfo\\Australia\\__init__.py',
+   'PYMODULE'),
+  ('tzdata.zoneinfo.Brazil',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\tzdata\\zoneinfo\\Brazil\\__init__.py',
+   'PYMODULE'),
+  ('tzdata.zoneinfo.Canada',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\tzdata\\zoneinfo\\Canada\\__init__.py',
+   'PYMODULE'),
+  ('tzdata.zoneinfo.Chile',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\tzdata\\zoneinfo\\Chile\\__init__.py',
+   'PYMODULE'),
+  ('tzdata.zoneinfo.Etc',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\tzdata\\zoneinfo\\Etc\\__init__.py',
+   'PYMODULE'),
+  ('tzdata.zoneinfo.Europe',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\tzdata\\zoneinfo\\Europe\\__init__.py',
+   'PYMODULE'),
+  ('tzdata.zoneinfo.Indian',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\tzdata\\zoneinfo\\Indian\\__init__.py',
+   'PYMODULE'),
+  ('tzdata.zoneinfo.Mexico',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\tzdata\\zoneinfo\\Mexico\\__init__.py',
+   'PYMODULE'),
+  ('tzdata.zoneinfo.Pacific',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\tzdata\\zoneinfo\\Pacific\\__init__.py',
+   'PYMODULE'),
+  ('tzdata.zoneinfo.US',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\tzdata\\zoneinfo\\US\\__init__.py',
+   'PYMODULE'),
   ('unittest', 'C:\\Python314\\Lib\\unittest\\__init__.py', 'PYMODULE'),
   ('unittest._log', 'C:\\Python314\\Lib\\unittest\\_log.py', 'PYMODULE'),
   ('unittest.async_case',
@@ -6110,6 +6939,74 @@
    'PYMODULE'),
   ('xmlrpc', 'C:\\Python314\\Lib\\xmlrpc\\__init__.py', 'PYMODULE'),
   ('xmlrpc.client', 'C:\\Python314\\Lib\\xmlrpc\\client.py', 'PYMODULE'),
+  ('yaml',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\yaml\\__init__.py',
+   'PYMODULE'),
+  ('yaml.composer',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\yaml\\composer.py',
+   'PYMODULE'),
+  ('yaml.constructor',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\yaml\\constructor.py',
+   'PYMODULE'),
+  ('yaml.cyaml',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\yaml\\cyaml.py',
+   'PYMODULE'),
+  ('yaml.dumper',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\yaml\\dumper.py',
+   'PYMODULE'),
+  ('yaml.emitter',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\yaml\\emitter.py',
+   'PYMODULE'),
+  ('yaml.error',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\yaml\\error.py',
+   'PYMODULE'),
+  ('yaml.events',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\yaml\\events.py',
+   'PYMODULE'),
+  ('yaml.loader',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\yaml\\loader.py',
+   'PYMODULE'),
+  ('yaml.nodes',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\yaml\\nodes.py',
+   'PYMODULE'),
+  ('yaml.parser',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\yaml\\parser.py',
+   'PYMODULE'),
+  ('yaml.reader',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\yaml\\reader.py',
+   'PYMODULE'),
+  ('yaml.representer',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\yaml\\representer.py',
+   'PYMODULE'),
+  ('yaml.resolver',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\yaml\\resolver.py',
+   'PYMODULE'),
+  ('yaml.scanner',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\yaml\\scanner.py',
+   'PYMODULE'),
+  ('yaml.serializer',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\yaml\\serializer.py',
+   'PYMODULE'),
+  ('yaml.tokens',
+   'C:\\Users\\Lesia '
+   'Eden\\Downloads\\keystone-cowork\\.venv\\Lib\\site-packages\\yaml\\tokens.py',
+   'PYMODULE'),
   ('zipfile', 'C:\\Python314\\Lib\\zipfile\\__init__.py', 'PYMODULE'),
   ('zipfile._path',
    'C:\\Python314\\Lib\\zipfile\\_path\\__init__.py',

@@ -37,17 +37,49 @@ class GenerateSpeechRequest(BaseModel):
     save_asset: bool = Field(default=True, description="Whether to register synthesized audio as a durable asset")
 
 
+class AudioConfigUpdateRequest(BaseModel):
+    elevenlabs_api_key: Optional[str] = Field(None, description="Live ElevenLabs API key")
+
+
 @router.get("/config", summary="Get ElevenLabs TTS integration configuration")
 async def get_audio_config() -> Dict[str, Any]:
     """Returns the current audio and ElevenLabs TTS configuration status."""
     return {
         "status": "ok",
         "configured": elevenlabs_client.is_configured(),
-        "provider": "elevenlabs",
+        "provider": "elevenlabs" if elevenlabs_client.is_configured() else "windows_sapi_speech",
         "default_model": ELEVENLABS_DEFAULT_MODEL,
         "default_voice": "21m00Tcm4TlvDq8ikWAM",
         "voice_count": len(PREMIER_VOICES),
     }
+
+
+@router.post("/configure", summary="Configure ElevenLabs API Key at runtime")
+async def configure_audio_provider(req: AudioConfigUpdateRequest) -> Dict[str, Any]:
+    import os
+    from pathlib import Path
+    if req.elevenlabs_api_key is not None:
+        clean_key = req.elevenlabs_api_key.strip()
+        os.environ["ELEVENLABS_API_KEY"] = clean_key
+        repo_root = Path(__file__).resolve().parents[4]
+        for env_path in (repo_root / ".env", repo_root / "dist" / ".env"):
+            if env_path.parent.exists():
+                try:
+                    lines = env_path.read_text(encoding="utf-8").splitlines() if env_path.exists() else []
+                    written = False
+                    new_lines = []
+                    for line in lines:
+                        if line.strip().startswith("ELEVENLABS_API_KEY="):
+                            new_lines.append(f"ELEVENLABS_API_KEY={clean_key}")
+                            written = True
+                        else:
+                            new_lines.append(line)
+                    if not written:
+                        new_lines.append(f"ELEVENLABS_API_KEY={clean_key}")
+                    env_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+                except Exception:
+                    pass
+    return await get_audio_config()
 
 
 @router.get("/voices", summary="List available ElevenLabs and curated voices")
@@ -68,14 +100,28 @@ async def synthesize_speech(
     tenant_id: str = Depends(get_current_tenant_id),
     db: AsyncSession = Depends(get_db)
 ) -> Any:
-    """Synthesizes text into audio using ElevenLabs (with automatic local formant synthesis fallback)."""
-    voice_id = req.voice_id or "21m00Tcm4TlvDq8ikWAM"
-    audio_bytes, mime_type, meta = await run_in_threadpool(
-        elevenlabs_client.generate_speech,
-        req.text,
-        voice_id=voice_id,
-        voice_settings=req.voice_settings,
+    """Synthesizes text into real spoken audio after KEYSTONE prompt compilation."""
+    from apps.api.src.keystone import prompting as keystone_prompting
+
+    compiled = await keystone_prompting.digest_and_compile_prompt(
+        user_text=req.text,
+        reference_count=0,
+        intent_hint="audio",
     )
+
+    voice_id = req.voice_id or "21m00Tcm4TlvDq8ikWAM"
+    try:
+        audio_bytes, mime_type, meta = await run_in_threadpool(
+            elevenlabs_client.generate_speech,
+            req.text,
+            voice_id=voice_id,
+            voice_settings=req.voice_settings,
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"AUDIO_SYNTHESIS_FAILED: {exc}",
+        )
 
     if not req.save_asset:
         ext = "mp3" if "mpeg" in mime_type else "wav"
@@ -86,6 +132,7 @@ async def synthesize_speech(
             headers={
                 "Content-Disposition": f'attachment; filename="{filename}"',
                 "X-Audio-Provider": meta.get("provider", "elevenlabs"),
+                "X-Keystone-Prompt-Hash": compiled.prompt_hash,
             }
         )
 
@@ -114,6 +161,8 @@ async def synthesize_speech(
         metadata={
             "kind": "tts_speech",
             "script": req.text,
+            "compiled_prompt": compiled.positive_prompt,
+            "prompt_hash": compiled.prompt_hash,
             "voice_id": voice_id,
             "voice_name": voice_name,
             "provider": meta.get("provider", "elevenlabs"),
@@ -134,4 +183,5 @@ async def synthesize_speech(
         "provider": meta.get("provider", "elevenlabs"),
         "voice_id": voice_id,
         "voice_name": voice_name,
+        "prompt_hash": compiled.prompt_hash,
     }

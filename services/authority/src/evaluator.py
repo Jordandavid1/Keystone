@@ -183,13 +183,20 @@ class ParameterBoundaryEvaluator:
                 # Clamp to 16:9 or 1:1 default
                 sanitized["aspect_ratio"] = "16:9"
 
+        unlocked = bool(sanitized.get("unlock_max_bounds"))
+        max_w = 4096 if unlocked else IMAGE_MAX_WIDTH
+        max_h = 4096 if unlocked else IMAGE_MAX_HEIGHT
+        max_steps = 100 if unlocked else STEPS_RANGE[1]
+        max_dur = 15 if unlocked else VIDEO_MAX_DURATION_SECONDS
+        allowed_video_res = (VIDEO_RESOLUTIONS | {"2k", "4k"}) if unlocked else VIDEO_RESOLUTIONS
+
         # 3. Resolution (width, height)
         if "width" in sanitized:
             try:
                 w = int(sanitized["width"])
-                if w > IMAGE_MAX_WIDTH or w < IMAGE_MIN_DIMENSION:
-                    reason_codes.append(f"OUT_OF_BOUNDS_PARAMETER: width {w} outside [{IMAGE_MIN_DIMENSION}, {IMAGE_MAX_WIDTH}]")
-                sanitized["width"] = max(IMAGE_MIN_DIMENSION, min(w, IMAGE_MAX_WIDTH))
+                if w > max_w or w < IMAGE_MIN_DIMENSION:
+                    reason_codes.append(f"OUT_OF_BOUNDS_PARAMETER: width {w} outside [{IMAGE_MIN_DIMENSION}, {max_w}]")
+                sanitized["width"] = max(IMAGE_MIN_DIMENSION, min(w, max_w))
             except (ValueError, TypeError):
                 sanitized["width"] = 1024
                 reason_codes.append("INVALID_PARAMETER: width must be integer")
@@ -197,29 +204,29 @@ class ParameterBoundaryEvaluator:
         if "height" in sanitized:
             try:
                 h = int(sanitized["height"])
-                if h > IMAGE_MAX_HEIGHT or h < IMAGE_MIN_DIMENSION:
-                    reason_codes.append(f"OUT_OF_BOUNDS_PARAMETER: height {h} outside [{IMAGE_MIN_DIMENSION}, {IMAGE_MAX_HEIGHT}]")
-                sanitized["height"] = max(IMAGE_MIN_DIMENSION, min(h, IMAGE_MAX_HEIGHT))
+                if h > max_h or h < IMAGE_MIN_DIMENSION:
+                    reason_codes.append(f"OUT_OF_BOUNDS_PARAMETER: height {h} outside [{IMAGE_MIN_DIMENSION}, {max_h}]")
+                sanitized["height"] = max(IMAGE_MIN_DIMENSION, min(h, max_h))
             except (ValueError, TypeError):
                 sanitized["height"] = 1024
                 reason_codes.append("INVALID_PARAMETER: height must be integer")
 
         # 4. Video Parameters
-        if capability in ("video.i2v", "video.t2v"):
+        if capability in ("video.i2v", "video.t2v", "video.minimax_h3_ref2va", "creative.video_wan"):
             if "resolution" in sanitized:
                 res = str(sanitized["resolution"]).lower()
-                if res not in VIDEO_RESOLUTIONS:
-                    reason_codes.append(f"OUT_OF_BOUNDS_PARAMETER: resolution '{res}' not in {VIDEO_RESOLUTIONS}")
+                if res not in allowed_video_res:
+                    reason_codes.append(f"OUT_OF_BOUNDS_PARAMETER: resolution '{res}' not in {allowed_video_res}")
                     sanitized["resolution"] = VIDEO_DEFAULT_RESOLUTION
             if "duration_seconds" in sanitized:
                 try:
                     dur = int(sanitized["duration_seconds"])
-                    if dur > VIDEO_MAX_DURATION_SECONDS or dur < VIDEO_MIN_DURATION_SECONDS:
+                    if dur > max_dur or dur < VIDEO_MIN_DURATION_SECONDS:
                         reason_codes.append(
                             f"OUT_OF_BOUNDS_PARAMETER: duration_seconds {dur} outside "
-                            f"[{VIDEO_MIN_DURATION_SECONDS}, {VIDEO_MAX_DURATION_SECONDS}]"
+                            f"[{VIDEO_MIN_DURATION_SECONDS}, {max_dur}]"
                         )
-                    sanitized["duration_seconds"] = max(VIDEO_MIN_DURATION_SECONDS, min(dur, VIDEO_MAX_DURATION_SECONDS))
+                    sanitized["duration_seconds"] = max(VIDEO_MIN_DURATION_SECONDS, min(dur, max_dur))
                 except (ValueError, TypeError):
                     sanitized["duration_seconds"] = 5
 
@@ -234,9 +241,9 @@ class ParameterBoundaryEvaluator:
         if "steps" in sanitized:
             try:
                 steps = int(sanitized["steps"])
-                if steps < STEPS_RANGE[0] or steps > STEPS_RANGE[1]:
-                    reason_codes.append(f"OUT_OF_BOUNDS_PARAMETER: steps {steps} clamped to {STEPS_RANGE}")
-                sanitized["steps"] = max(STEPS_RANGE[0], min(steps, STEPS_RANGE[1]))
+                if steps < STEPS_RANGE[0] or steps > max_steps:
+                    reason_codes.append(f"OUT_OF_BOUNDS_PARAMETER: steps {steps} clamped to ({STEPS_RANGE[0]}, {max_steps})")
+                sanitized["steps"] = max(STEPS_RANGE[0], min(steps, max_steps))
             except (ValueError, TypeError):
                 sanitized["steps"] = 30
 

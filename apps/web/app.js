@@ -96,7 +96,11 @@ const state = {
   personas: [],
   selectedPersonaId: null,
   voices: [],
-  audioConfig: null
+  audioConfig: null,
+  playbooksCatalog: {},
+  activeUseCaseId: null,
+  activeSkillId: null,
+  comfyStatus: null
 };
 
 // ============================================================================
@@ -178,28 +182,300 @@ function togglePlayback(forceState = null) {
   }
 }
 
+async function hydratePlaybooks() {
+  try {
+    const resp = await fetch('/v1/planning/playbooks');
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data && data.playbooks) {
+        if (Array.isArray(data.playbooks)) {
+          const catalog = {};
+          data.playbooks.forEach(pb => {
+            if (pb && pb.id) catalog[String(pb.id).toLowerCase()] = pb;
+          });
+          state.playbooksCatalog = catalog;
+        } else {
+          state.playbooksCatalog = data.playbooks;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('hydratePlaybooks error:', err);
+  }
+  const pbRec = getActivePlaybookRecord();
+  if (pbRec && pbRec.use_cases && pbRec.use_cases.length > 0) {
+    if (!state.activeUseCaseId) {
+      state.activeUseCaseId = pbRec.use_cases[0].id;
+    }
+    const input = document.getElementById('composerInput');
+    if (input && !input.value.trim()) {
+      input.value = pbRec.use_cases[0].starter_prompt;
+      state.lastAutoLoadedPrompt = pbRec.use_cases[0].starter_prompt;
+    }
+  }
+  renderPlaybooks();
+  renderPlaybookContextAndSkills();
+  compilePromptPreview();
+}
+
+function getActivePlaybookRecord() {
+  const key = (state.activePlaybook || 'Design').toLowerCase();
+  return state.playbooksCatalog[key] || null;
+}
+
+function applyPlaybookUseCase(pbKey, uc) {
+  if (!uc) return;
+  state.activeUseCaseId = uc.id;
+  const input = document.getElementById('composerInput');
+  if (input && uc.starter_prompt) {
+    input.value = uc.starter_prompt;
+    input.focus();
+  }
+  if (uc.recommended_intent) {
+    const intentPill = document.querySelector(`.intent-pill[data-intent="${uc.recommended_intent}"]`);
+    if (intentPill) intentPill.click();
+  }
+  if (uc.recommended_adapter === 'minimax_h3') {
+    document.querySelector('.mode-tab[data-mode="video"]')?.click();
+    const mmPrompt = document.getElementById('minimaxPromptInput');
+    if (mmPrompt && uc.starter_prompt) mmPrompt.value = uc.starter_prompt;
+  } else if (uc.recommended_adapter === 'elevenlabs_tts') {
+    openPersonasModal(true);
+    const ttsInput = document.getElementById('ttsScriptInput');
+    if (ttsInput && uc.starter_prompt) ttsInput.value = uc.starter_prompt;
+  } else if (state.activeMode === 'video' && uc.recommended_adapter === 'image_gen') {
+    document.querySelector('.mode-tab[data-mode="single"]')?.click();
+  }
+  renderPlaybookContextAndSkills();
+  compilePromptPreview();
+}
+
+function activatePlaybookSkill(pbKey, skill) {
+  if (!skill) return;
+  state.activeSkillId = skill.id;
+  const input = document.getElementById('composerInput');
+  if (skill.adapter === 'minimax_h3') {
+    document.querySelector('.mode-tab[data-mode="video"]')?.click();
+  } else if (skill.adapter === 'elevenlabs_tts') {
+    openPersonasModal(true);
+  } else if (skill.adapter === 'firecrawl') {
+    document.getElementById('btnWebScrapeModal')?.click();
+  } else if (skill.adapter === 'qwen_27b') {
+    if (input && !input.value.trim()) {
+      const pb = getActivePlaybookRecord();
+      const firstUc = pb && pb.use_cases && pb.use_cases[0];
+      input.value = (firstUc && firstUc.starter_prompt) || `${skill.name}: ${skill.description}`;
+    }
+    const analyzePill = document.querySelector('.intent-pill[data-intent="analyze"]');
+    if (analyzePill) analyzePill.click();
+  } else if (skill.adapter === 'upscale') {
+    const asset = getSelectedAsset();
+    if (asset) {
+      upscaleSelectedAsset(2);
+    }
+  } else {
+    document.querySelector('.mode-tab[data-mode="single"]')?.click();
+  }
+  if (input) {
+    const cur = input.value.trim();
+    const skillTag = `[Skill: ${skill.name}]`;
+    if (!cur) {
+      const pb = getActivePlaybookRecord();
+      const firstUc = pb && pb.use_cases && pb.use_cases[0];
+      input.value = `${skillTag} ${(firstUc && firstUc.starter_prompt) || skill.description}`;
+    } else if (!cur.includes(skill.name)) {
+      input.value = `${cur} — Apply ${skill.name} (${skill.capability})`;
+    }
+  }
+  renderPlaybookContextAndSkills();
+  compilePromptPreview();
+}
+
+function renderPlaybookContextAndSkills() {
+  const pbName = state.activePlaybook || 'Design';
+  const pbKey = pbName.toLowerCase();
+  const pb = getActivePlaybookRecord();
+  const ctx = (pb && pb.domain_context) || {
+    domain_brief: `${pbName} domain studio with pre-configured subject, environment, visual style, and bound skills.`,
+    system_framing: `Operate as a principal ${pbName.toLowerCase()} director and technical specialist.`,
+    default_subject: `${pbName} hero subject`,
+    default_environment: `${pbName} studio environment`,
+    default_visual_style: `${pbName} Studio Grade`,
+    default_constraints: ['Zero placeholders', 'Production fidelity'],
+    quality_standard: `Master ${pbName} studio execution.`
+  };
+  const useCases = (pb && pb.use_cases) || [];
+  const skills = (pb && pb.skills) || [];
+  const pathSteps = (pb && pb.path) || [];
+  const criticalSlots = (pb && pb.criticalSlots) || [];
+
+  // 1. Update Left Sidebar Playbook Context Box
+  const sbTitle = document.getElementById('sidebarPlaybookTitle');
+  const sbCounts = document.getElementById('sidebarPlaybookSkillsCount');
+  const sbBrief = document.getElementById('sidebarPlaybookBrief');
+  const sbQuickUc = document.getElementById('sidebarPlaybookQuickUseCases');
+
+  if (sbTitle) sbTitle.textContent = `${pbName} Playbook`;
+  if (sbCounts) sbCounts.textContent = `${useCases.length || 3} Use Cases • ${skills.length || 4} Skills`;
+  if (sbBrief) sbBrief.textContent = ctx.domain_brief;
+  if (sbQuickUc) {
+    sbQuickUc.innerHTML = useCases.map(uc => {
+      const isAct = state.activeUseCaseId === uc.id;
+      return `
+        <button
+          type="button"
+          class="sb-usecase-btn"
+          data-uc-id="${uc.id}"
+          style="text-align: left; padding: 4px 7px; border-radius: 4px; border: 1px solid ${isAct ? '#38bdf8' : 'rgba(255,255,255,0.08)'}; background: ${isAct ? 'rgba(56,189,248,0.16)' : 'rgba(255,255,255,0.03)'}; color: var(--text-primary); font-size: 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;"
+          title="${uc.summary}"
+        >
+          <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">▸ ${uc.title}</span>
+          <span style="font-family: var(--font-mono); font-size: 9px; color: #c084fc; margin-left: 4px; flex-shrink: 0;">${uc.recommended_intent || 'create'}</span>
+        </button>
+      `;
+    }).join('');
+    sbQuickUc.querySelectorAll('.sb-usecase-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const found = useCases.find(u => u.id === btn.dataset.ucId);
+        if (found) applyPlaybookUseCase(pbKey, found);
+      });
+    });
+  }
+
+  // 2. Update Right Inspector Playbook Card
+  const inspTitle = document.getElementById('inspPlaybookHeaderTitle');
+  const inspBadge = document.getElementById('inspPlaybookIdBadge');
+  const inspBrief = document.getElementById('inspPlaybookBrief');
+  const inspFraming = document.getElementById('inspPlaybookFraming');
+  const inspUcContainer = document.getElementById('inspPlaybookUseCases');
+  const inspSkillsContainer = document.getElementById('inspPlaybookSkills');
+  const inspPathContainer = document.getElementById('inspPlaybookPath');
+
+  if (inspTitle) inspTitle.textContent = `🎯 Playbook: ${pbName}`;
+  if (inspBadge) inspBadge.textContent = `${useCases.length || 3} USE CASES • ${skills.length || 4} SKILLS`;
+  if (inspBrief) inspBrief.textContent = ctx.domain_brief;
+  if (inspFraming) {
+    inspFraming.innerHTML = `
+      <div><strong style="color:#38bdf8;">System Framing:</strong> ${ctx.system_framing}</div>
+      <div style="margin-top:2px;"><strong style="color:#34d399;">Quality Standard:</strong> ${ctx.quality_standard}</div>
+    `;
+  }
+
+  if (inspUcContainer) {
+    inspUcContainer.innerHTML = useCases.map(uc => {
+      const isAct = state.activeUseCaseId === uc.id;
+      return `
+        <div
+          class="insp-usecase-card"
+          data-uc-id="${uc.id}"
+          style="padding: 7px 9px; border-radius: 6px; border: 1px solid ${isAct ? '#c084fc' : 'var(--border-subtle)'}; background: ${isAct ? 'rgba(192,132,252,0.14)' : 'rgba(255,255,255,0.025)'}; cursor: pointer; transition: all 0.15s ease;"
+        >
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
+            <strong style="font-size: 11px; color: ${isAct ? '#e9d5ff' : 'var(--text-primary)'};">${uc.title}</strong>
+            <span style="font-size: 9px; font-family: var(--font-mono); padding: 1px 5px; border-radius: 3px; background: rgba(192,132,252,0.2); color: #c084fc; text-transform: uppercase;">${uc.recommended_intent} • ${uc.recommended_adapter}</span>
+          </div>
+          <div style="font-size: 10px; color: var(--text-secondary); line-height: 1.35; margin-bottom: 4px;">${uc.summary}</div>
+          <div style="font-size: 9.5px; font-family: var(--font-mono); color: #38bdf8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Style: ${uc.visual_style}</div>
+        </div>
+      `;
+    }).join('');
+
+    inspUcContainer.querySelectorAll('.insp-usecase-card').forEach(card => {
+      card.addEventListener('click', () => {
+        const found = useCases.find(u => u.id === card.dataset.ucId);
+        if (found) applyPlaybookUseCase(pbKey, found);
+      });
+    });
+  }
+
+  if (inspSkillsContainer) {
+    inspSkillsContainer.innerHTML = skills.map(sk => {
+      const isAct = state.activeSkillId === sk.id;
+      return `
+        <div
+          class="insp-skill-card"
+          data-skill-id="${sk.id}"
+          style="padding: 6px 8px; border-radius: 5px; border: 1px solid ${isAct ? '#34d399' : 'var(--border-subtle)'}; background: ${isAct ? 'rgba(52,211,153,0.14)' : 'rgba(255,255,255,0.02)'}; cursor: pointer; display: flex; flex-direction: column; gap: 2px;"
+        >
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 10.5px; font-weight: 700; color: #34d399;">⚡ ${sk.name}</span>
+            <span style="font-size: 9px; font-family: var(--font-mono); color: #38bdf8; background: rgba(56,189,248,0.12); padding: 1px 5px; border-radius: 3px;">${sk.adapter}</span>
+          </div>
+          <div style="font-size: 9.8px; color: var(--text-secondary); line-height: 1.3;">${sk.description}</div>
+        </div>
+      `;
+    }).join('');
+
+    inspSkillsContainer.querySelectorAll('.insp-skill-card').forEach(card => {
+      card.addEventListener('click', () => {
+        const found = skills.find(s => s.id === card.dataset.skillId);
+        if (found) activatePlaybookSkill(pbKey, found);
+      });
+    });
+  }
+
+  if (inspPathContainer) {
+    const slotsHtml = criticalSlots.length
+      ? `<div style="margin-bottom: 4px; color: #c084fc; font-family: var(--font-mono); font-size: 9.5px;">Critical Slots: ${criticalSlots.map(s => s.name).join(' • ')}</div>`
+      : '';
+    const stepsHtml = pathSteps.map(st => `
+      <div style="font-size: 9.8px; color: var(--text-secondary);">
+        <strong style="color: var(--text-primary); font-family: var(--font-mono);">${st.stepNumber}. ${st.name}:</strong> ${st.description}
+      </div>
+    `).join('');
+    inspPathContainer.innerHTML = slotsHtml + stepsHtml;
+  }
+}
+
 function renderPlaybooks() {
   const grid = document.getElementById('playbookGrid');
   if (!grid) return;
-  grid.innerHTML = PLAYBOOKS_16.map(pb => `
-    <button
-      class="playbook-chip ${state.activePlaybook === pb ? 'active' : ''}"
-      data-playbook="${pb}"
-      role="radio"
-      aria-checked="${state.activePlaybook === pb}"
-    >
-      ${pb}
-    </button>
-  `).join('');
+  const countBadge = document.getElementById('sidebarPlaybookCountBadge');
+  if (countBadge) countBadge.textContent = `${PLAYBOOKS_16.length} / 16`;
+
+  grid.innerHTML = PLAYBOOKS_16.map(pb => {
+    const pbRecord = state.playbooksCatalog[pb.toLowerCase()];
+    const ucCount = pbRecord && pbRecord.use_cases ? pbRecord.use_cases.length : 3;
+    const skCount = pbRecord && pbRecord.skills ? pbRecord.skills.length : 4;
+    const brief = pbRecord && pbRecord.domain_context ? pbRecord.domain_context.domain_brief : `${pb} Domain Playbook`;
+    return `
+      <button
+        type="button"
+        class="playbook-chip ${state.activePlaybook === pb ? 'active' : ''}"
+        data-playbook="${pb}"
+        role="radio"
+        aria-checked="${state.activePlaybook === pb}"
+        title="${pb} — ${ucCount} Use Cases, ${skCount} Skills: ${brief}"
+      >
+        ${pb}
+      </button>
+    `;
+  }).join('');
 
   grid.querySelectorAll('.playbook-chip').forEach(btn => {
     btn.addEventListener('click', () => {
       state.activePlaybook = btn.dataset.playbook;
+      state.activeUseCaseId = null;
+      state.activeSkillId = null;
       const badge = document.getElementById('activePlaybookBadge');
       if (badge) badge.textContent = `Playbook: ${state.activePlaybook}`;
       const statusText = document.getElementById('statusPlaybookText');
       if (statusText) statusText.textContent = `Playbook: ${state.activePlaybook}`;
+
+      // Preload default starter prompt from the selected playbook's first use case if composer is empty
+      const pbRec = getActivePlaybookRecord();
+      if (pbRec && pbRec.use_cases && pbRec.use_cases.length > 0) {
+        const firstUc = pbRec.use_cases[0];
+        state.activeUseCaseId = firstUc.id;
+        const input = document.getElementById('composerInput');
+        if (input && (!input.value.trim() || state.lastAutoLoadedPrompt === input.value.trim())) {
+          input.value = firstUc.starter_prompt;
+          state.lastAutoLoadedPrompt = firstUc.starter_prompt;
+        }
+      }
+
       renderPlaybooks();
+      renderPlaybookContextAndSkills();
       compilePromptPreview();
     });
   });
@@ -704,8 +980,7 @@ function renderMinimaxVideoStage(stage) {
       renderInspector();
       renderCanvasStage();
     });
-  }););
-  }
+  });
 
   // 3. Video upload button
   const btnUploadVid = stage.querySelector('#btnMinimaxUploadVideo');
@@ -1176,11 +1451,57 @@ async function fetchRemoteConfig() {
   }
 }
 
+async function fetchComfyStatus() {
+  try {
+    const resp = await fetch('/v1/creative/comfy/status');
+    if (!resp.ok) return null;
+    const status = await resp.json();
+    state.comfyStatus = status;
+
+    const comfyInput = document.getElementById('cfgComfyBaseUrl');
+    const openaiInput = document.getElementById('cfgOpenaiBaseUrl');
+    if (comfyInput && !comfyInput.matches(':focus') && status.base_url) {
+      comfyInput.value = status.base_url;
+    }
+    if (openaiInput && !openaiInput.matches(':focus') && status.cognition_endpoint) {
+      openaiInput.value = status.cognition_endpoint;
+    }
+
+    const comfyBadge = document.getElementById('settingsComfyOnlineBadge');
+    const comfyText = document.getElementById('settingsComfyStatusText');
+    const cogBadge = document.getElementById('settingsCognitionStatusBadge');
+    const cogText = document.getElementById('settingsCognitionEndpointText');
+
+    if (comfyBadge) {
+      comfyBadge.textContent = status.online ? 'ONLINE' : 'STANDBY (AWAITING TUNNEL)';
+      comfyBadge.style.color = status.online ? '#34d399' : '#f59e0b';
+      comfyBadge.style.borderColor = status.online ? 'rgba(52,211,153,0.4)' : 'rgba(245,158,11,0.4)';
+      comfyBadge.style.background = status.online ? 'rgba(52,211,153,0.1)' : 'rgba(245,158,11,0.1)';
+    }
+    if (comfyText) {
+      const wfNames = Object.keys(status.workflows || {}).join(', ');
+      comfyText.textContent = `Endpoint: ${status.base_url} (${status.online ? 'Connected' : 'Unreachable'}) • Workflows: ${wfNames || 'h3-ref2va, PinkCherry_Ref2V'} (Clean)`;
+    }
+    if (cogBadge) {
+      cogBadge.textContent = status.cognition_online ? 'ONLINE' : 'CONFIGURED';
+      cogBadge.style.color = status.cognition_online ? '#34d399' : '#38bdf8';
+    }
+    if (cogText) {
+      cogText.textContent = `Endpoint: ${status.cognition_endpoint || 'Not Set'} (${status.cognition_online ? 'Reachable' : 'Standby'})`;
+    }
+    return status;
+  } catch (err) {
+    console.warn('ComfyUI status check failed:', err);
+    return null;
+  }
+}
+
 async function fetchWorkerTelemetry() {
   try {
-    const [res, cogRes] = await Promise.all([
-      fetch('/internal/workers'),
-      fetch('/v1/cognition/status').catch(() => null)
+    const [res, cogRes, comfyStatus] = await Promise.all([
+      fetch('/internal/workers').catch(() => null),
+      fetch('/v1/cognition/status').catch(() => null),
+      fetchComfyStatus()
     ]);
     const data = res && res.ok ? await res.json() : { workers: [] };
     const cogData = cogRes && cogRes.ok ? await cogRes.json() : {};
@@ -1200,36 +1521,38 @@ async function fetchWorkerTelemetry() {
     let usedVram = 0;
     activeWorkers.forEach(w => {
       const hw = w.hardware || {};
-      totalVram += hw.vram_total_gib || 15.0;
+      totalVram += hw.vram_total_gib || 0;
       const metrics = w.metrics || {};
-      usedVram += metrics.gpu_memory_used_gib || (hw.vram_total_gib ? hw.vram_total_gib * 0.75 : 12.0);
+      usedVram += metrics.gpu_memory_used_gib || 0;
     });
 
-    if (activeWorkers.length > 0) {
+    const comfyOnline = Boolean(comfyStatus && comfyStatus.online);
+    const cogOnline = Boolean((comfyStatus && comfyStatus.cognition_online) || cogData.state === 'READY');
+
+    if (activeWorkers.length > 0 || comfyOnline || cogOnline) {
       if (statusDotEl) statusDotEl.style.background = '#34d399';
       if (statusTextEl) {
-        statusTextEl.textContent = `GPU BRIDGE: ${activeWorkers.length} ACTIVE`;
+        statusTextEl.textContent = activeWorkers.length > 0
+          ? `GPU BRIDGE: ${activeWorkers.length} ACTIVE`
+          : `TUNNEL: ${cogOnline ? 'QWEN ONLINE' : 'ACTIVE'}`;
       }
       if (vramBadgeEl) {
-        vramBadgeEl.textContent = `VRAM: ${usedVram.toFixed(1)}/${totalVram.toFixed(0)}G`;
-      }
-      if (engineHealthTextEl) {
-        const hasCognition = activeWorkers.some(w =>
-          (w.capabilities || []).some(c => c.includes('qwen') || c.includes('cognition'))
-        );
-        const hasComfy = activeWorkers.some(w =>
-          (w.capabilities || []).some(c => c.includes('comfy') || c.includes('image.generation'))
-        );
-        engineHealthTextEl.textContent =
-          `KEYSTONE 2.0 • Qwen-27B (${hasCognition ? 'Active' : 'Standby'}) • ComfyUI (${hasComfy ? 'Online' : 'Standby'}) • ${activeWorkers.length} Nodes`;
+        vramBadgeEl.textContent = totalVram > 0
+          ? `VRAM: ${usedVram.toFixed(1)}/${totalVram.toFixed(0)}G`
+          : `COMFY: ${comfyOnline ? 'ONLINE' : 'STANDBY'}`;
       }
     } else {
       if (statusDotEl) statusDotEl.style.background = '#f59e0b';
-      if (statusTextEl) statusTextEl.textContent = 'GPU BRIDGE: CONNECTING';
-      if (vramBadgeEl) vramBadgeEl.textContent = 'DISCOVERING';
+      if (statusTextEl) statusTextEl.textContent = 'BRIDGE: STANDBY';
+      if (vramBadgeEl) vramBadgeEl.textContent = `COMFY: ${comfyOnline ? 'ONLINE' : 'OFFLINE'}`;
     }
 
-    // Dynamically update Worker Telemetry Modal & Settings Engine tab
+    if (engineHealthTextEl) {
+      engineHealthTextEl.textContent =
+        `KEYSTONE 2.0 • Qwen-27B (${cogOnline ? 'Online' : 'Standby'}) • ComfyUI (${comfyOnline ? 'Online' : 'Standby'}) • 16 Playbooks Active`;
+    }
+
+    // Dynamically update Worker Telemetry Modal
     const workerModalState = document.getElementById('workerModalState');
     const workerModalVram = document.getElementById('workerModalVram');
     const workerModalLatency = document.getElementById('workerModalLatency');
@@ -1237,26 +1560,27 @@ async function fetchWorkerTelemetry() {
     const workerModalModel = document.getElementById('workerModalModel');
     const workerModalDriver = document.getElementById('workerModalDriver');
     const workerModalTunnel = document.getElementById('workerModalTunnel');
-    const settingsCogText = document.getElementById('settingsCognitionEndpointText');
-    const settingsComfyText = document.getElementById('settingsComfyStatusText');
 
     const cogWorker = activeWorkers.find(w => (w.capabilities || []).some(c => c.includes('cognition') || c.includes('qwen'))) || activeWorkers[0];
-    const comfyWorker = activeWorkers.find(w => (w.capabilities || []).some(c => c.includes('comfy') || c.includes('image.generation'))) || activeWorkers[1] || activeWorkers[0];
-    const activeEndpoint = cogData.active_endpoint || (cogWorker && cogWorker.tunnel_url) || 'Live Cognition Endpoint';
-    const comfyTunnel = cogData.comfy_endpoint || (comfyWorker && comfyWorker.tunnel_url) || 'Not Configured';
+    const activeEndpoint = (comfyStatus && comfyStatus.cognition_endpoint) || cogData.active_endpoint || (cogWorker && cogWorker.tunnel_url) || 'Not Configured';
+    const comfyTunnel = (comfyStatus && comfyStatus.base_url) || cogData.comfy_endpoint || 'http://127.0.0.1:8188';
 
     if (workerModalState) {
-      workerModalState.textContent = activeWorkers.length > 0 ? `ACTIVE (${activeWorkers.length} NODES)` : (cogData.state || 'STANDBY');
+      workerModalState.textContent = activeWorkers.length > 0
+        ? `ACTIVE (${activeWorkers.length} NODES)`
+        : (cogOnline || comfyOnline ? 'TUNNEL CONNECTED' : 'STANDBY');
     }
-    if (workerModalVram && totalVram > 0) {
-      workerModalVram.textContent = `${usedVram.toFixed(1)} / ${totalVram.toFixed(1)} GB`;
+    if (workerModalVram) {
+      workerModalVram.textContent = totalVram > 0
+        ? `${usedVram.toFixed(1)} / ${totalVram.toFixed(1)} GB`
+        : `ComfyUI: ${comfyOnline ? 'ONLINE' : 'OFFLINE'}`;
     }
     if (workerModalLatency) {
-      const lat = (cogWorker && cogWorker.metrics && cogWorker.metrics.latency_ms) || 12;
-      workerModalLatency.textContent = `${lat} ms`;
+      const lat = (cogWorker && cogWorker.metrics && cogWorker.metrics.latency_ms) || null;
+      workerModalLatency.textContent = lat !== null ? `${lat} ms` : (cogOnline ? 'LIVE' : 'STANDBY');
     }
     if (workerModalId) {
-      workerModalId.textContent = activeWorkers.map(w => w.worker_id).join(', ') || 'gpu-cluster-primary';
+      workerModalId.textContent = activeWorkers.map(w => w.worker_id).join(', ') || 'cloudflare-tunnel-bridge';
     }
     if (workerModalModel) {
       workerModalModel.textContent = cogData.pinned_model || 'huihui-ai/Huihui-Qwen3.8-27B-abliterated';
@@ -1265,13 +1589,7 @@ async function fetchWorkerTelemetry() {
       workerModalDriver.textContent = activeEndpoint;
     }
     if (workerModalTunnel) {
-      workerModalTunnel.textContent = comfyTunnel;
-    }
-    if (settingsCogText) {
-      settingsCogText.textContent = `Cognition Endpoint: ${activeEndpoint}`;
-    }
-    if (settingsComfyText) {
-      settingsComfyText.textContent = `ComfyUI Tunnel: ${comfyTunnel} • Execution Envelopes Enforced`;
+      workerModalTunnel.textContent = `${comfyTunnel} (${comfyOnline ? 'Online' : 'Offline'})`;
     }
   } catch (err) {
     console.warn('Worker telemetry fetch error:', err);
@@ -1281,8 +1599,17 @@ async function fetchWorkerTelemetry() {
 
 async function compilePromptPreview() {
   const input = document.getElementById('composerInput');
-  const promptText = input ? input.value.trim() : '';
-  if (!promptText) return null;
+  const pbRec = getActivePlaybookRecord();
+  const pbCtx = (pbRec && pbRec.domain_context) || {};
+  const activeUc = (pbRec && pbRec.use_cases || []).find(u => u.id === state.activeUseCaseId) || (pbRec && pbRec.use_cases && pbRec.use_cases[0]) || null;
+
+  let promptText = input ? input.value.trim() : '';
+  if (!promptText && activeUc && activeUc.starter_prompt) {
+    promptText = activeUc.starter_prompt;
+  }
+  if (!promptText) {
+    promptText = pbCtx.default_subject || `${state.activePlaybook} studio creation`;
+  }
 
   try {
     const compileResp = await fetch('/v1/planning/compile', {
@@ -1291,7 +1618,10 @@ async function compilePromptPreview() {
       body: JSON.stringify({
         intent: {
           objective: promptText,
-          visual_style: `${state.activePlaybook} Studio Grade`
+          subject: (activeUc && activeUc.subject) || pbCtx.default_subject || promptText,
+          environment: (activeUc && activeUc.environment) || pbCtx.default_environment || `${state.activePlaybook} studio environment`,
+          visual_style: (activeUc && activeUc.visual_style) || pbCtx.default_visual_style || `${state.activePlaybook} Studio Grade`,
+          constraints: pbCtx.default_constraints || ['Zero placeholders']
         },
         playbook: state.activePlaybook.toLowerCase(),
         profile: 'reasoning'
@@ -1306,7 +1636,14 @@ async function compilePromptPreview() {
     const hashBadge = document.getElementById('promptHashBadge');
     if (hashBadge) hashBadge.textContent = `sha256:${shortHash}...`;
     const anatomyPre = document.getElementById('anatomyPre');
-    if (anatomyPre) anatomyPre.textContent = JSON.stringify(compiled.anatomy, null, 2);
+    if (anatomyPre) {
+      anatomyPre.textContent = JSON.stringify({
+        playbook: compiled.playbook_id || state.activePlaybook.toLowerCase(),
+        anatomy: compiled.anatomy,
+        domain_context: compiled.domain_context,
+        bound_skills: (compiled.skills || []).map(s => `${s.name} (${s.adapter})`)
+      }, null, 2);
+    }
     const authBadge = document.getElementById('authorityVerdictBadge');
     if (authBadge) {
       authBadge.textContent = 'NOT EVALUATED';
@@ -2285,6 +2622,8 @@ function closePersonasModal() {
 
 document.addEventListener('DOMContentLoaded', () => {
   renderPlaybooks();
+  renderPlaybookContextAndSkills();
+  hydratePlaybooks();
   renderSidebarAssetStream();
   renderInspector();
   renderCanvasStage();
@@ -3535,6 +3874,61 @@ document.addEventListener('DOMContentLoaded', () => {
         btnCopyAuthToken.textContent = '✓ Token Copied!';
         setTimeout(() => { btnCopyAuthToken.textContent = 'Copy Bearer Token'; }, 1500);
       }
+    });
+  }
+
+  const btnTestComfyConfig = document.getElementById('btnTestComfyConfig');
+  if (btnTestComfyConfig) {
+    btnTestComfyConfig.addEventListener('click', async () => {
+      const orig = btnTestComfyConfig.textContent;
+      btnTestComfyConfig.disabled = true;
+      btnTestComfyConfig.textContent = 'Probing...';
+      const st = await fetchComfyStatus();
+      btnTestComfyConfig.textContent = st && st.online ? '✓ ComfyUI Online!' : '⚠ ComfyUI Unreachable';
+      setTimeout(() => {
+        btnTestComfyConfig.disabled = false;
+        btnTestComfyConfig.textContent = orig;
+      }, 1800);
+    });
+  }
+
+  const btnSaveComfyConfig = document.getElementById('btnSaveComfyConfig');
+  if (btnSaveComfyConfig) {
+    btnSaveComfyConfig.addEventListener('click', async () => {
+      const orig = btnSaveComfyConfig.textContent;
+      btnSaveComfyConfig.disabled = true;
+      btnSaveComfyConfig.textContent = 'Saving...';
+      try {
+        const session = await ensureWorkspaceSession();
+        const token = (session && session.token) || localStorage.getItem('keystone_token') || 'local_dev_token';
+        const comfyBaseUrl = document.getElementById('cfgComfyBaseUrl')?.value?.trim() || '';
+        const comfyAuthToken = document.getElementById('cfgComfyAuthToken')?.value?.trim() || '';
+        const openaiBaseUrl = document.getElementById('cfgOpenaiBaseUrl')?.value?.trim() || '';
+        const resp = await fetch('/v1/creative/comfy/configure', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            comfy_base_url: comfyBaseUrl || null,
+            comfy_auth_token: comfyAuthToken || null,
+            openai_base_url: openaiBaseUrl || null
+          })
+        });
+        if (resp.ok) {
+          btnSaveComfyConfig.textContent = '✓ Wired & Saved!';
+          await fetchWorkerTelemetry();
+        } else {
+          btnSaveComfyConfig.textContent = 'Save Failed';
+        }
+      } catch (err) {
+        btnSaveComfyConfig.textContent = 'Error Saving';
+      }
+      setTimeout(() => {
+        btnSaveComfyConfig.disabled = false;
+        btnSaveComfyConfig.textContent = orig;
+      }, 1800);
     });
   }
 

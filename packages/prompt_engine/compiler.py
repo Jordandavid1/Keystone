@@ -151,8 +151,11 @@ class PromptCompiler:
         if not objective or not str(objective).strip():
             raise ValueError("OBJECTIVE_REQUIRED")
 
-        # Resolve playbook
+        # Resolve playbook and its preloaded domain context & skills
         selected_playbook = PlaybookRegistry.resolve_id(playbook)
+        pb = PlaybookRegistry.get(selected_playbook)
+        domain_ctx = pb.domain_context or {}
+        skill_names = [s.get("name", s.get("id", "")) for s in (pb.skills or []) if s]
 
         # Build 6-part PromptAnatomy
         context_items: List[str] = []
@@ -163,15 +166,25 @@ class PromptCompiler:
         if visual_style:
             context_items.append(f"Style: {visual_style}")
 
+        if not context_items and domain_ctx:
+            if domain_ctx.get("domain_brief"):
+                context_items.append(f"Domain Context: {domain_ctx['domain_brief']}")
+            if domain_ctx.get("system_framing"):
+                context_items.append(f"System Framing: {domain_ctx['system_framing']}")
+            if skill_names:
+                context_items.append(f"Active Skills: {', '.join(skill_names)}")
+
         constraints_list = list(constraints) if isinstance(constraints, (list, tuple)) else []
+        if not constraints_list and domain_ctx.get("default_constraints"):
+            constraints_list = list(domain_ctx["default_constraints"])
 
         anatomy_dict: Dict[str, Any] = {
-            "role": f"Authoritative creative agent specialized in {selected_playbook}",
+            "role": f"Authoritative creative agent specialized in {selected_playbook} ({pb.label})",
             "task": str(objective),
             "context": context_items,
             "constraints": constraints_list,
             "outputFormat": "High-fidelity multimodal asset descriptor conforming to plan.v1",
-            "reasoning": f"Selected {selected_playbook} playbook with profile {profile} for objective"
+            "reasoning": f"Selected {selected_playbook} playbook with profile {profile} and {len(pb.skills)} bound skills for objective"
         }
 
         # Build positive prompt string for hashing and delivery
@@ -195,10 +208,16 @@ class PromptCompiler:
             },
             "provenance": {
                 "playbook": selected_playbook,
+                "domain_label": pb.label,
                 "profile": profile,
                 "hash": prompt_hash,
+                "skills": [s.get("id") for s in (pb.skills or [])],
+                "use_case_count": len(pb.use_cases or []),
                 "compiled_at": datetime.now(timezone.utc).isoformat()
             },
+            "playbook_context": domain_ctx,
+            "use_cases": pb.use_cases,
+            "skills": pb.skills,
             "prompt_hash": prompt_hash,
             "anatomy": anatomy_dict
         }

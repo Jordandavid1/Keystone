@@ -341,7 +341,6 @@ class MiniMaxH3Adapter(CreativeAdapterBase):
 
     def build_workflow_graph(self, params: Dict[str, Any], prompt: str) -> Dict[str, Any]:
         return {
-            "116": {"class_type": "MarkdownNote", "inputs": {"note": "PinkCherry MiniMax H3 Ref2VA Pipeline"}},
             "unet": {"class_type": "UNETLoader", "inputs": {"unet_name": "PinkCherry_hybrid_v1.8_minimax_h3_pruned_bf16.safetensors"}},
             "clip": {"class_type": "CLIPLoader", "inputs": {"clip_name": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors"}},
             "video_vae": {"class_type": "VAELoader", "inputs": {"vae_name": "minimax_h3_video_vae_fp16.safetensors"}},
@@ -357,7 +356,7 @@ class MiniMaxH3Adapter(CreativeAdapterBase):
                     "ref_audio": params.get("ref_audio_asset_id")
                 }
             },
-            "output": {"class_type": "VHS_VideoCombine", "inputs": {"format": "video/h264-mp4", "audio": True}}
+            "output": {"class_type": "VHS_VideoCombine", "inputs": {"format": "video/h264-mp4", "audio": True, "filename_prefix": "keystone/h3_"}}
         }
 
 

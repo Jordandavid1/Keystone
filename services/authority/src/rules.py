@@ -27,10 +27,16 @@ CAPABILITY_NAMESPACES: Set[str] = {
     "image.editing",
     "video.i2v",
     "video.t2v",
+    "video.minimax_h3_ref2va",
     "identity.flux_pulid",
+    "identity.facefusion",
     "upscale.clarity",
     "analysis.inspect",
-    "creative.generation"  # Backward compatibility
+    "audio.tts",
+    "cognition.reasoning",
+    "creative.video_wan",
+    "creative.comfyui",
+    "creative.generation",  # Backward compatibility
 }
 
 # ============================================================================
@@ -66,9 +72,15 @@ BASE_CREDIT_TABLE: Dict[str, int] = {
     "image.editing": 2,
     "video.i2v": 5,
     "video.t2v": 5,
+    "video.minimax_h3_ref2va": 5,
     "identity.flux_pulid": 3,
+    "identity.facefusion": 3,
     "upscale.clarity": 2,
     "analysis.inspect": 1,
+    "audio.tts": 1,
+    "cognition.reasoning": 1,
+    "creative.video_wan": 5,
+    "creative.comfyui": 1,
     "creative.generation": 1,
 }
 

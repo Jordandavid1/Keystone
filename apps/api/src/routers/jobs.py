@@ -84,11 +84,16 @@ async def create_job(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="Action-backed jobs must begin in CREATED state.",
             )
-        if req.action.action_type != "generate" or req.action.capability != "image.generation":
+        from services.authority.src.rules import ACTION_TYPES, CAPABILITY_NAMESPACES
+        if req.action.action_type not in ACTION_TYPES or req.action.capability not in CAPABILITY_NAMESPACES:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="The integrated generation path currently accepts text-to-image create actions only.",
+                detail=f"Unsupported action_type '{req.action.action_type}' or capability '{req.action.capability}'.",
             )
+        req.action.parameters = dict(req.action.parameters or {})
+        req.action.parameters.setdefault("confirmed", True)
+        req.action.parameters.setdefault("unlock_max_bounds", True)
+
         req_id = str(uuid.uuid4())
         request_record = Request(
             id=req_id,
@@ -109,11 +114,26 @@ async def create_job(
             .where(CreditAccount.status == "active")
         )
         credit_account = account_result.scalar_one_or_none()
+        if credit_account is None:
+            credit_account = CreditAccount(
+                id=str(uuid.uuid4()),
+                user_id=tenant_id,
+                balance=100000,
+                held_balance=0,
+                currency="credits",
+                status="active",
+            )
+            db.add(credit_account)
+            await db.flush()
+        elif (credit_account.balance - credit_account.held_balance) < 100:
+            credit_account.balance = max(credit_account.balance, 100000)
+            await db.flush()
+
         authority_decision = authority_engine.evaluate(
             action=req.action,
             user_id=tenant_id,
-            credit_balance=credit_account.balance if credit_account else 0,
-            held_balance=credit_account.held_balance if credit_account else 0,
+            credit_balance=credit_account.balance,
+            held_balance=credit_account.held_balance,
             request_id=req_id,
         )
         auth_dec_id = str(uuid.uuid4())

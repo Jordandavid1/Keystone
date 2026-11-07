@@ -124,43 +124,54 @@ def get_elevenlabs_api_key() -> str:
 
 
 def synthesize_speech_wav(text: str, voice_type: str = "female") -> bytes:
-    """Pure-Python standard 16-bit PCM WAV speech formant synthesis for offline & fail-safe operation."""
-    sample_rate = 22050
-    words = text.split() if text.strip() else ["Keystone", "Studio"]
-    total_duration = max(1.5, min(30.0, len(words) * 0.38))
-    total_samples = int(total_duration * sample_rate)
+    """
+    Real-time local speech synthesis using Windows System.Speech.Synthesis.SpeechSynthesizer.
+    Never generates fake sine-wave/formant buzzing; raises RuntimeError if no speech engine is available.
+    """
+    import subprocess
+    import tempfile
+
+    clean_text = (text or "").strip()
+    if not clean_text:
+        raise ValueError("EMPTY_SPEECH_TEXT: Speech synthesis requires non-empty text")
 
     is_female = voice_type.lower() in ("female", "rachel", "bella", "domi", "elli")
-    base_f0 = 210.0 if is_female else 125.0
+    gender_hint = "Female" if is_female else "Male"
 
-    buffer = io.BytesIO()
-    with wave.open(buffer, "wb") as wf:
-        wf.setnchannels(1)
-        wf.setsampwidth(2)
-        wf.setframerate(sample_rate)
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+        wav_path = Path(tmp.name)
 
-        frames = bytearray()
-        for i in range(total_samples):
-            t = i / sample_rate
-            word_phase = (t % 0.38) / 0.38
-            # Word envelope with smooth attack and decay
-            env = math.sin(word_phase * math.pi) if word_phase < 0.88 else 0.04
-
-            # Formants simulating human vocal tract
-            pitch = base_f0 + 12.0 * math.sin(2.0 * math.pi * 1.5 * t)
-            f1 = 520.0 + 120.0 * math.sin(2.0 * math.pi * 3.2 * t)
-            f2 = 1600.0 + 250.0 * math.cos(2.0 * math.pi * 2.4 * t)
-
-            s1 = 0.50 * math.sin(2.0 * math.pi * pitch * t)
-            s2 = 0.30 * math.sin(2.0 * math.pi * f1 * t)
-            s3 = 0.20 * math.sin(2.0 * math.pi * f2 * t)
-
-            sample_val = int((s1 + s2 + s3) * env * 14500)
-            sample_val = max(-32767, min(32767, sample_val))
-            frames.extend(struct.pack("<h", sample_val))
-
-        wf.writeframes(bytes(frames))
-    return buffer.getvalue()
+    try:
+        ps_script = (
+            "Add-Type -AssemblyName System.Speech; "
+            "$synth = New-Object System.Speech.Synthesis.SpeechSynthesizer; "
+            f"$synth.SelectVoiceByHints([System.Speech.Synthesis.VoiceGender]::{gender_hint}); "
+            "$synth.SetOutputToWaveFile($env:KEYSTONE_TTS_OUT); "
+            "$synth.Speak($env:KEYSTONE_TTS_TEXT); "
+            "$synth.Dispose();"
+        )
+        env = dict(os.environ)
+        env["KEYSTONE_TTS_OUT"] = str(wav_path)
+        env["KEYSTONE_TTS_TEXT"] = clean_text
+        proc = subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_script],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=25,
+        )
+        if proc.returncode != 0 or not wav_path.exists() or wav_path.stat().st_size <= 44:
+            raise RuntimeError(
+                f"AUDIO_SYNTHESIS_UNAVAILABLE: Real speech synthesis failed ({proc.stderr.strip() or 'no audio output'}). "
+                "Configure ELEVENLABS_API_KEY for cloud neural voices."
+            )
+        return wav_path.read_bytes()
+    finally:
+        try:
+            if wav_path.exists():
+                wav_path.unlink()
+        except Exception:
+            pass
 
 
 class ElevenLabsClient:
