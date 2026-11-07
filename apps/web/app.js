@@ -63,7 +63,7 @@ const state = {
   activeProjectId: null,
   // Transport State
   isPlaying: false,
-  currentFrame: 354, // 00:00:14:18 at 24fps
+  currentFrame: 0,
   fps: 24,
   loop: true,
   playTimer: null,
@@ -388,10 +388,17 @@ function renderInspector() {
 // ============================================================================
 
 async function triggerMiniMaxH3VideoGeneration(options = {}) {
-  const promptInput = options.prompt ||
+  const promptInput = (
+    options.prompt ||
     (document.getElementById('minimaxPromptInput') && document.getElementById('minimaxPromptInput').value.trim()) ||
     (document.getElementById('composerInput') && document.getElementById('composerInput').value.trim()) ||
-    'Cinematic dramatic camera movement, photorealistic 8k quality';
+    ''
+  ).trim();
+  if (!promptInput) {
+    const promptEl = document.getElementById('minimaxPromptInput') || document.getElementById('composerInput');
+    if (promptEl) promptEl.focus();
+    return;
+  }
   const negPrompt = (document.getElementById('minimaxNegativePromptInput') && document.getElementById('minimaxNegativePromptInput').value.trim()) ||
     'blurry, distorted, low quality, artifacts, watermark';
   const refAssetId = options.referenceAssetId || state.minimaxRefImageId || (state.activeReferenceAssetId || null);
@@ -450,7 +457,7 @@ async function triggerMiniMaxH3VideoGeneration(options = {}) {
         metadata: {
           pipeline: 'minimax_h3_qwen38_ref2va',
           text_encoder: 'qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors',
-          backbone: 'PinkCherry_hybrid_v1.8_int8_minimax_h3_pruned.safetensors',
+          backbone: 'PinkCherry_hybrid_v1.8_minimax_h3_pruned_bf16.safetensors',
           duration_seconds: duration,
           resolution: resolution
         }
@@ -474,7 +481,7 @@ async function triggerMiniMaxH3VideoGeneration(options = {}) {
     if (subMeta) subMeta.textContent = 'Real ComfyUI daemon execution error';
     setTimeout(() => { if (banner) banner.classList.add('hidden'); }, 3500);
     renderCanvasStage();
-    alert(`MiniMax H3 Pipeline Diagnostic:\n${err.message}\n\nRequired Weights:\n- models/text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors\n- models/diffusion_models/PinkCherry_hybrid_v1.8_int8_minimax_h3_pruned.safetensors\n- models/vae/minimax_h3_video_vae_fp16.safetensors\n- models/vae/minimax_h3_audio_vae_fp32.safetensors`);
+    alert(`MiniMax H3 Pipeline Diagnostic:\n${err.message}\n\nRequired Weights:\n- models/text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors\n- models/diffusion_models/PinkCherry_hybrid_v1.8_minimax_h3_pruned_bf16.safetensors\n- models/vae/minimax_h3_video_vae_fp16.safetensors\n- models/vae/minimax_h3_audio_vae_fp32.safetensors`);
   }
 }
 
@@ -495,7 +502,7 @@ function renderMinimaxVideoStage(stage) {
     : null;
 
   const composerVal = (document.getElementById('composerInput') && document.getElementById('composerInput').value.trim()) || '';
-  const defaultPrompt = state.minimaxPrompt || composerVal || (asset && asset.prompt) || 'Cinematic 8k dolly forward through a neon-lit cyberpunk boulevard, volumetric rain and reflections';
+  const defaultPrompt = state.minimaxPrompt || composerVal || (asset && asset.prompt) || '';
 
   stage.innerHTML = `
     <div class="minimax-studio-container">
@@ -545,9 +552,6 @@ function renderMinimaxVideoStage(stage) {
               <div style="font-size: 12px; color: var(--text-secondary); max-width: 440px; line-height: 1.5; margin-bottom: 20px;">
                 Condition on reference photos, attach voice audio tracks, and generate cinematic video using the complete Qwen 3.8-VL & MiniMax H3 workflow.
               </div>
-              <button id="btnQuickDemoVideoPrompt" class="composer-submit-btn" style="background: linear-gradient(135deg, #ec4899, #8b5cf6); font-size: 12px; padding: 7px 18px; border-radius: 6px;">
-                ✨ Load Cyberpunk Scene Prompt
-              </button>
             </div>
           `}
 
@@ -700,17 +704,7 @@ function renderMinimaxVideoStage(stage) {
       renderInspector();
       renderCanvasStage();
     });
-  });
-
-  // 2. Quick demo prompt
-  const btnQuickPrompt = stage.querySelector('#btnQuickDemoVideoPrompt');
-  if (btnQuickPrompt) {
-    btnQuickPrompt.addEventListener('click', () => {
-      const promptArea = stage.querySelector('#minimaxPromptInput');
-      if (promptArea) {
-        promptArea.value = 'Cinematic 8k dolly forward through a neon-lit cyberpunk boulevard, volumetric rain, reflections, hyper-detailed photorealism';
-      }
-    });
+  }););
   }
 
   // 3. Video upload button
@@ -1249,7 +1243,7 @@ async function fetchWorkerTelemetry() {
     const cogWorker = activeWorkers.find(w => (w.capabilities || []).some(c => c.includes('cognition') || c.includes('qwen'))) || activeWorkers[0];
     const comfyWorker = activeWorkers.find(w => (w.capabilities || []).some(c => c.includes('comfy') || c.includes('image.generation'))) || activeWorkers[1] || activeWorkers[0];
     const activeEndpoint = cogData.active_endpoint || (cogWorker && cogWorker.tunnel_url) || 'Live Cognition Endpoint';
-    const comfyTunnel = (comfyWorker && comfyWorker.tunnel_url) || 'Live ComfyUI Endpoint';
+    const comfyTunnel = cogData.comfy_endpoint || (comfyWorker && comfyWorker.tunnel_url) || 'Not Configured';
 
     if (workerModalState) {
       workerModalState.textContent = activeWorkers.length > 0 ? `ACTIVE (${activeWorkers.length} NODES)` : (cogData.state || 'STANDBY');

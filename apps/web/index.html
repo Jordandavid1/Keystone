@@ -469,7 +469,7 @@
         <!-- SMPTE Timecode Display -->
         <div class="transport-timecode-cluster">
           <span class="timecode-label">TC</span>
-          <div class="smpte-digital-display" id="smpteTimecode" title="SMPTE Digital Timecode (HH:MM:SS:FF)">00:00:14:18</div>
+          <div class="smpte-digital-display" id="smpteTimecode" title="SMPTE Digital Timecode (HH:MM:SS:FF)">00:00:00:00</div>
           <span class="timecode-fps-badge" id="transportFpsBadge">24 FPS</span>
         </div>
 
@@ -528,9 +528,9 @@
             <span class="scrub-tick major"></span>
           </div>
           <div class="scrub-cached-range" style="width: 100%;"></div>
-          <div class="scrub-playhead" id="timelinePlayhead" style="left: 35%;">
+          <div class="scrub-playhead" id="timelinePlayhead" style="left: 0%;">
             <div class="playhead-needle"></div>
-            <div class="playhead-badge">00:00:14</div>
+            <div class="playhead-badge">00:00:00</div>
           </div>
         </div>
 
@@ -1156,11 +1156,6 @@
         <div>
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
             <label style="font-size: 11px; font-weight: 600; color: var(--text-secondary);">Dialogue Script / Voiceover Text *</label>
-            <div style="display: flex; gap: 6px;">
-              <button class="action-btn-mini btn-sample-script" data-sample="In this city, the rain doesn't wash away secrets. It drowns them." style="font-size: 9.5px; background: rgba(255,255,255,0.05); border: 1px solid var(--border-subtle); color: var(--text-secondary); padding: 2px 6px; border-radius: 4px; cursor: pointer;">Noir</button>
-              <button class="action-btn-mini btn-sample-script" data-sample="All systems initialized. Commencing hyperdrive spooling in 3, 2, 1." style="font-size: 9.5px; background: rgba(255,255,255,0.05); border: 1px solid var(--border-subtle); color: var(--text-secondary); padding: 2px 6px; border-radius: 4px; cursor: pointer;">Sci-Fi</button>
-              <button class="action-btn-mini btn-sample-script" data-sample="Check the lighting on the key rim. Let's capture the anamorphic flare on take two." style="font-size: 9.5px; background: rgba(255,255,255,0.05); border: 1px solid var(--border-subtle); color: var(--text-secondary); padding: 2px 6px; border-radius: 4px; cursor: pointer;">Director</button>
-            </div>
           </div>
           <textarea id="ttsTextInput" class="composer-textarea" style="min-height: 85px; border: 1px solid var(--border-subtle); border-radius: 8px; font-size: 13px;" placeholder="Type narration, character dialogue, or cinematic monologue to synthesize with ElevenLabs..."></textarea>
         </div>
@@ -1566,22 +1561,6 @@
           </button>
           <button id="btnCloseAgentChatModal" class="collapse-icon-btn" style="border: none; font-size: 18px; cursor: pointer;" title="Close chat (Esc)">✕</button>
         </div>
-      </div>
-
-      <!-- Quick Action Inspiration Bar -->
-      <div style="display: flex; gap: 6px; padding: 8px 16px; background: rgba(0,0,0,0.25); border-bottom: 1px solid var(--border-subtle); overflow-x: auto;">
-        <button class="action-btn-mini btn-agent-sample" data-task="Who are you, what model is loaded, and what capabilities do you have?" style="white-space: nowrap; font-size: 10.5px; background: rgba(255,255,255,0.04); border: 1px solid var(--border-subtle); color: var(--text-secondary); padding: 4px 8px; border-radius: 4px; cursor: pointer;">
-          💬 Model Identity
-        </button>
-        <button class="action-btn-mini btn-agent-sample" data-task="Search the internet for current 2026 cyberpunk visual trends and give me color palettes" style="white-space: nowrap; font-size: 10.5px; background: rgba(6, 182, 212, 0.1); border: 1px solid rgba(6, 182, 212, 0.3); color: var(--accent-cyan); padding: 4px 8px; border-radius: 4px; cursor: pointer;">
-          🌐 Web: Cyberpunk Trends
-        </button>
-        <button class="action-btn-mini btn-agent-sample" data-task="Look up recent sci-fi movies on the internet and generate an image for a futuristic Tokyo alley" style="white-space: nowrap; font-size: 10.5px; background: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.3); color: #c084fc; padding: 4px 8px; border-radius: 4px; cursor: pointer;">
-          🎨 Task: Search & Generate
-        </button>
-        <button class="action-btn-mini btn-agent-sample" data-task="Analyze cinematic lighting: How to achieve Kodak 2383 anamorphic lens flare?" style="white-space: nowrap; font-size: 10.5px; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); color: #f59e0b; padding: 4px 8px; border-radius: 4px; cursor: pointer;">
-          🎥 Director: Cinematic Lighting
-        </button>
       </div>
 
       <!-- Messages Stream Viewport -->

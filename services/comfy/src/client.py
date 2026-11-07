@@ -43,16 +43,12 @@ class ComfyUINotConfigured(ComfyUIError):
 
 
 def _load_repo_env() -> None:
-    """Loads KEY=VALUE pairs from .env in dist/, cwd, or repository root."""
+    """Loads KEY=VALUE pairs from .env in dist/, cwd, or repository root dynamically."""
     try:
         from services.cognition.src.client import load_keystone_dotenv
         load_keystone_dotenv()
     except Exception:
         pass
-    global _ENV_LOADED
-    if _ENV_LOADED:
-        return
-    _ENV_LOADED = True
     env_path = Path(__file__).resolve().parents[3] / ".env"
     if not env_path.exists():
         return
@@ -67,9 +63,20 @@ def _load_repo_env() -> None:
             os.environ[key] = value
 
 
+def _normalize_comfy_url(url: str) -> str:
+    clean = (url or "").strip().rstrip("/")
+    if clean.endswith("/v1"):
+        clean = clean[:-3].rstrip("/")
+    return clean
+
+
 def comfy_base_url() -> str:
     _load_repo_env()
-    env_url = os.getenv("COMFY_BASE_URL", "").rstrip("/")
+    env_url = _normalize_comfy_url(
+        os.getenv("COMFY_BASE_URL", "")
+        or os.getenv("KEYSTONE_COMFY_URL", "")
+        or os.getenv("KAGGLE_COMFYUI_TUNNEL", "")
+    )
     if env_url:
         return env_url
     try:
@@ -77,13 +84,31 @@ def comfy_base_url() -> str:
         for cap in ("image.generation", "comfyui", "creative.generation"):
             matched = worker_bridge.route_for_capability(cap)
             if matched:
-                return matched[0].tunnel_url.rstrip("/")
+                return _normalize_comfy_url(matched[0].tunnel_url)
         for worker in worker_bridge.list_workers(active_only=True):
             if any(k in str(worker.get("worker_type", "")).lower() for k in ("creative", "comfy", "gateway")):
-                return str(worker["tunnel_url"]).rstrip("/")
+                return _normalize_comfy_url(str(worker["tunnel_url"]))
     except Exception:
         pass
+    fallback_origin = _normalize_comfy_url(
+        os.getenv("OPENAI_BASE_URL", "")
+        or os.getenv("COGNITION_BASE_URL", "")
+        or os.getenv("KAGGLE_COGNITION_TUNNEL", "")
+    )
+    if fallback_origin and not fallback_origin.startswith("http://localhost:8000"):
+        return fallback_origin
     return ""
+
+
+def comfy_bearer_token() -> str:
+    _load_repo_env()
+    return (
+        os.getenv("KEYSTONE_COMFY_API_KEY", "").strip()
+        or os.getenv("COMFY_BEARER_TOKEN", "").strip()
+        or os.getenv("COMFY_API_KEY", "").strip()
+        or os.getenv("OPENAI_API_KEY", "").strip()
+        or os.getenv("COGNITION_API_KEY", "").strip()
+    )
 
 
 
@@ -121,6 +146,7 @@ def _request(
     data = json.dumps(payload).encode("utf-8") if payload is not None else None
     req = urllib.request.Request(url, data=data, method=method)
     req.add_header("Accept", "application/json")
+    req.add_header("User-Agent", "Keystone/2.0")
     if data is not None:
         req.add_header("Content-Type", "application/json")
 
@@ -129,6 +155,10 @@ def _request(
     if basic:
         token = base64.b64encode(basic.encode("utf-8")).decode("ascii")
         req.add_header("Authorization", f"Basic {token}")
+    else:
+        bearer = comfy_bearer_token()
+        if bearer:
+            req.add_header("Authorization", f"Bearer {bearer}")
 
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
@@ -283,13 +313,18 @@ def upload_image_to_comfy(image_bytes: bytes, filename: str = "reference.png") -
 
         req = urllib.request.Request(f"{base}/upload/image", data=bytes(body), method="POST")
         req.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
+        req.add_header("User-Agent", "Keystone/2.0")
         _load_repo_env()
         basic = os.getenv("COMFY_BASIC_AUTH", "").strip()
         if basic:
             token = base64.b64encode(basic.encode("utf-8")).decode("ascii")
             req.add_header("Authorization", f"Basic {token}")
+        else:
+            bearer = comfy_bearer_token()
+            if bearer:
+                req.add_header("Authorization", f"Bearer {bearer}")
 
-        with urllib.request.urlopen(req, timeout=5) as resp:
+        with urllib.request.urlopen(req, timeout=30) as resp:
             data = json.loads(resp.read().decode("utf-8") or "{}")
             return data.get("name", safe_fname)
     except Exception:
@@ -468,6 +503,31 @@ def upscale_image(
     }
 
 
+def _resolve_remote_checkpoint_name(preferred: Optional[str] = None) -> str:
+    """Resolve an available CheckpointLoaderSimple checkpoint on the remote ComfyUI instance."""
+    target = preferred or comfy_checkpoint()
+    try:
+        _, info = _request("/object_info/CheckpointLoaderSimple")
+        if isinstance(info, dict):
+            available = (
+                info.get("CheckpointLoaderSimple", {})
+                .get("input", {})
+                .get("required", {})
+                .get("ckpt_name", [[]])[0]
+            )
+            if isinstance(available, list) and available:
+                if target in available:
+                    return target
+                basename = target.split("/")[-1].split("\\")[-1]
+                for item in available:
+                    if item == basename or item.endswith(f"/{basename}") or item.endswith(f"\\{basename}"):
+                        return item
+                return str(available[0])
+    except Exception:
+        pass
+    return target
+
+
 def generate_image(
     prompt: str,
     *,
@@ -489,6 +549,7 @@ def generate_image(
         raise ComfyUINotConfigured(
             "COMFY_NOT_CONFIGURED: set COMFY_BASE_URL to a running ComfyUI instance"
         )
+    resolved_ckpt = _resolve_remote_checkpoint_name(checkpoint)
     if reference_image_bytes:
         ref_name = upload_image_to_comfy(
             reference_image_bytes,
@@ -504,7 +565,7 @@ def generate_image(
             steps=steps,
             cfg=cfg,
             seed=seed,
-            checkpoint=checkpoint,
+            checkpoint=resolved_ckpt,
         )
         sampler_node = "6"
     else:
@@ -516,7 +577,7 @@ def generate_image(
             steps=steps,
             cfg=cfg,
             seed=seed,
-            checkpoint=checkpoint,
+            checkpoint=resolved_ckpt,
         )
         sampler_node = "5"
 
@@ -579,6 +640,20 @@ def _resolve_remote_unet_name(preferred: Optional[str] = None) -> str:
     return target.split("/")[-1] if target.startswith("1.8-hybrid/") else target
 
 
+def _resolve_workflow_file() -> Path:
+    repo_root = Path(__file__).resolve().parents[3]
+    candidates = [
+        Path.cwd() / "PinkCherry_Ref2V.json",
+        repo_root / "PinkCherry_Ref2V.json",
+        Path.cwd() / "workflows" / "h3-ref2va.json",
+        repo_root / "workflows" / "h3-ref2va.json",
+    ]
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    raise ComfyUIError("WORKFLOW_NOT_FOUND: PinkCherry_Ref2V.json is missing from repository root.")
+
+
 def build_minimax_h3_prompt_graph(
     prompt: str,
     ref_image_filename: Optional[str] = None,
@@ -594,9 +669,7 @@ def build_minimax_h3_prompt_graph(
     canonical PinkCherry_Ref2V.json workflow template, targeting
     PinkCherry_hybrid_v1.8_minimax_h3_pruned_bf16.safetensors.
     """
-    wf_path = Path("PinkCherry_Ref2V.json")
-    if not wf_path.exists():
-        raise ComfyUIError("WORKFLOW_NOT_FOUND: PinkCherry_Ref2V.json is missing from repository root.")
+    wf_path = _resolve_workflow_file()
 
     with open(wf_path, "r", encoding="utf-8") as f:
         wf = json.load(f)

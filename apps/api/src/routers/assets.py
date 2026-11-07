@@ -392,7 +392,8 @@ async def generate_asset(
     final_positive_prompt = compiled_prompt_obj.positive_prompt
 
     try:
-        if req.mode == "minimax_h3" or "minimax" in (req.mode or "").lower():
+        mode_lower = (req.mode or "").lower()
+        if mode_lower in ("minimax_h3", "animate", "i2v", "video") or "minimax" in mode_lower:
             result = await run_in_threadpool(
                 comfy_client.generate_minimax_h3_video,
                 final_positive_prompt,
@@ -541,6 +542,10 @@ async def upscale_asset(
             scale_factor=req.scale_factor,
             prompt=req.prompt or ""
         )
+    except ComfyUINotConfigured as err:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(err))
+    except ComfyUIError as err:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(err))
     except Exception as err:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"UPSCALE_FAILED: {err}")
 

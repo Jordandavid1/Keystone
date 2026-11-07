@@ -35,8 +35,36 @@ import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-COMFY_URL = (os.getenv("COMFY_BASE_URL") or os.getenv("KEYSTONE_COMFY_URL") or "").rstrip("/")
-COMFY_API_KEY = os.getenv("KEYSTONE_COMFY_API_KEY") or ""
+from services.cognition.src.client import load_keystone_dotenv
+
+load_keystone_dotenv()
+
+
+def _comfy_url() -> str:
+    load_keystone_dotenv()
+    raw = (
+        os.getenv("COMFY_BASE_URL")
+        or os.getenv("KEYSTONE_COMFY_URL")
+        or os.getenv("KAGGLE_COMFYUI_TUNNEL")
+        or ""
+    ).strip().rstrip("/")
+    if raw.endswith("/v1"):
+        raw = raw[:-3].rstrip("/")
+    return raw
+
+
+def _comfy_api_key() -> str:
+    load_keystone_dotenv()
+    return (
+        os.getenv("KEYSTONE_COMFY_API_KEY")
+        or os.getenv("COMFY_BEARER_TOKEN")
+        or os.getenv("OPENAI_API_KEY")
+        or ""
+    ).strip()
+
+
+COMFY_URL = _comfy_url()
+COMFY_API_KEY = _comfy_api_key()
 COMFY_WORKFLOW = os.getenv("KEYSTONE_COMFY_WORKFLOW") or "workflows/h3-ref2va.json"
 COMFY_TIMEOUT = float(os.getenv("KEYSTONE_COMFY_TIMEOUT") or 900)
 COMFY_POLL_INTERVAL = float(os.getenv("KEYSTONE_COMFY_POLL_INTERVAL") or 5)
@@ -66,33 +94,40 @@ class H3Error(RuntimeError):
 
 
 def workflow_path() -> Optional[Path]:
-    path = Path(COMFY_WORKFLOW)
+    load_keystone_dotenv()
+    wf_env = os.getenv("KEYSTONE_COMFY_WORKFLOW") or COMFY_WORKFLOW
+    path = Path(wf_env)
     if not path.is_absolute():
         path = Path(__file__).resolve().parents[4] / path
     return path if path.is_file() else None
 
 
 def configured() -> bool:
-    return bool(COMFY_URL and workflow_path())
+    return bool(_comfy_url() and workflow_path())
 
 
 def describe() -> Dict[str, Any]:
+    url = _comfy_url()
+    key = _comfy_api_key()
     return {
         "configured": configured(),
-        "base_url": COMFY_URL or None,
+        "base_url": url or None,
         "workflow": str(workflow_path()) if workflow_path() else COMFY_WORKFLOW,
         "duration": COMFY_DURATION,
         "steps": COMFY_STEPS,
-        "api_key": bool(COMFY_API_KEY),
+        "api_key": bool(key),
     }
 
 
 # ------------------------------------------------------------------ transport
 
 def _headers(extra: Optional[Dict[str, str]] = None) -> Dict[str, str]:
-    headers = dict(extra or {})
-    if COMFY_API_KEY:
-        headers["Authorization"] = f"Bearer {COMFY_API_KEY}"
+    headers = {"User-Agent": "Keystone/2.0"}
+    if extra:
+        headers.update(extra)
+    key = _comfy_api_key()
+    if key:
+        headers["Authorization"] = f"Bearer {key}"
     return headers
 
 
@@ -111,10 +146,11 @@ def _open(url: str, data: Optional[bytes] = None, headers: Optional[Dict[str, st
 
 
 def health() -> Dict[str, Any]:
-    if not COMFY_URL:
+    url = _comfy_url()
+    if not url:
         return {"configured": False, "reachable": False, "detail": "COMFY_BASE_URL / KEYSTONE_COMFY_URL is not set"}
     try:
-        with _open(f"{COMFY_URL}/system_stats", timeout=10) as response:
+        with _open(f"{url}/system_stats", timeout=10) as response:
             return {
                 "configured": configured(),
                 "reachable": True,
@@ -126,6 +162,7 @@ def health() -> Dict[str, Any]:
 
 
 def _upload_image(filename: str, payload: bytes, mime: str) -> str:
+    url = _comfy_url()
     boundary = f"----keystone{uuid.uuid4().hex}"
     body = (
         f"--{boundary}\r\n"
@@ -137,7 +174,7 @@ def _upload_image(filename: str, payload: bytes, mime: str) -> str:
         f"\r\n--{boundary}--\r\n"
     ).encode()
     with _open(
-        f"{COMFY_URL}/upload/image",
+        f"{url}/upload/image",
         body,
         {"Content-Type": f"multipart/form-data; boundary={boundary}"},
         timeout=180,
@@ -296,8 +333,9 @@ def _pick_output(history: Dict[str, Any], prompt_id: str) -> Optional[Dict[str, 
 
 
 def _download(filename: str, subfolder: str, kind: str) -> Tuple[bytes, str]:
+    url = _comfy_url()
     query = urllib.parse.urlencode({"filename": filename, "subfolder": subfolder, "type": kind})
-    with _open(f"{COMFY_URL}/view?{query}", timeout=300) as response:
+    with _open(f"{url}/view?{query}", timeout=300) as response:
         data = response.read()
         content_type = response.headers.get("Content-Type", "video/mp4")
     if not data:
@@ -306,6 +344,7 @@ def _download(filename: str, subfolder: str, kind: str) -> Tuple[bytes, str]:
 
 
 def _run_blocking(prompt: str, references: List[Tuple[str, str, bytes]]) -> Tuple[bytes, str, Dict[str, Any]]:
+    url = _comfy_url()
     path = workflow_path()
     if not path:
         raise H3Error(f"H3_WORKFLOW_MISSING: {COMFY_WORKFLOW} is not a file")
@@ -315,7 +354,7 @@ def _run_blocking(prompt: str, references: List[Tuple[str, str, bytes]]) -> Tupl
     workflow = _to_api_prompt(_prepare(template, prompt, uploaded))
 
     body = json.dumps({"prompt": workflow, "client_id": f"keystone-{uuid.uuid4()}"}).encode()
-    with _open(f"{COMFY_URL}/prompt", body, {"Content-Type": "application/json"}, timeout=60) as response:
+    with _open(f"{url}/prompt", body, {"Content-Type": "application/json"}, timeout=60) as response:
         queued = json.loads(response.read() or b"{}")
     prompt_id = queued.get("prompt_id")
     if not prompt_id:
@@ -323,7 +362,7 @@ def _run_blocking(prompt: str, references: List[Tuple[str, str, bytes]]) -> Tupl
 
     deadline = time.monotonic() + COMFY_TIMEOUT
     while time.monotonic() < deadline:
-        with _open(f"{COMFY_URL}/history/{prompt_id}", timeout=60) as response:
+        with _open(f"{url}/history/{prompt_id}", timeout=60) as response:
             history = json.loads(response.read() or b"{}")
         if prompt_id in history:
             status = history[prompt_id].get("status") or {}

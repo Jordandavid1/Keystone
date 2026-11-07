@@ -292,12 +292,16 @@ async def get_cognition_status() -> Dict[str, Any]:
     """
     connector = CognitionConnector()
     active_endpoint = connector.resolve_active_endpoint()
+    from services.comfy.src.client import comfy_base_url, is_configured as comfy_configured
+    comfy_url = comfy_base_url()
 
     return {
         "status": "ok",
         "model": PINNED_CHECKPOINT,
         "pinned": True,
         "active_endpoint": active_endpoint,
+        "comfy_endpoint": comfy_url,
+        "comfy_configured": comfy_configured(),
         "worker_cluster": "kaggle-cluster-t4x2-node-01",
         "gpus": "2x NVIDIA T4 (Tensor Parallelism)",
         "vram_allocated_gb": 27.2,
