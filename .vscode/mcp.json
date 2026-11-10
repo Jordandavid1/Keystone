@@ -2,6 +2,12 @@
   "mcpServers": {
     "ignition-mcp": {
       "url": "http://localhost:3866/mcp"
+    },
+    "browsermcp": {
+      "command": "npx",
+      "args": [
+        "@browsermcp/mcp@latest"
+      ]
     }
   }
 }
