@@ -44,6 +44,7 @@ from apps.api.src.routers.admin import router as admin_router
 from apps.api.src.routers.personas import router as personas_router
 from apps.api.src.routers.audio import router as audio_router
 from apps.api.src.routers.cognition import router as cognition_router
+from apps.api.src.routers.zencreator import router as zencreator_router
 from apps.api.src.db.session import init_db
 
 # 3. Import canonical Pydantic v2 contract models
@@ -184,6 +185,9 @@ app.include_router(audio_router)
 
 # Mount Autonomous Cognition Agent & Direct LLM Chat Router (/v1/cognition, Bible §39, ADR-002)
 app.include_router(cognition_router)
+
+# Mount ZenCreator Full Generative Pipeline Router (/v1/zencreator, all 17 generative tools)
+app.include_router(zencreator_router)
 
 
 # ============================================================================

@@ -5,10 +5,19 @@
   "description": "KEYSTONE prompt-intelligence and authoritative creative orchestration platform.",
   "author": "Jordan Maxwell",
   "license": "MIT",
-  "workspaces": ["apps/*", "packages/*", "services/*"],
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "services/*"
+  ],
   "scripts": {
     "test": "node --test tests/*.test.js",
     "test:identity": "node --test tests/identity.test.js",
-    "dev:api": "python -m uvicorn apps.api.src.main:app --reload --port 8000"
+    "dev:api": "python -m uvicorn apps.api.src.server:app --reload --port 8000",
+    "dev:web": "npm --workspace=apps/web run dev",
+    "build:web": "npm --workspace=apps/web run build",
+    "start:web": "npm --workspace=apps/web run start",
+    "build": "npm --workspace=apps/web run build",
+    "dev": "npm --workspace=apps/web run dev"
   }
 }
