@@ -1,6 +1,5 @@
 'use client';
 
-
 import React, { useRef, useState } from 'react';
 import {
   Sparkles,
@@ -24,7 +23,11 @@ import {
   ChevronDown,
   ChevronRight,
   Infinity as InfinityIcon,
-  Plus
+  Plus,
+  FolderKanban,
+  Clock,
+  MessageSquare,
+  Star
 } from 'lucide-react';
 import { GenerativeToolId, StudioAsset, CanonicalPlaybook } from '../lib/types';
 import { TOOLS_CATALOG } from '../lib/toolsCatalog';
@@ -40,6 +43,15 @@ interface LeftSidebarProps {
   attachedPlaybookId: string | null;
   onAttachPlaybook: (playbook: CanonicalPlaybook) => void;
   onDetachPlaybook: () => void;
+  sidebarNav: string;
+  onSelectNav: (nav: string) => void;
+  personas: { id: string; name: string; voice_name?: string; voice_id?: string }[];
+  onOpenPersonas: () => void;
+  onOpenProjects: () => void;
+  onOpenSessions: () => void;
+  onOpenAgentChat: () => void;
+  favoriteIds: string[];
+  onToggleFavorite: (assetId: string) => void;
 }
 
 export const LeftSidebar: React.FC<LeftSidebarProps> = ({
@@ -53,6 +65,15 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
   attachedPlaybookId,
   onAttachPlaybook,
   onDetachPlaybook,
+  sidebarNav,
+  onSelectNav,
+  personas,
+  onOpenPersonas,
+  onOpenProjects,
+  onOpenSessions,
+  onOpenAgentChat,
+  favoriteIds,
+  onToggleFavorite,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [playbooksOpen, setPlaybooksOpen] = useState(false);
@@ -67,6 +88,8 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
     'Cognition & Audio',
   ];
 
+  const visibleAssets = sidebarNav === 'favorites' ? assets.filter((asset) => favoriteIds.includes(asset.id)) : assets;
+  const attachedPlaybook = playbooks.find((pb) => pb.id === attachedPlaybookId) || null;
   const toolsList = Object.values(TOOLS_CATALOG).filter(
     (t) => activeCategory === 'All' || t.category === activeCategory
   );
@@ -102,6 +125,40 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
 
   return (
     <aside className="region-sidebar" role="navigation" aria-label="Workspace Navigation">
+      <div className="nav-list" id="primaryNavList">
+        {[
+          { id: 'create', label: 'Create & Stage', extra: 'Create' },
+          { id: 'projects', label: 'Projects' },
+          { id: 'assets', label: 'Project Assets', extra: String(assets.length) },
+          { id: 'history', label: 'Session History' },
+          { id: 'favorites', label: 'Favorites', extra: String(favoriteIds.length) },
+          { id: 'personas', label: 'Personas & Voices', extra: String(personas.length) },
+          { id: 'agent-chat', label: 'LLM Agent & Tasks', extra: 'Qwen' },
+        ].map((item) => (
+          <button
+            key={item.id}
+            className={`nav-item ${sidebarNav === item.id ? 'active' : ''}`}
+            onClick={() => {
+              onSelectNav(item.id);
+              if (item.id === 'projects') onOpenProjects();
+              if (item.id === 'history') onOpenSessions();
+              if (item.id === 'personas') onOpenPersonas();
+              if (item.id === 'agent-chat') onOpenAgentChat();
+            }}
+          >
+            {item.id === 'create' && <Star size={15} />}
+            {item.id === 'projects' && <FolderKanban size={15} />}
+            {item.id === 'assets' && <ImageIcon size={15} />}
+            {item.id === 'history' && <Clock size={15} />}
+            {item.id === 'favorites' && <Heart size={15} />}
+            {item.id === 'personas' && <Users size={15} />}
+            {item.id === 'agent-chat' && <MessageSquare size={15} />}
+            <span>{item.label}</span>
+            {item.extra ? <span className="nav-item-count">{item.extra}</span> : null}
+          </button>
+        ))}
+      </div>
+
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
         <span className="freedom-mode-badge">
           <InfinityIcon size={13} />
@@ -218,14 +275,14 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
         </span>
       </div>
 
-      <div className="sidebar-section-label">Active Project Assets ({assets.length})</div>
+      <div className="sidebar-section-label">Active Project Assets ({visibleAssets.length})</div>
       <div className="sidebar-asset-mini-list" style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 180, overflowY: 'auto' }}>
-        {assets.length === 0 ? (
+        {visibleAssets.length === 0 ? (
           <div style={{ fontSize: 11, color: 'var(--text-muted)', padding: '8px 4px' }}>
             No assets yet. Create or upload media to populate the canvas.
           </div>
         ) : (
-          assets.map((asset) => {
+          visibleAssets.map((asset) => {
             const isSelected = selectedAssetId === asset.id;
             return (
               <div
@@ -257,6 +314,14 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                     style={{ width: 28, height: 28, borderRadius: 4, objectFit: 'cover' }}
                   />
                 )}
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onToggleFavorite(asset.id); }}
+                  title="Toggle favorite"
+                  style={{ background: 'transparent', border: 'none', color: favoriteIds.includes(asset.id) ? '#f43f5e' : 'var(--text-muted)', cursor: 'pointer' }}
+                >
+                  <Heart size={12} />
+                </button>
                 <div style={{ overflow: 'hidden', flex: 1 }}>
                   <div style={{ fontSize: 11.5, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {asset.title}
@@ -326,7 +391,46 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
             )}
           </div>
         )}
+        <div style={{ marginTop: 8, padding: '8px 10px', background: 'rgba(15, 23, 42, 0.65)', border: '1px solid rgba(56, 189, 248, 0.25)', borderRadius: 6, fontSize: 11, lineHeight: 1.4 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+            <strong style={{ color: '#38bdf8', fontSize: 11.5 }}>{attachedPlaybook ? attachedPlaybook.label : 'No playbook attached'}</strong>
+            <span style={{ fontSize: 9.5, fontFamily: 'var(--font-mono)', color: '#34d399' }}>
+              {attachedPlaybook ? `${(attachedPlaybook.use_cases || []).length} use cases` : 'Attach context only'}
+            </span>
+          </div>
+          <div style={{ color: 'var(--text-secondary)', fontSize: 10.5 }}>
+            {attachedPlaybook ? (attachedPlaybook.domain_context?.domain_brief || attachedPlaybook.outcome || 'Attached as context for the next job. It does not auto-run.') : 'Select a playbook to attach its domain brief, skills, and workflows as context. This does not fire a canned prompt.'}
+          </div>
+        </div>
       </div>
+      <div style={{ marginTop: 14 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+          <span className="sidebar-section-label" style={{ margin: 0 }}>Character Personas</span>
+          <button
+            onClick={onOpenPersonas}
+            className="action-btn-mini"
+            style={{ background: 'linear-gradient(135deg, #ec4899, #8b5cf6)', color: '#fff', border: 'none', padding: '3px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}
+          >
+            + Persona
+          </button>
+        </div>
+        <div className="sidebar-personas-mini-list">
+          {personas.length === 0 ? (
+            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>No personas loaded.</div>
+          ) : (
+            personas.map((persona) => (
+              <div key={persona.id} className="persona-mini-card" onClick={onOpenPersonas} style={{ cursor: 'pointer' }}>
+                <div className="persona-avatar-fallback">{persona.name.slice(0, 1).toUpperCase()}</div>
+                <div className="persona-mini-info">
+                  <div className="persona-mini-name">{persona.name}</div>
+                  <div className="persona-mini-voice">{persona.voice_name || persona.voice_id || 'No voice assigned'}</div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
     </aside>
   );
 };

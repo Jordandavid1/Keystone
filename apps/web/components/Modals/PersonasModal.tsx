@@ -1,9 +1,8 @@
 'use client';
 
-
 import React, { useEffect, useState } from 'react';
 import { X, Users, Mic } from 'lucide-react';
-import { apiRequest } from '../../lib/api';
+import { apiRequest, fetchAudioConfig, synthesizeSpeech } from '../../lib/api';
 
 interface VoiceInfo {
   voice_id: string;
@@ -26,9 +25,10 @@ interface PersonaInfo {
 interface PersonasModalProps {
   open: boolean;
   onClose: () => void;
+  onPersonasLoaded?: (personas: PersonaInfo[]) => void;
 }
 
-export const PersonasModal: React.FC<PersonasModalProps> = ({ open, onClose }) => {
+export const PersonasModal: React.FC<PersonasModalProps> = ({ open, onClose, onPersonasLoaded }) => {
   const [tab, setTab] = useState<'cast' | 'tts'>('cast');
   const [personas, setPersonas] = useState<PersonaInfo[]>([]);
   const [voices, setVoices] = useState<VoiceInfo[]>([]);
@@ -38,6 +38,13 @@ export const PersonasModal: React.FC<PersonasModalProps> = ({ open, onClose }) =
   const [description, setDescription] = useState('');
   const [traits, setTraits] = useState('');
   const [voiceId, setVoiceId] = useState('21m00Tcm4TlvDq8ikWAM');
+  const [ttsText, setTtsText] = useState('');
+  const [ttsUrl, setTtsUrl] = useState<string | null>(null);
+  const [ttsMeta, setTtsMeta] = useState('');
+  const [ttsStatus, setTtsStatus] = useState('ElevenLabs voices load from /v1/audio/voices.');
+  const [stability, setStability] = useState(0.5);
+  const [clarity, setClarity] = useState(0.75);
+  const [ttsPersonaId, setTtsPersonaId] = useState('');
 
   useEffect(() => {
     if (!open) return;
@@ -46,18 +53,31 @@ export const PersonasModal: React.FC<PersonasModalProps> = ({ open, onClose }) =
       try {
         const voiceRes = await apiRequest<{ voices: VoiceInfo[] }>('/v1/audio/voices');
         setVoices(voiceRes.voices || []);
+        try {
+          const cfg = await fetchAudioConfig();
+          setTtsStatus(
+            cfg?.configured
+              ? `Provider: ${cfg.provider || 'elevenlabs'} · configured`
+              : `Provider: ${cfg?.provider || 'unconfigured'} · synthesis needs a configured ElevenLabs key and a reachable audio API`
+          );
+        } catch (cfgErr: any) {
+          setTtsStatus(cfgErr?.message || 'Could not load audio config.');
+        }
       } catch (err: any) {
         setError(err?.message || 'Could not load ElevenLabs voice catalog.');
       }
       try {
         const personaRes = await apiRequest<{ personas: PersonaInfo[] }>('/v1/personas');
-        setPersonas(personaRes.personas || []);
+        const list = personaRes.personas || [];
+        setPersonas(list);
+        onPersonasLoaded?.(list);
       } catch (err: any) {
         setPersonas([]);
+        onPersonasLoaded?.([]);
         setError((prev) => prev || err?.message || 'Personas API requires a signed-in account.');
       }
     })();
-  }, [open]);
+  }, [open, onPersonasLoaded]);
 
   const selectedVoice = voices.find((v) => v.voice_id === voiceId);
 
@@ -79,12 +99,42 @@ export const PersonasModal: React.FC<PersonasModalProps> = ({ open, onClose }) =
           personality_traits: traits.split(',').map((t) => t.trim()).filter(Boolean),
         }),
       });
-      setPersonas((prev) => [created, ...prev]);
+      const next = [created, ...personas];
+      setPersonas(next);
+      onPersonasLoaded?.(next);
       setName('');
       setDescription('');
       setTraits('');
     } catch (err: any) {
       setError(err?.message || 'Could not create persona.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleSynthesize = async () => {
+    if (!ttsText.trim()) {
+      setError('Dialogue text is required to synthesize speech.');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    setTtsUrl(null);
+    try {
+      const chosenPersona = personas.find((persona) => persona.id === ttsPersonaId);
+      const result = await synthesizeSpeech({
+        text: ttsText.trim(),
+        voice_id: chosenPersona?.voice_id || voiceId,
+        voice_settings: { stability, similarity_boost: clarity },
+        save_asset: true,
+      });
+      if (!result?.download_url) {
+        throw new Error('Audio API returned no download URL.');
+      }
+      setTtsUrl(result.download_url);
+      setTtsMeta(`${result.mime_type || 'audio'} · ${result.byte_size ? `${result.byte_size} bytes` : 'saved asset'} · ${result.provider || 'elevenlabs'}`);
+    } catch (err: any) {
+      setError(err?.message || 'Speech synthesis failed. A signed-in account and configured ElevenLabs key are required.');
     } finally {
       setBusy(false);
     }
@@ -167,13 +217,53 @@ export const PersonasModal: React.FC<PersonasModalProps> = ({ open, onClose }) =
           )}
 
           {tab === 'tts' && (
-            <div className="voice-select-grid" style={{ maxHeight: 'none' }}>
-              {voices.map((voice) => (
-                <div key={voice.voice_id} className="voice-card-pill">
-                  <strong>{voice.name}</strong>
-                  <span>{voice.description || [voice.gender, voice.accent].filter(Boolean).join(' · ')}</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{ttsStatus}</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Select Character Persona (Optional)</label>
+                  <select className="command-input" value={ttsPersonaId} onChange={(e) => {
+                    setTtsPersonaId(e.target.value);
+                    const persona = personas.find((item) => item.id === e.target.value);
+                    if (persona?.voice_id) setVoiceId(persona.voice_id);
+                  }} style={{ border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '6px 10px', width: '100%', background: 'var(--bg-surface-3)', color: 'var(--text-primary)' }}>
+                    <option value="">Standalone Voice (No Persona)</option>
+                    {personas.map((persona) => (
+                      <option key={persona.id} value={persona.id}>{persona.name}</option>
+                    ))}
+                  </select>
                 </div>
-              ))}
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>ElevenLabs Voice Profile</label>
+                  <select className="command-input" value={voiceId} onChange={(e) => setVoiceId(e.target.value)} style={{ border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '6px 10px', width: '100%', background: 'var(--bg-surface-3)', color: 'var(--text-primary)' }}>
+                    {voices.map((voice) => (
+                      <option key={voice.voice_id} value={voice.voice_id}>{voice.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <textarea className="composer-textarea" value={ttsText} onChange={(e) => setTtsText(e.target.value)} placeholder="Type narration, character dialogue, or cinematic monologue to synthesize with ElevenLabs..." style={{ minHeight: 85, border: '1px solid var(--border-subtle)', borderRadius: 8, fontSize: 13 }} />
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+                  <label style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                    Stability: {stability.toFixed(2)}
+                    <input type="range" min={0} max={1} step={0.05} value={stability} onChange={(e) => setStability(Number(e.target.value))} />
+                  </label>
+                  <label style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                    Clarity: {clarity.toFixed(2)}
+                    <input type="range" min={0} max={1} step={0.05} value={clarity} onChange={(e) => setClarity(Number(e.target.value))} />
+                  </label>
+                </div>
+                <button className="composer-submit-btn" onClick={handleSynthesize} disabled={busy}>
+                  {busy ? 'Synthesizing...' : 'Synthesize Speech Audio'}
+                </button>
+              </div>
+              {ttsUrl && (
+                <div style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: 14 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: '#ec4899', marginBottom: 8 }}>{ttsMeta || 'Generated Speech Track'}</div>
+                  <audio controls src={ttsUrl} style={{ width: '100%', height: 36 }} />
+                </div>
+              )}
             </div>
           )}
         </div>

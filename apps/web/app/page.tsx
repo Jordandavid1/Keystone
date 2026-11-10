@@ -1,6 +1,5 @@
 'use client';
 
-
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { TopBar } from '../components/TopBar';
 import { ActivityBar } from '../components/ActivityBar';
@@ -12,11 +11,19 @@ import { PipelineBuilder } from '../components/PipelineBuilder';
 import { CommandPalette } from '../components/Modals/CommandPalette';
 import { PersonasModal } from '../components/Modals/PersonasModal';
 import { WebScrapeModal, WebScrapeResult } from '../components/Modals/WebScrapeModal';
+import { SettingsModal } from '../components/Modals/SettingsModal';
+import { ProjectsModal } from '../components/Modals/ProjectsModal';
+import { SessionsModal } from '../components/Modals/SessionsModal';
+import { CreditsModal } from '../components/Modals/CreditsModal';
+import { WorkerTelemetryModal } from '../components/Modals/WorkerTelemetryModal';
+import { AgentChatModal } from '../components/Modals/AgentChatModal';
+import { CreativeIntent, GenerationMode } from '../components/FloatingComposer';
 import {
   executeGenerativeTool,
   fetchCreditBalance,
   fetchEngineStatus,
   fetchPlaybooks,
+  fetchPersonas,
   uploadMediaFile,
 } from '../lib/api';
 import { TOOLS_CATALOG } from '../lib/toolsCatalog';
@@ -38,6 +45,17 @@ const PROGRESS_STAGES = [
   'Finishing & Delivery',
 ];
 
+const lutLabels: Record<string, string> = {
+  none: 'Raw Rec.709',
+  kodak2383: 'Kodak 2383',
+  arrilogc: 'Arri LogC',
+  bleach: 'Bleach Bypass',
+  bladerunner: 'Blade Runner',
+  matrix: 'Matrix Monolith',
+  technicolor: 'Technicolor 3',
+  tealorange: 'Teal & Orange',
+};
+
 function formatPlaybookContext(playbook: CanonicalPlaybook): string {
   const ctx = playbook.domain_context || {};
   const skills = (playbook.skills || [])
@@ -56,12 +74,14 @@ function formatPlaybookContext(playbook: CanonicalPlaybook): string {
   ].filter(Boolean).join('\n');
 }
 
-function compilePrompt(userText: string, playbook: CanonicalPlaybook | null, web: WebScrapeResult | null): string {
+function compilePrompt(userText: string, playbook: CanonicalPlaybook | null, web: WebScrapeResult | null, lutLabel?: string | null, extraContext?: string | null): string {
   const sections: string[] = [];
   if (playbook) sections.push(formatPlaybookContext(playbook));
   if (web) {
     sections.push(`${web.styleHint}\n${web.summary}`.trim());
   }
+  if (lutLabel && lutLabel !== 'none') sections.push('LUT context: ' + lutLabel);
+  if (extraContext) sections.push(extraContext);
   sections.push(userText.trim());
   return sections.filter(Boolean).join('\n\n');
 }
@@ -93,18 +113,58 @@ export default function StudioPage() {
   const [playbooks, setPlaybooks] = useState<CanonicalPlaybook[]>([]);
   const [attachedPlaybook, setAttachedPlaybook] = useState<CanonicalPlaybook | null>(null);
   const [webContext, setWebContext] = useState<WebScrapeResult | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [projectsOpen, setProjectsOpen] = useState(false);
+  const [sessionsOpen, setSessionsOpen] = useState(false);
+  const [creditsOpen, setCreditsOpen] = useState(false);
+  const [workerOpen, setWorkerOpen] = useState(false);
+  const [agentChatOpen, setAgentChatOpen] = useState(false);
+  const [intent, setIntent] = useState<CreativeIntent>('create');
+  const [generationMode, setGenerationMode] = useState<GenerationMode>('text2image');
+  const [denoise, setDenoise] = useState(0.65);
+  const [motionPreset, setMotionPreset] = useState('orbit');
+  const [motionSpeed, setMotionSpeed] = useState(1);
+  const [activeLut, setActiveLut] = useState('none');
+  const [grade, setGrade] = useState({ exposure: 0, contrast: 100, saturation: 100, warmth: 0 });
+  const [loopEnabled, setLoopEnabled] = useState(true);
+  const [sidebarNav, setSidebarNav] = useState('create');
+  const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
+  const [personas, setPersonas] = useState<{ id: string; name: string; voice_name?: string; voice_id?: string }[]>([]);
+  const [useCaseContext, setUseCaseContext] = useState<string | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [measuredFps, setMeasuredFps] = useState('24.000');
+  const [transportFps, setTransportFps] = useState(24);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    fetchCreditBalance()
-      .then(setCreditBalance)
-      .catch(() => setCreditBalance(null));
-    fetchEngineStatus()
-      .then((status) => setWorkerOnline(Boolean(status.online)))
-      .catch(() => setWorkerOnline(false));
-    fetchPlaybooks()
-      .then(setPlaybooks)
-      .catch(() => setPlaybooks([]));
+    const refreshStatus = () => {
+      fetchCreditBalance().then(setCreditBalance).catch(() => setCreditBalance(null));
+      fetchEngineStatus()
+        .then((status) => setWorkerOnline(Boolean(status.online)))
+        .catch(() => setWorkerOnline(false));
+    };
+    refreshStatus();
+    fetchPlaybooks().then(setPlaybooks).catch(() => setPlaybooks([]));
+    fetchPersonas().then((list) => setPersonas(list || [])).catch(() => setPersonas([]));
+    const timer = window.setInterval(refreshStatus, 15000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    let frames = 0;
+    let last = performance.now();
+    let raf = 0;
+    const tick = (now: number) => {
+      frames += 1;
+      if (now - last >= 1000) {
+        setMeasuredFps((frames * 1000 / (now - last)).toFixed(3));
+        frames = 0;
+        last = now;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
   }, []);
 
   useEffect(() => {
@@ -137,11 +197,16 @@ export default function StudioPage() {
     refAsset: StudioAsset | null,
     priorAsset?: StudioAsset | null,
   ) => {
-    const compiled = compilePrompt(rawPrompt, attachedPlaybook, webContext);
+    const compiled = compilePrompt(rawPrompt, attachedPlaybook, webContext, lutLabels[activeLut] || activeLut, useCaseContext);
     const input: Record<string, any> = {
       ...params,
       prompt: compiled,
       positive_prompt: compiled,
+      denoise,
+      camera_motion: motionPreset,
+      motion_speed: motionSpeed,
+      lut: activeLut,
+      grade,
     };
     if (attachedPlaybook) {
       input.playbook_id = attachedPlaybook.id;
@@ -159,7 +224,7 @@ export default function StudioPage() {
       }
     }
     return input;
-  }, [attachedPlaybook, webContext]);
+  }, [attachedPlaybook, webContext, useCaseContext, denoise, motionPreset, motionSpeed, activeLut, grade]);
 
   const handleRunKeystone = useCallback(async () => {
     if (isGenerating) return;
@@ -252,12 +317,50 @@ export default function StudioPage() {
   const handleSelectTab = useCallback((tab: string) => {
     setActiveTab(tab);
     if (tab === 'pipeline') setActiveMode('pipeline');
-    if (tab === 'cognition') setActiveTool('run_any_llm');
+    if (tab === 'cognition' || tab === 'thinking') setActiveTool('run_any_llm');
     if (tab === 'audio') setPersonasOpen(true);
+    if (tab === 'motion') {
+      setActiveMode('video');
+    }
     if (tab === 'explorer' && activeMode === 'pipeline') setActiveMode('single');
   }, [activeMode]);
 
-  const shellClass = useMemo(
+  const handleIntent = useCallback((next: CreativeIntent) => {
+    setIntent(next);
+    if (next === 'create') {
+      setActiveTool(generationMode === 'img2img' ? 'by_ref' : 'by_prompt');
+    } else if (next === 'edit') {
+      setActiveTool('image_editor');
+    } else if (next === 'animate') {
+      setActiveTool(referenceAsset ? 'videogen' : 'text_to_video');
+    } else {
+      setActiveTool('run_any_llm');
+    }
+  }, [generationMode, referenceAsset]);
+
+  const handleGenerationMode = useCallback((mode: GenerationMode) => {
+    setGenerationMode(mode);
+    setActiveTool(mode === 'img2img' ? 'by_ref' : 'by_prompt');
+    setIntent('create');
+  }, []);
+
+  const handleGenerateVariation = useCallback(() => {
+    if (!selectedAsset) {
+      setGenerationError('Select an asset before requesting an Img2Img variation.');
+      return;
+    }
+    setReferenceAsset(selectedAsset);
+    setActiveTool('by_ref');
+    setGenerationMode('img2img');
+    setIntent('edit');
+    if (!promptText.trim() && !selectedAsset.prompt) {
+      setGenerationError('Enter what should change in the variation, then run KEYSTONE.');
+    }
+  }, [promptText, selectedAsset]);
+
+  const lutLabel = activeLut === 'none' ? null : (lutLabels[activeLut] || activeLut);
+
+    const shellClass = useMemo(
     () => `workspace-shell${mobilePreview ? ' mobile-preview-mode' : ''}`,
     [mobilePreview],
   );
@@ -267,9 +370,13 @@ export default function StudioPage() {
       <TopBar
         creditBalance={creditBalance}
         workerOnline={workerOnline}
+        fps={measuredFps}
         onOpenCommandPalette={() => setCommandOpen(true)}
         onOpenPersonasModal={() => setPersonasOpen(true)}
         onOpenWebScrapeModal={() => setWebScrapeOpen(true)}
+        onOpenCredits={() => setCreditsOpen(true)}
+        onOpenWorkerTelemetry={() => setWorkerOpen(true)}
+        onOpenAgentChat={() => setAgentChatOpen(true)}
         onToggleFramingGuides={() => setGuidesVisible((value) => !value)}
         onToggleFullscreen={() => {
           if (!document.fullscreenElement) document.documentElement.requestFullscreen?.();
@@ -283,7 +390,9 @@ export default function StudioPage() {
       <ActivityBar
         activeTab={activeTab}
         onSelectTab={handleSelectTab}
-        onOpenSettings={() => setGenerationError('Studio settings from v1 are not ported into this Next.js shell yet.')}
+        onOpenSettings={() => setSettingsOpen(true)}
+        onOpenPersonas={() => setPersonasOpen(true)}
+        onOpenAgentChat={() => setAgentChatOpen(true)}
       />
 
       <LeftSidebar
@@ -297,6 +406,15 @@ export default function StudioPage() {
         attachedPlaybookId={attachedPlaybook?.id || null}
         onAttachPlaybook={setAttachedPlaybook}
         onDetachPlaybook={() => setAttachedPlaybook(null)}
+        sidebarNav={sidebarNav}
+        onSelectNav={setSidebarNav}
+        personas={personas}
+        onOpenPersonas={() => setPersonasOpen(true)}
+        onOpenProjects={() => setProjectsOpen(true)}
+        onOpenSessions={() => setSessionsOpen(true)}
+        onOpenAgentChat={() => setAgentChatOpen(true)}
+        favoriteIds={favoriteIds}
+        onToggleFavorite={(assetId) => setFavoriteIds((prev) => prev.includes(assetId) ? prev.filter((id) => id !== assetId) : [...prev, assetId])}
       />
 
       {activeTab === 'pipeline' || activeMode === 'pipeline' ? (
@@ -323,6 +441,13 @@ export default function StudioPage() {
           framingGuidesVisible={guidesVisible}
           activeAspectMask={canvasAspectMask}
           onChangeAspectMask={setCanvasAspectMask}
+          motionPreset={motionPreset}
+          motionSpeed={motionSpeed}
+          showMotionHud={activeTab === 'motion' || activeMode === 'video'}
+          loopEnabled={loopEnabled}
+          onToggleLoop={() => setLoopEnabled((value) => !value)}
+          grade={grade}
+          transportFps={transportFps}
         />
       )}
 
@@ -333,19 +458,41 @@ export default function StudioPage() {
         selectedAsset={selectedAsset}
         onSetAsReference={setReferenceAsset}
         onQuickUpscale={handleQuickUpscale}
+        onGenerateVariation={handleGenerateVariation}
+        attachedPlaybook={attachedPlaybook}
+        onAttachUseCase={setUseCaseContext}
+        motionPreset={motionPreset}
+        onChangeMotionPreset={setMotionPreset}
+        motionSpeed={motionSpeed}
+        onChangeMotionSpeed={setMotionSpeed}
+        activeLut={activeLut}
+        onChangeLut={setActiveLut}
+        grade={grade}
+        onChangeGrade={setGrade}
+        promptText={promptText}
       />
 
       <FloatingComposer
         promptText={promptText}
         onChangePrompt={setPromptText}
         activeTool={activeTool}
-        onSelectTool={handleSelectTool}
         referenceAsset={referenceAsset}
         onRemoveReference={() => setReferenceAsset(null)}
         onAttachFileClick={() => fileInputRef.current?.click()}
         onOpenWebModal={() => setWebScrapeOpen(true)}
         onSubmit={handleRunKeystone}
         isGenerating={isGenerating}
+        intent={intent}
+        onChangeIntent={handleIntent}
+        webContextLabel={webContext ? webContext.title : null}
+        onRemoveWebContext={() => setWebContext(null)}
+        lutLabel={lutLabel}
+        onRemoveLut={() => setActiveLut('none')}
+        playbookLabel={attachedPlaybook?.label || null}
+        generationMode={generationMode}
+        onChangeGenerationMode={handleGenerationMode}
+        denoise={denoise}
+        onChangeDenoise={setDenoise}
       />
 
       <footer className="vscode-status-bar">
@@ -411,8 +558,20 @@ export default function StudioPage() {
           setActiveTab('pipeline');
           setActiveMode('pipeline');
         }}
+        onOpenSettings={() => setSettingsOpen(true)}
+        onOpenProjects={() => setProjectsOpen(true)}
+        onOpenSessions={() => setSessionsOpen(true)}
+        onOpenCredits={() => setCreditsOpen(true)}
+        onOpenWorker={() => setWorkerOpen(true)}
+        onOpenAgentChat={() => setAgentChatOpen(true)}
       />
-      <PersonasModal open={personasOpen} onClose={() => setPersonasOpen(false)} />
+      <PersonasModal open={personasOpen} onClose={() => setPersonasOpen(false)} onPersonasLoaded={setPersonas} />
+      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} onFlagsSaved={(flags) => setTransportFps(flags.framerate)} />
+      <ProjectsModal open={projectsOpen} onClose={() => setProjectsOpen(false)} onSelectProject={(project) => setSelectedProjectId(project.id)} />
+      <SessionsModal open={sessionsOpen} onClose={() => setSessionsOpen(false)} projectId={selectedProjectId} />
+      <CreditsModal open={creditsOpen} onClose={() => setCreditsOpen(false)} />
+      <WorkerTelemetryModal open={workerOpen} onClose={() => setWorkerOpen(false)} />
+      <AgentChatModal open={agentChatOpen} onClose={() => setAgentChatOpen(false)} />
       <WebScrapeModal
         open={webScrapeOpen}
         onClose={() => setWebScrapeOpen(false)}

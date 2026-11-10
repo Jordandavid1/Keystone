@@ -72,6 +72,7 @@ export async function executeGenerativeTool(
     mimeType: out.mime_type || (tool.includes('video') ? 'video/mp4' : 'image/png'),
     toolUsed: tool,
     prompt: input.positive_prompt || input.prompt || '',
+    parentId: input.ref_asset_id || input.reference_asset_id || null,
     createdAt: Date.now(),
   }));
 
@@ -135,4 +136,103 @@ export async function scrapeWebUrl(url: string): Promise<any> {
     method: 'POST',
     body: JSON.stringify({ url, redact_pii: true, dedup: true }),
   });
+}
+
+export async function fetchCreditLedger(): Promise<{
+  balance: number | null;
+  currency?: string;
+  status?: string;
+  note?: string;
+  hold?: number | null;
+  total?: number | null;
+  events?: { timestamp?: string; action?: string; amount?: number | string; reason?: string }[];
+}> {
+  return apiRequest('/v1/zencreator/balance');
+}
+
+export async function fetchCognitionStatus(): Promise<any> {
+  return apiRequest('/v1/cognition/status');
+}
+
+export async function chatWithCognition(payload: {
+  messages: { role: string; content: string }[];
+  temperature?: number;
+  max_tokens?: number;
+  web_search?: boolean;
+  allow_generation?: boolean;
+  session_id?: string | null;
+  project_id?: string | null;
+}): Promise<any> {
+  return apiRequest('/v1/cognition/chat', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function fetchProjects(): Promise<any[]> {
+  const data = await apiRequest('/v1/projects');
+  return data.projects || [];
+}
+
+export async function createProject(name: string, description?: string): Promise<any> {
+  return apiRequest('/v1/projects', {
+    method: 'POST',
+    body: JSON.stringify({ name, description: description || null }),
+  });
+}
+
+export async function deleteProject(projectId: string): Promise<any> {
+  return apiRequest('/v1/projects/' + encodeURIComponent(projectId), { method: 'DELETE' });
+}
+
+export async function fetchSessions(projectId?: string | null): Promise<any[]> {
+  const query = projectId ? '?project_id=' + encodeURIComponent(projectId) : '';
+  const data = await apiRequest('/v1/sessions' + query);
+  return data.sessions || [];
+}
+
+export async function createSession(title: string, projectId?: string | null): Promise<any> {
+  return apiRequest('/v1/sessions', {
+    method: 'POST',
+    body: JSON.stringify({ title, project_id: projectId || null }),
+  });
+}
+
+export async function fetchSessionMessages(sessionId: string): Promise<any[]> {
+  const data = await apiRequest('/v1/sessions/' + encodeURIComponent(sessionId) + '/messages');
+  return data.messages || [];
+}
+
+export async function fetchWorkers(): Promise<any> {
+  return apiRequest('/internal/workers');
+}
+
+export async function fetchAudioConfig(): Promise<any> {
+  return apiRequest('/v1/audio/config');
+}
+
+export async function synthesizeSpeech(payload: {
+  text: string;
+  voice_id?: string;
+  voice_settings?: Record<string, any>;
+  save_asset?: boolean;
+}): Promise<any> {
+  return apiRequest('/v1/audio/speech', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function fetchCurrentUser(): Promise<any> {
+  return apiRequest('/v1/auth/me');
+}
+
+export async function fetchPersonas(): Promise<any[]> {
+  const data = await apiRequest('/v1/personas');
+  return data.personas || [];
+}
+
+export async function fetchAudioVoices(): Promise<any[]> {
+  const data = await apiRequest('/v1/audio/voices');
+  return data.voices || [];
 }

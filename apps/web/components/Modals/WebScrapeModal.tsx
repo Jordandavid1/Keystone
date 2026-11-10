@@ -1,6 +1,5 @@
 'use client';
 
-
 import React, { useState } from 'react';
 import { Globe, X } from 'lucide-react';
 import { scrapeWebUrl } from '../../lib/api';

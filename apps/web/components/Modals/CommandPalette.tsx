@@ -1,6 +1,5 @@
 'use client';
 
-
 import React, { useEffect, useMemo, useState } from 'react';
 import { Search, X } from 'lucide-react';
 import { CanvasViewMode, GenerativeToolId } from '../../lib/types';
@@ -14,6 +13,12 @@ interface CommandPaletteProps {
   onOpenPersonas: () => void;
   onOpenWebScrape: () => void;
   onOpenPipeline: () => void;
+  onOpenSettings: () => void;
+  onOpenProjects: () => void;
+  onOpenSessions: () => void;
+  onOpenCredits: () => void;
+  onOpenWorker: () => void;
+  onOpenAgentChat: () => void;
 }
 
 const CANVAS_MODES: { id: CanvasViewMode; label: string }[] = [
@@ -33,6 +38,12 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   onOpenPersonas,
   onOpenWebScrape,
   onOpenPipeline,
+  onOpenSettings,
+  onOpenProjects,
+  onOpenSessions,
+  onOpenCredits,
+  onOpenWorker,
+  onOpenAgentChat,
 }) => {
   const [query, setQuery] = useState('');
 
@@ -69,12 +80,18 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     const extras = [
       { id: 'cmd:personas', label: 'Personas & Voices', hint: 'Character cast', run: onOpenPersonas },
       { id: 'cmd:web', label: '@Web Style Extract', hint: 'Firecrawl URL ingest', run: onOpenWebScrape },
+      { id: 'cmd:settings', label: 'Studio Settings', hint: 'Config / engine / identity', run: onOpenSettings },
+      { id: 'cmd:projects', label: 'Projects Manager', hint: 'Workspace projects', run: onOpenProjects },
+      { id: 'cmd:sessions', label: 'Session History', hint: 'Multi-turn sessions', run: onOpenSessions },
+      { id: 'cmd:credits', label: 'Credit Ledger', hint: 'LOCAL ENGINE honesty', run: onOpenCredits },
+      { id: 'cmd:worker', label: 'Colab Engine Telemetry', hint: 'Worker / cognition / ComfyUI', run: onOpenWorker },
+      { id: 'cmd:chat', label: 'LLM Agent Chat', hint: 'Colab llama-server', run: onOpenAgentChat },
     ];
     return [...toolItems, ...modeItems, ...extras].filter((item) => {
       if (!q) return true;
       return `${item.label} ${item.hint} ${item.id}`.toLowerCase().includes(q);
     });
-  }, [query, onSelectTool, onChangeMode, onOpenPersonas, onOpenWebScrape, onOpenPipeline]);
+  }, [query, onSelectTool, onChangeMode, onOpenPersonas, onOpenWebScrape, onOpenPipeline, onOpenSettings, onOpenProjects, onOpenSessions, onOpenCredits, onOpenWorker, onOpenAgentChat]);
 
   if (!open) return null;
 

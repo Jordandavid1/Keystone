@@ -13,7 +13,8 @@ import {
   Layers,
   GitBranch,
   Grid,
-  Sparkles
+  Sparkles,
+  Repeat
 } from 'lucide-react';
 import { StudioAsset, CanvasViewMode } from '../lib/types';
 
@@ -30,6 +31,15 @@ interface CenterCanvasProps {
   framingGuidesVisible: boolean;
   activeAspectMask: string;
   onChangeAspectMask: (mask: string) => void;
+  motionPreset: string;
+  motionSpeed: number;
+  showMotionHud: boolean;
+  loopEnabled: boolean;
+  onToggleLoop: () => void;
+  grade: { exposure: number; contrast: number; saturation: number; warmth: number };
+  transportFps: number;
+  onToggleFavorite?: (assetId: string) => void;
+  favoriteIds?: string[];
 }
 
 export const CenterCanvas: React.FC<CenterCanvasProps> = ({
@@ -45,6 +55,13 @@ export const CenterCanvas: React.FC<CenterCanvasProps> = ({
   framingGuidesVisible,
   activeAspectMask,
   onChangeAspectMask,
+  motionPreset,
+  motionSpeed,
+  showMotionHud,
+  loopEnabled,
+  onToggleLoop,
+  grade,
+  transportFps,
 }) => {
   const [zoomLevel, setZoomLevel] = useState<number>(1);
   const [compareSplit, setCompareSplit] = useState<number>(50);
@@ -52,6 +69,8 @@ export const CenterCanvas: React.FC<CenterCanvasProps> = ({
   const [currentTimecode, setCurrentTimecode] = useState<string>('00:00:00:00');
   const [timelinePercent, setTimelinePercent] = useState<number>(0);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const mediaFilter = `brightness(${1 + grade.exposure / 4}) contrast(${grade.contrast}%) saturate(${grade.saturation}%) sepia(${Math.max(0, grade.warmth) / 80}) hue-rotate(${grade.warmth * 1.2}deg)`;
+
   const scrubberRef = useRef<HTMLDivElement>(null);
 
   const PROGRESS_STAGES = [
@@ -77,7 +96,7 @@ export const CenterCanvas: React.FC<CenterCanvasProps> = ({
       const hours = Math.floor(cur / 3600).toString().padStart(2, '0');
       const mins = Math.floor((cur % 3600) / 60).toString().padStart(2, '0');
       const secs = Math.floor(cur % 60).toString().padStart(2, '0');
-      const frames = Math.floor((cur % 1) * 24).toString().padStart(2, '0');
+      const frames = Math.floor((cur % 1) * transportFps).toString().padStart(2, '0');
       setCurrentTimecode(`${hours}:${mins}:${secs}:${frames}`);
     };
 
@@ -95,6 +114,34 @@ export const CenterCanvas: React.FC<CenterCanvasProps> = ({
       setIsPlaying(false);
     }
   };
+
+  const shuttle = (dir: number) => {
+    if (!videoRef.current) return;
+    videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime + dir * motionSpeed);
+  };
+
+  useEffect(() => {
+    if (videoRef.current) videoRef.current.loop = loopEnabled;
+  }, [loopEnabled, selectedAsset]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (e.key === 'j' || e.key === 'J') shuttle(-1);
+      if (e.key === 'k' || e.key === 'K') togglePlayPause();
+      if (e.key === 'l' || e.key === 'L') shuttle(1);
+      if (e.key === 'r' || e.key === 'R') onToggleLoop();
+      if (e.key === 'ArrowLeft') stepFrame(false);
+      if (e.key === 'ArrowRight') stepFrame(true);
+      if (e.key === ' ') {
+        e.preventDefault();
+        togglePlayPause();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
 
   const stepFrame = (forward: boolean) => {
     if (!videoRef.current) return;
@@ -229,16 +276,16 @@ export const CenterCanvas: React.FC<CenterCanvasProps> = ({
                     ref={videoRef}
                     src={selectedAsset.url}
                     controls
-                    loop
+                    loop={loopEnabled}
                     className="stage-primary-media"
-                    style={{ transform: `scale(${zoomLevel})` }}
+                    style={{ transform: `scale(${zoomLevel})`, filter: mediaFilter }}
                   />
                 ) : (
                   <img
                     src={selectedAsset.url}
                     alt={selectedAsset.title}
                     className="stage-primary-media"
-                    style={{ transform: `scale(${zoomLevel})`, transition: 'transform 0.2s ease' }}
+                    style={{ transform: `scale(${zoomLevel})`, transition: 'transform 0.2s ease', filter: mediaFilter }}
                   />
                 )
               ) : (
@@ -312,8 +359,9 @@ export const CenterCanvas: React.FC<CenterCanvasProps> = ({
                 <video
                   ref={videoRef}
                   src={selectedAsset.url}
-                  loop
                   className="stage-primary-media"
+                  style={{ filter: mediaFilter }}
+                  loop={loopEnabled}
                 />
               ) : (
                 <div style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
@@ -351,24 +399,28 @@ export const CenterCanvas: React.FC<CenterCanvasProps> = ({
           )}
 
           {activeMode === 'lineage' && (
-            <div style={{ padding: 30, textAlign: 'center', color: 'var(--text-secondary)' }}>
-              <GitBranch size={36} style={{ margin: '0 auto 10px auto', color: '#a5b4fc' }} />
-              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
-                ZenCreator Asset Lineage DAG Graph
+            <div style={{ padding: 24, color: 'var(--text-secondary)', overflow: 'auto', height: '100%' }}>
+              <GitBranch size={28} style={{ color: '#a5b4fc' }} />
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: '8px 0 12px' }}>
+                Asset Lineage DAG
               </div>
-              <div style={{ marginTop: 14, display: 'inline-flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ padding: '8px 14px', borderRadius: 6, background: 'rgba(99, 102, 241, 0.2)', border: '1px solid var(--accent-primary)' }}>
-                  Source Prompt / Upload
+              {assets.length === 0 ? (
+                <div>No persisted assets yet, so there is no lineage to draw.</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {assets.map((asset) => {
+                    const parent = assets.find((item) => item.id === asset.parentId);
+                    return (
+                      <button key={asset.id} onClick={() => onSelectAsset(asset)} style={{ textAlign: 'left', background: selectedAsset?.id === asset.id ? 'rgba(99,102,241,0.18)' : 'rgba(255,255,255,0.03)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: 10, color: 'inherit', cursor: 'pointer' }}>
+                        <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{asset.title}</div>
+                        <div style={{ fontSize: 11, fontFamily: 'var(--font-mono)' }}>
+                          {parent ? `${parent.title} -> ${asset.title}` : `Root / upload · ${asset.toolUsed || asset.type}`}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
-                <span>→</span>
-                <div style={{ padding: '8px 14px', borderRadius: 6, background: 'rgba(6, 182, 212, 0.2)', border: '1px solid var(--accent-cyan)' }}>
-                  Generative Inference
-                </div>
-                <span>→</span>
-                <div style={{ padding: '8px 14px', borderRadius: 6, background: 'rgba(16, 185, 129, 0.2)', border: '1px solid var(--accent-emerald)' }}>
-                  Persisted Asset Lineage
-                </div>
-              </div>
+              )}
             </div>
           )}
         </div>
@@ -388,6 +440,20 @@ export const CenterCanvas: React.FC<CenterCanvasProps> = ({
 
         {/* Aspect Ratio Mask */}
         <div className="aspect-overlay-mask" data-mask={activeAspectMask} aria-hidden="true" />
+        <div className={`higgsfield-motion-hud ${showMotionHud ? '' : 'hidden'}`}>
+          <div className="motion-hud-header">
+            <span className="hud-title">HIGGSFIELD MOTION PATH</span>
+            <span className="hud-mode-pill">{motionPreset.toUpperCase()} · {motionSpeed.toFixed(1)}x</span>
+          </div>
+          <svg className="motion-spline-svg" viewBox="0 0 300 80">
+            <path className="spline-guide-bg" d="M 10 70 Q 80 70, 150 40 T 290 10" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="2" />
+            <path className="spline-active-curve" d="M 10 70 Q 80 70, 150 40 T 290 10" fill="none" stroke="#06b6d4" strokeWidth="3" />
+            <circle className="spline-kf-point" cx="10" cy="70" r="5" fill="#f59e0b" />
+            <circle className="spline-kf-point" cx="150" cy="40" r="4" fill="#06b6d4" />
+            <circle className="spline-kf-point" cx="290" cy="10" r="5" fill="#6366f1" />
+          </svg>
+        </div>
+
       </div>
 
       {/* Hollywood Cinema Transport Bar */}
@@ -395,7 +461,7 @@ export const CenterCanvas: React.FC<CenterCanvasProps> = ({
         <div className="transport-timecode-cluster">
           <span className="timecode-label">TC</span>
           <div className="smpte-digital-display">{currentTimecode}</div>
-          <span className="timecode-fps-badge">24 FPS</span>
+          <span className="timecode-fps-badge">{transportFps} FPS</span>
         </div>
 
         <div className="transport-shuttle-cluster">
@@ -407,6 +473,9 @@ export const CenterCanvas: React.FC<CenterCanvasProps> = ({
           </button>
           <button className="transport-btn" onClick={() => stepFrame(true)} title="Step Forward 1 Frame">
             <SkipForward size={14} />
+          </button>
+          <button className={`transport-btn ${loopEnabled ? 'active' : ''}`} onClick={onToggleLoop} title="Toggle Loop Mode (R)">
+            <Repeat size={14} />
           </button>
         </div>
 

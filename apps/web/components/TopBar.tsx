@@ -8,7 +8,6 @@ import {
   Maximize2,
   Smartphone,
   Shield,
-  Layers,
   Globe,
   Users
 } from 'lucide-react';
@@ -16,9 +15,13 @@ import {
 interface TopBarProps {
   creditBalance: number | null;
   workerOnline: boolean;
+  fps: string;
   onOpenCommandPalette: () => void;
   onOpenPersonasModal: () => void;
   onOpenWebScrapeModal: () => void;
+  onOpenCredits: () => void;
+  onOpenWorkerTelemetry: () => void;
+  onOpenAgentChat: () => void;
   onToggleFramingGuides: () => void;
   onToggleFullscreen: () => void;
   onToggleMobilePreview: () => void;
@@ -29,9 +32,13 @@ interface TopBarProps {
 export const TopBar: React.FC<TopBarProps> = ({
   creditBalance,
   workerOnline,
+  fps,
   onOpenCommandPalette,
   onOpenPersonasModal,
   onOpenWebScrapeModal,
+  onOpenCredits,
+  onOpenWorkerTelemetry,
+  onOpenAgentChat,
   onToggleFramingGuides,
   onToggleFullscreen,
   onToggleMobilePreview,
@@ -51,22 +58,24 @@ export const TopBar: React.FC<TopBarProps> = ({
         <span className="brand-badge">Creative Workspace</span>
       </div>
 
-      {/* Studio Master Telemetry & ZenCreator Credit Ledger */}
       <div className="studio-telemetry-hud" aria-label="Studio Master Telemetry">
-        <div className="telemetry-pill credit-ledger-pill" title="ZenCreator 2-Phase Credit Ledger">
+        <button className="telemetry-pill credit-ledger-pill" title="Studio credit ledger" onClick={onOpenCredits} type="button">
           <span className="credit-icon">⚡</span>
           <span className="telemetry-mono">{creditBalance == null ? 'LOCAL ENGINE' : `${creditBalance.toLocaleString()} CREDITS`}</span>
-          <span className="credit-hold-badge">ACTIVE</span>
-        </div>
+          <span className="credit-hold-badge">{creditBalance == null ? 'UNBILLED' : 'ACTIVE'}</span>
+        </button>
 
-        <div className="telemetry-pill worker-telemetry-pill" title="Colab engine (OpenAI-compatible LLM and ComfyUI / MiniMax H3)">
-          <span
-            className="status-online-dot"
-            style={{ background: workerOnline ? 'var(--accent-emerald)' : 'var(--accent-cyan)' }}
-          />
+        <button className="telemetry-pill worker-telemetry-pill" title="Colab engine telemetry" onClick={onOpenWorkerTelemetry} type="button">
+          <span className="status-online-dot" style={{ background: workerOnline ? 'var(--accent-emerald)' : 'var(--accent-cyan)' }} />
           <span className="telemetry-mono">{workerOnline ? 'ENGINE: CONFIGURED' : 'ENGINE: OFFLINE'}</span>
           <span className="worker-vram-badge">COLAB PRO</span>
-        </div>
+        </button>
+
+        <button className="telemetry-pill agent-chat-pill" title="Speak with the Colab llama-server" onClick={onOpenAgentChat} type="button" style={{ borderColor: 'rgba(168, 85, 247, 0.4)', background: 'rgba(168, 85, 247, 0.12)', color: '#c084fc', cursor: 'pointer' }}>
+          <span className="status-online-dot" style={{ background: '#c084fc', boxShadow: '0 0 6px #c084fc' }} />
+          <span className="telemetry-mono" style={{ fontWeight: 700 }}>LLM AGENT</span>
+          <span className="worker-vram-badge" style={{ background: 'rgba(168, 85, 247, 0.3)', color: '#e9d5ff' }}>QWEN</span>
+        </button>
 
         <div className="telemetry-pill">
           <span className="rec-pulse-indicator" />
@@ -75,81 +84,53 @@ export const TopBar: React.FC<TopBarProps> = ({
 
         <div className="telemetry-pill">
           <span className="telemetry-dim">FPS</span>
-          <span className="telemetry-mono">24.000</span>
+          <span className="telemetry-mono">{fps}</span>
         </div>
 
-        {/* Master Audio Spectrum Meter */}
-        <div className="studio-spectrum-meter" title="Master Audio & Luma Dynamic Spectrum">
-          <span className="spectrum-bar" style={{ height: '65%' }} />
-          <span className="spectrum-bar" style={{ height: '88%' }} />
-          <span className="spectrum-bar" style={{ height: '42%' }} />
-          <span className="spectrum-bar" style={{ height: '95%' }} />
-          <span className="spectrum-bar" style={{ height: '75%' }} />
-          <span className="spectrum-bar" style={{ height: '30%' }} />
-          <span className="spectrum-bar" style={{ height: '85%' }} />
-          <span className="spectrum-bar" style={{ height: '60%' }} />
+        <div className="telemetry-pill">
+          <span className="telemetry-dim">COLOR</span>
+          <span className="telemetry-mono">10-BIT HDR</span>
+        </div>
+
+        <div className="studio-spectrum-meter" title="Playback activity meter">
+          <span className="spectrum-bar" style={{ height: workerOnline ? '65%' : '18%' }} />
+          <span className="spectrum-bar" style={{ height: workerOnline ? '88%' : '22%' }} />
+          <span className="spectrum-bar" style={{ height: workerOnline ? '42%' : '14%' }} />
+          <span className="spectrum-bar" style={{ height: workerOnline ? '95%' : '20%' }} />
+          <span className="spectrum-bar" style={{ height: workerOnline ? '75%' : '16%' }} />
+          <span className="spectrum-bar" style={{ height: workerOnline ? '30%' : '12%' }} />
+          <span className="spectrum-bar" style={{ height: workerOnline ? '85%' : '19%' }} />
+          <span className="spectrum-bar" style={{ height: workerOnline ? '60%' : '15%' }} />
         </div>
       </div>
 
-      {/* Quick Command Trigger (⌘K) */}
       <button className="command-trigger" onClick={onOpenCommandPalette} aria-label="Open Command Palette">
         <Search size={14} />
-        <span>Search all 17 tools, playbooks, or commands...</span>
+        <span>Search assets, playbooks, lineage, or commands...</span>
         <kbd className="kbd-pill">⌘K</kbd>
       </button>
 
       <div className="topbar-actions">
-        {/* Personas & Voices */}
-        <button
-          className="icon-btn"
-          title="Digital Personas & Voices"
-          onClick={onOpenPersonasModal}
-        >
+        <button className="icon-btn" title="Character Personas & ElevenLabs Audio Studio" onClick={onOpenPersonasModal}>
           <Users size={15} style={{ color: '#ec4899' }} />
-          <span className="btn-label">Personas</span>
+          <span className="btn-label">Personas & Audio</span>
         </button>
-
-        {/* Firecrawl Web Scrape */}
-        <button
-          className="icon-btn"
-          title="Firecrawl Ingest Style from URL (@Web)"
-          onClick={onOpenWebScrapeModal}
-        >
+        <button className="icon-btn" title="Firecrawl ingest style from URL (@Web)" onClick={onOpenWebScrapeModal}>
           <Globe size={15} style={{ color: 'var(--accent-cyan)' }} />
-          <span className="btn-label">@Web</span>
+          <span className="btn-label">@Web Scrape</span>
         </button>
-
-        {/* Framing Guides */}
-        <button
-          className={`icon-btn ${guidesVisible ? 'active' : ''}`}
-          title="Toggle Framing Guidelines & Rule of Thirds"
-          onClick={onToggleFramingGuides}
-        >
+        <button className={`icon-btn ${guidesVisible ? 'active' : ''}`} title="Toggle Framing Guidelines" onClick={onToggleFramingGuides}>
           <Grid size={15} />
           <span className="btn-label">Guides</span>
         </button>
-
-        {/* Fullscreen / Theater */}
-        <button
-          className="icon-btn"
-          title="Toggle Theater / Fullscreen Studio"
-          onClick={onToggleFullscreen}
-        >
+        <button className="icon-btn" title="Toggle Theater / Fullscreen Studio" onClick={onToggleFullscreen}>
           <Maximize2 size={15} />
           <span className="btn-label">Theater</span>
         </button>
-
-        {/* Mobile Preview */}
-        <button
-          className={`icon-btn ${mobilePreview ? 'active' : ''}`}
-          title="Toggle Mobile Preview Mode"
-          onClick={onToggleMobilePreview}
-        >
+        <button className={`icon-btn ${mobilePreview ? 'active' : ''}`} title="Toggle Mobile Preview Mode" onClick={onToggleMobilePreview}>
           <Smartphone size={15} />
           <span className="btn-label">Mobile</span>
         </button>
-
-        {/* Operator Link */}
         <a href="/admin" className="icon-btn operator-link" title="Operator Admin Console">
           <Shield size={15} />
           <span className="btn-label">Operator</span>

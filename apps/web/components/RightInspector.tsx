@@ -13,7 +13,7 @@ import {
   Zap,
   Info
 } from 'lucide-react';
-import { GenerativeToolId, StudioAsset, AspectRatio, QualityTier } from '../lib/types';
+import { GenerativeToolId, StudioAsset, CanonicalPlaybook } from '../lib/types';
 import { TOOLS_CATALOG } from '../lib/toolsCatalog';
 
 interface RightInspectorProps {
@@ -23,6 +23,18 @@ interface RightInspectorProps {
   selectedAsset: StudioAsset | null;
   onSetAsReference: (asset: StudioAsset) => void;
   onQuickUpscale: (factor: 2 | 4) => void;
+  onGenerateVariation: () => void;
+  attachedPlaybook: CanonicalPlaybook | null;
+  onAttachUseCase: (text: string) => void;
+  motionPreset: string;
+  onChangeMotionPreset: (preset: string) => void;
+  motionSpeed: number;
+  onChangeMotionSpeed: (speed: number) => void;
+  activeLut: string;
+  onChangeLut: (lutId: string) => void;
+  grade: { exposure: number; contrast: number; saturation: number; warmth: number };
+  onChangeGrade: (grade: { exposure: number; contrast: number; saturation: number; warmth: number }) => void;
+  promptText: string;
 }
 
 export const RightInspector: React.FC<RightInspectorProps> = ({
@@ -32,14 +44,21 @@ export const RightInspector: React.FC<RightInspectorProps> = ({
   selectedAsset,
   onSetAsReference,
   onQuickUpscale,
+  onGenerateVariation,
+  attachedPlaybook,
+  onAttachUseCase,
+  motionPreset,
+  onChangeMotionPreset,
+  motionSpeed,
+  onChangeMotionSpeed,
+  activeLut,
+  onChangeLut,
+  grade,
+  onChangeGrade,
+  promptText,
 }) => {
   const toolDef = TOOLS_CATALOG[activeTool];
-  const [motionPreset, setMotionPreset] = useState<string>('orbit');
-  const [activeLut, setActiveLut] = useState<string>('none');
-  const [exposure, setExposure] = useState<number>(0);
-  const [contrast, setContrast] = useState<number>(100);
-  const [saturation, setSaturation] = useState<number>(100);
-  const [warmth, setWarmth] = useState<number>(0);
+  const [devOpen, setDevOpen] = useState(false);
 
   const updateParam = (key: string, val: any) => {
     onChangeParameters({ ...parameters, [key]: val });
@@ -47,6 +66,48 @@ export const RightInspector: React.FC<RightInspectorProps> = ({
 
   return (
     <aside className="region-inspector" role="complementary" aria-label="Tool & Parameter Inspector">
+        <div className="inspector-card" style={{ borderColor: 'rgba(56, 189, 248, 0.35)', background: 'linear-gradient(180deg, rgba(15, 23, 42, 0.85) 0%, rgba(15, 23, 42, 0.5) 100%)' }}>
+          <div className="inspector-card-header" style={{ marginBottom: 8 }}>
+            <span style={{ color: '#38bdf8', fontWeight: 700 }}>Playbook: {attachedPlaybook ? attachedPlaybook.label : 'None attached'}</span>
+            <span className="lut-active-label" style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8' }}>CONTEXT ONLY</span>
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text-primary)', lineHeight: 1.45, marginBottom: 6, padding: '6px 8px', background: 'rgba(255,255,255,0.03)', borderRadius: 5, borderLeft: '2px solid #38bdf8' }}>
+            {attachedPlaybook ? (attachedPlaybook.domain_context?.domain_brief || attachedPlaybook.outcome) : 'Attach a playbook from the left sidebar. It enriches the next job and does not auto-run.'}
+          </div>
+          {attachedPlaybook && (
+            <>
+              <div className="control-label" style={{ color: '#c084fc', fontWeight: 700, marginBottom: 5 }}>Use-case contexts (attach, do not auto-run)</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
+                {(attachedPlaybook.use_cases || []).length === 0 ? (
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>No use cases published on this playbook.</div>
+                ) : (
+                  (attachedPlaybook.use_cases || []).map((useCase: any, idx: number) => (
+                    <button key={useCase.id || idx} className="action-btn" onClick={() => onAttachUseCase(typeof useCase === 'string' ? useCase : (useCase.title || useCase.name || useCase.prompt || JSON.stringify(useCase)))} style={{ textAlign: 'left', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', padding: '6px 8px', borderRadius: 6, cursor: 'pointer', fontSize: 11 }}>
+                      {typeof useCase === 'string' ? useCase : (useCase.title || useCase.name || useCase.summary || `Use case ${idx + 1}`)}
+                    </button>
+                  ))
+                )}
+              </div>
+              <div className="control-label" style={{ color: '#34d399', fontWeight: 700, marginBottom: 5 }}>Bound skills and workflows</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginBottom: 8 }}>
+                {(attachedPlaybook.skills || []).map((skill, idx) => (
+                  <div key={skill.id || idx} style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                    {(skill.name || skill.id || 'Skill') + (skill.description || skill.capability ? `: ${skill.description || skill.capability}` : '')}
+                  </div>
+                ))}
+              </div>
+              <details style={{ fontSize: 10.5, color: 'var(--text-secondary)' }}>
+                <summary style={{ cursor: 'pointer', fontFamily: 'var(--font-mono)' }}>6-Step Execution Path & Critical Slots</summary>
+                <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {(attachedPlaybook.path || []).map((step, idx) => (
+                    <div key={step.title || idx}>{idx + 1}. {step.title} — {step.objective}</div>
+                  ))}
+                </div>
+              </details>
+            </>
+          )}
+        </div>
+
       {/* Active Tool Parameters Header */}
       <div className="inspector-card" style={{ borderColor: 'rgba(99, 102, 241, 0.4)' }}>
         <div className="inspector-card-header">
@@ -289,16 +350,20 @@ export const RightInspector: React.FC<RightInspectorProps> = ({
                 onClick={() => onQuickUpscale(2)}
                 style={{ flex: 1, padding: '6px 4px', fontSize: 11 }}
               >
-                ⚡ Upscale 2×
+                Upscale 2x
               </button>
               <button
                 className="seg-pill"
                 onClick={() => onQuickUpscale(4)}
                 style={{ flex: 1, padding: '6px 4px', fontSize: 11 }}
               >
-                ✨ Upscale 4K
+                Upscale 4x
               </button>
             </div>
+            <button className="action-btn" onClick={onGenerateVariation} style={{ background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', fontSize: 11.5, padding: '7px 10px', borderRadius: 6, cursor: 'pointer', width: '100%' }}>
+              Generate Img2Img Variation
+            </button>
+            <pre className="code-block-mono">{JSON.stringify({ id: selectedAsset.id, type: selectedAsset.type, tool: selectedAsset.toolUsed, prompt: selectedAsset.prompt, parentId: selectedAsset.parentId, createdAt: selectedAsset.createdAt }, null, 2)}</pre>
           </div>
         ) : (
           <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
@@ -329,11 +394,16 @@ export const RightInspector: React.FC<RightInspectorProps> = ({
             <button
               key={m.id}
               className={`motion-preset-btn ${motionPreset === m.id ? 'active' : ''}`}
-              onClick={() => setMotionPreset(m.id)}
+              onClick={() => onChangeMotionPreset(m.id)}
             >
               {m.label}
             </button>
           ))}
+        </div>
+        <div className="grade-slider-row" style={{ marginTop: 10 }}>
+          <label>Speed</label>
+          <input type="range" min="0.2" max="2" step="0.1" value={motionSpeed} onChange={(e) => onChangeMotionSpeed(Number(e.target.value))} />
+          <span className="grade-val">{motionSpeed.toFixed(1)}x</span>
         </div>
       </div>
 
@@ -351,12 +421,13 @@ export const RightInspector: React.FC<RightInspectorProps> = ({
             { id: 'bleach', label: 'Bleach Bypass' },
             { id: 'bladerunner', label: 'Blade Runner' },
             { id: 'matrix', label: 'Matrix Green' },
+            { id: 'technicolor', label: 'Technicolor 3' },
             { id: 'tealorange', label: 'Teal & Orange' },
           ].map((l) => (
             <button
               key={l.id}
               className={`lut-pill ${activeLut === l.id ? 'active' : ''}`}
-              onClick={() => setActiveLut(l.id)}
+              onClick={() => onChangeLut(l.id)}
             >
               <span>{l.label}</span>
             </button>
@@ -372,10 +443,10 @@ export const RightInspector: React.FC<RightInspectorProps> = ({
               min="-2"
               max="2"
               step="0.1"
-              value={exposure}
-              onChange={(e) => setExposure(Number(e.target.value))}
+              value={grade.exposure}
+              onChange={(e) => onChangeGrade({ ...grade, exposure: Number(e.target.value) })}
             />
-            <span className="grade-val">{exposure}</span>
+            <span className="grade-val">{grade.exposure}</span>
           </div>
           <div className="grade-slider-row">
             <label>Contrast</label>
@@ -384,10 +455,22 @@ export const RightInspector: React.FC<RightInspectorProps> = ({
               min="70"
               max="150"
               step="1"
-              value={contrast}
-              onChange={(e) => setContrast(Number(e.target.value))}
+              value={grade.contrast}
+              onChange={(e) => onChangeGrade({ ...grade, contrast: Number(e.target.value) })}
             />
-            <span className="grade-val">{contrast}%</span>
+            <span className="grade-val">{grade.contrast}%</span>
+          </div>
+          <div className="grade-slider-row">
+            <label>Saturation</label>
+            <input
+              type="range"
+              min="0"
+              max="200"
+              step="2"
+              value={grade.saturation}
+              onChange={(e) => onChangeGrade({ ...grade, saturation: Number(e.target.value) })}
+            />
+            <span className="grade-val">{grade.saturation}%</span>
           </div>
           <div className="grade-slider-row">
             <label>Warmth</label>
@@ -396,12 +479,38 @@ export const RightInspector: React.FC<RightInspectorProps> = ({
               min="-30"
               max="30"
               step="1"
-              value={warmth}
-              onChange={(e) => setWarmth(Number(e.target.value))}
+              value={grade.warmth}
+              onChange={(e) => onChangeGrade({ ...grade, warmth: Number(e.target.value) })}
             />
-            <span className="grade-val">{warmth}</span>
+            <span className="grade-val">{grade.warmth}</span>
           </div>
+          <button className="btn-reset-grade" onClick={() => onChangeGrade({ exposure: 0, contrast: 100, saturation: 100, warmth: 0 })}>Reset Grade to Baseline</button>
         </div>
+      </div>
+      <div className="inspector-card">
+        <div className="inspector-card-header" style={{ cursor: 'pointer', marginBottom: 0 }} onClick={() => setDevOpen((v) => !v)}>
+          <span>KEYSTONE Authority & Anatomy</span>
+          <span style={{ fontFamily: 'var(--font-mono)' }}>{devOpen ? '[Collapse -]' : '[Expand +]'}</span>
+        </div>
+        {devOpen && (
+          <div style={{ marginTop: 12 }}>
+            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 6 }}>
+              <strong>6-Part PromptAnatomy</strong> (preview of attached context + your text)
+            </div>
+            <pre className="code-block-mono">{[
+              'Role: KEYSTONE prompt engine',
+              'Task: ' + (promptText.trim() || '(empty — enter a prompt to preview anatomy)'),
+              'Context: ' + (attachedPlaybook ? (attachedPlaybook.label + ' — ' + (attachedPlaybook.outcome || '')) : 'No playbook attached'),
+              'Constraints: Playbooks attach context only and do not auto-run.',
+              'Output Format: Generated media or cognition text from the Colab engine',
+              'Reasoning: Compiled at submit time by KEYSTONE',
+            ].join('\n')}</pre>
+            <div style={{ fontSize: 11, color: 'var(--text-secondary)', margin: '10px 0 6px' }}>
+              <strong>Authority Decision & Envelope</strong>
+            </div>
+            <pre className="code-block-mono">Authority is evaluated against your account when you submit a generation. It is not simulated here.</pre>
+          </div>
+        )}
       </div>
     </aside>
   );
