@@ -1,5 +1,6 @@
 'use client';
 
+
 import React, { useRef, useState } from 'react';
 import {
   Sparkles,
@@ -25,8 +26,8 @@ import {
   Infinity as InfinityIcon,
   Plus
 } from 'lucide-react';
-import { GenerativeToolId, StudioAsset, PlaybookTemplate } from '../lib/types';
-import { TOOLS_CATALOG, OPTIONAL_PLAYBOOKS } from '../lib/toolsCatalog';
+import { GenerativeToolId, StudioAsset, CanonicalPlaybook } from '../lib/types';
+import { TOOLS_CATALOG } from '../lib/toolsCatalog';
 
 interface LeftSidebarProps {
   activeTool: GenerativeToolId;
@@ -35,7 +36,10 @@ interface LeftSidebarProps {
   selectedAssetId: string | null;
   onSelectAsset: (asset: StudioAsset) => void;
   onUploadFile: (file: File) => void;
-  onApplyTemplate: (template: PlaybookTemplate) => void;
+  playbooks: CanonicalPlaybook[];
+  attachedPlaybookId: string | null;
+  onAttachPlaybook: (playbook: CanonicalPlaybook) => void;
+  onDetachPlaybook: () => void;
 }
 
 export const LeftSidebar: React.FC<LeftSidebarProps> = ({
@@ -45,7 +49,10 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
   selectedAssetId,
   onSelectAsset,
   onUploadFile,
-  onApplyTemplate,
+  playbooks,
+  attachedPlaybookId,
+  onAttachPlaybook,
+  onDetachPlaybook,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [playbooksOpen, setPlaybooksOpen] = useState(false);
@@ -95,7 +102,6 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
 
   return (
     <aside className="region-sidebar" role="navigation" aria-label="Workspace Navigation">
-      {/* Freedom Mode Banner */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
         <span className="freedom-mode-badge">
           <InfinityIcon size={13} />
@@ -106,7 +112,6 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
         </span>
       </div>
 
-      {/* Tool Category Filter Pills */}
       <div style={{ display: 'flex', gap: 4, overflowX: 'auto', paddingBottom: 6, marginBottom: 8 }}>
         {categories.map((cat) => (
           <button
@@ -128,7 +133,6 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
         ))}
       </div>
 
-      {/* 17 Tools Pipeline List */}
       <div className="pipeline-tools-grid">
         {toolsList.map((tool) => {
           const isActive = activeTool === tool.id;
@@ -150,7 +154,6 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
         })}
       </div>
 
-      {/* Media Upload Dropzone */}
       <div
         className="sidebar-section-row"
         style={{
@@ -215,7 +218,6 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
         </span>
       </div>
 
-      {/* Project Assets Stream */}
       <div className="sidebar-section-label">Active Project Assets ({assets.length})</div>
       <div className="sidebar-asset-mini-list" style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 180, overflowY: 'auto' }}>
         {assets.length === 0 ? (
@@ -269,7 +271,6 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
         )}
       </div>
 
-      {/* Optional Playbooks / Templates Drawer (Collapsible & Unlocking Freedom) */}
       <div style={{ marginTop: 14 }}>
         <button
           onClick={() => setPlaybooksOpen(!playbooksOpen)}
@@ -286,29 +287,43 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
             padding: '4px 0',
           }}
         >
-          <span>Optional Inspiration & Playbooks</span>
+          <span>Playbooks (attach context, do not auto-run)</span>
           {playbooksOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
         </button>
 
         {playbooksOpen && (
           <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 5 }}>
-            {OPTIONAL_PLAYBOOKS.map((pb) => (
-              <button
-                key={pb.id}
-                onClick={() => onApplyTemplate(pb)}
-                style={{
-                  textAlign: 'left',
-                  padding: '6px 8px',
-                  borderRadius: 6,
-                  background: 'rgba(15, 23, 42, 0.65)',
-                  border: '1px solid rgba(56, 189, 248, 0.25)',
-                  cursor: 'pointer',
-                }}
-              >
-                <div style={{ fontSize: 11, fontWeight: 600, color: '#38bdf8' }}>{pb.name}</div>
-                <div style={{ fontSize: 9.5, color: 'var(--text-muted)' }}>{pb.description}</div>
-              </button>
-            ))}
+            {playbooks.length === 0 ? (
+              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                Playbooks will appear once the studio API is reachable.
+              </div>
+            ) : (
+              playbooks.map((pb) => {
+                const attached = attachedPlaybookId === pb.id;
+                return (
+                  <button
+                    key={pb.id}
+                    onClick={() => (attached ? onDetachPlaybook() : onAttachPlaybook(pb))}
+                    style={{
+                      textAlign: 'left',
+                      padding: '6px 8px',
+                      borderRadius: 6,
+                      background: attached ? 'rgba(99, 102, 241, 0.18)' : 'rgba(15, 23, 42, 0.65)',
+                      border: attached ? '1px solid var(--accent-primary)' : '1px solid rgba(56, 189, 248, 0.25)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <div style={{ fontSize: 11, fontWeight: 600, color: attached ? '#c7d2fe' : '#38bdf8' }}>{pb.label}</div>
+                    <div style={{ fontSize: 9.5, color: 'var(--text-muted)' }}>{pb.outcome}</div>
+                    {attached && (
+                      <div style={{ fontSize: 9.5, color: '#a5b4fc', marginTop: 4 }}>
+                        Attached — enriches your next job, does not fire a canned prompt
+                      </div>
+                    )}
+                  </button>
+                );
+              })
+            )}
           </div>
         )}
       </div>

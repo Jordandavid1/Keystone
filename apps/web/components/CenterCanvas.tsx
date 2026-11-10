@@ -308,16 +308,24 @@ export const CenterCanvas: React.FC<CenterCanvasProps> = ({
 
           {activeMode === 'video' && (
             <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <video
-                ref={videoRef}
-                src={
-                  selectedAsset && selectedAsset.type === 'video'
-                    ? selectedAsset.url
-                    : 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
-                }
-                loop
-                className="stage-primary-media"
-              />
+              {selectedAsset && selectedAsset.type === 'video' ? (
+                <video
+                  ref={videoRef}
+                  src={selectedAsset.url}
+                  loop
+                  className="stage-primary-media"
+                />
+              ) : (
+                <div style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
+                  <Film size={36} style={{ margin: '0 auto 12px auto', color: 'var(--accent-cyan)' }} />
+                  <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>
+                    No video on the stage
+                  </div>
+                  <p style={{ fontSize: 12, marginTop: 4 }}>
+                    Run a video tool or select a generated video asset. Demo footage is not used.
+                  </p>
+                </div>
+              )}
             </div>
           )}
 

@@ -81,6 +81,18 @@ export interface PlaybookTemplate {
   parameters: Record<string, any>;
 }
 
+export interface CanonicalPlaybook {
+  id: string;
+  label: string;
+  keywords: string[];
+  outcome: string;
+  criticalSlots: { id: string; why: string; assumption: string }[];
+  path: { title: string; objective: string; doneWhen: string }[];
+  domain_context: Record<string, any>;
+  use_cases: Record<string, any>[];
+  skills: { id?: string; name?: string; capability?: string; adapter?: string; description?: string }[];
+}
+
 export interface GenerationState {
   isGenerating: boolean;
   currentStageText: string;

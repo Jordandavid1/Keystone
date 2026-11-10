@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 
 interface TopBarProps {
-  creditBalance: number;
+  creditBalance: number | null;
   workerOnline: boolean;
   onOpenCommandPalette: () => void;
   onOpenPersonasModal: () => void;
@@ -55,17 +55,17 @@ export const TopBar: React.FC<TopBarProps> = ({
       <div className="studio-telemetry-hud" aria-label="Studio Master Telemetry">
         <div className="telemetry-pill credit-ledger-pill" title="ZenCreator 2-Phase Credit Ledger">
           <span className="credit-icon">⚡</span>
-          <span className="telemetry-mono">{creditBalance.toLocaleString()} CREDITS</span>
+          <span className="telemetry-mono">{creditBalance == null ? 'LOCAL ENGINE' : `${creditBalance.toLocaleString()} CREDITS`}</span>
           <span className="credit-hold-badge">ACTIVE</span>
         </div>
 
-        <div className="telemetry-pill worker-telemetry-pill" title="Kaggle Worker Bridge (T4×2 Cognition & ComfyUI)">
+        <div className="telemetry-pill worker-telemetry-pill" title="Colab engine (OpenAI-compatible LLM and ComfyUI / MiniMax H3)">
           <span
             className="status-online-dot"
             style={{ background: workerOnline ? 'var(--accent-emerald)' : 'var(--accent-cyan)' }}
           />
-          <span className="telemetry-mono">{workerOnline ? 'BRIDGE: ONLINE' : 'ENGINE: READY'}</span>
-          <span className="worker-vram-badge">T4×2 / PROXY</span>
+          <span className="telemetry-mono">{workerOnline ? 'ENGINE: CONFIGURED' : 'ENGINE: OFFLINE'}</span>
+          <span className="worker-vram-badge">COLAB PRO</span>
         </div>
 
         <div className="telemetry-pill">

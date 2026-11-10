@@ -45,6 +45,7 @@ def _comfy_url() -> str:
     raw = (
         os.getenv("COMFY_BASE_URL")
         or os.getenv("KEYSTONE_COMFY_URL")
+        or os.getenv("KEYSTONE_COMFY_PUBLIC_URL")
         or os.getenv("KAGGLE_COMFYUI_TUNNEL")
         or ""
     ).strip().rstrip("/")
