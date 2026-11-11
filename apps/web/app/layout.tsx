@@ -1,27 +1,27 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
+import { Inter, JetBrains_Mono } from 'next/font/google';
+// Legacy stylesheet first (modals, pipeline builder); the token layer in globals.css loads last and wins.
+import './legacy.css';
 import './globals.css';
 
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
+const jetbrains = JetBrains_Mono({ subsets: ['latin'], variable: '--font-jetbrains', display: 'swap' });
+
 export const metadata: Metadata = {
-  title: 'KEYSTONE — Multimodal Creative Intelligence Studio (Pro UX)',
-  description: 'Authoritative Multimodal Creative AI Platform with Complete Generative Pipeline',
+  title: 'KEYSTONE Studio',
+  description: 'Create, edit, animate and analyze images and video in one canvas-first studio.',
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export const viewport: Viewport = {
+  themeColor: '#06070b',
+  width: 'device-width',
+  initialScale: 1,
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
-          rel="stylesheet"
-        />
-      </head>
-      <body>{children}</body>
+    <html lang="en" className={`dark ${inter.variable} ${jetbrains.variable}`}>
+      <body className="font-sans">{children}</body>
     </html>
   );
 }

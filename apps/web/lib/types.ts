@@ -22,7 +22,7 @@ export type GenerativeToolId =
   | 'video_merger'     // Multi-Clip Video Sequencer & Transitions
   | 'run_any_llm';     // Uncensored LLM Cognition & Brainstorming
 
-export type CanvasViewMode = 'single' | 'compare' | 'video' | 'variations' | 'lineage' | 'pipeline';
+export type CanvasViewMode = 'single' | 'compare' | 'video' | 'variations' | 'lineage' | 'pipeline' | 'analysis';
 
 export type AspectRatio =
   | '16:9'
@@ -100,3 +100,104 @@ export interface GenerationState {
   jobId?: string | null;
   error?: string | null;
 }
+
+/* ---------------------------------------------------------------------------
+ * Studio schema types (docs/UI_SCHEMA.md §5)
+ * ------------------------------------------------------------------------- */
+
+export type Intent = 'create' | 'edit' | 'animate' | 'analyze';
+
+/** Bible §19 job state machine. */
+export type JobState =
+  | 'CREATED'
+  | 'VALIDATING'
+  | 'PLANNING'
+  | 'AUTHORIZING'
+  | 'QUEUED'
+  | 'RUNNING'
+  | 'VALIDATING_OUTPUT'
+  | 'RETRY_PENDING'
+  | 'REPLAN_REQUIRED'
+  | 'COMPLETED'
+  | 'FAILED'
+  | 'CANCELLED'
+  | 'REJECTED';
+
+export type RunStatus = 'queued' | 'processing' | 'succeeded' | 'failed';
+
+export interface Generation {
+  id: string;
+  intent: Intent;
+  capability: GenerativeToolId;
+  label: string;
+  prompt: string;
+  compiledPrompt: string;
+  referenceIds: string[];
+  playbookId?: string | null;
+  status: RunStatus;
+  jobState: JobState;
+  startedAt: number;
+  finishedAt?: number;
+  outputIds: string[];
+  text?: string | null;
+  error?: string | null;
+  estimatedCredits: number;
+  /** Original request, kept so "Try again" re-sends exactly the same thing. */
+  request: { tool: GenerativeToolId; input: Record<string, any> };
+  /** Job id sent with /generate; progress is read from GET /v1/zencreator/jobs/{jobId}. */
+  jobId?: string | null;
+  /** 'live' once the server has reported a state for this job; 'unavailable' if it never did. */
+  progress?: 'pending' | 'live' | 'unavailable';
+  /** The server's own words for the step it is on (latest event reason). */
+  stepNote?: string | null;
+  /** The last state reached before a failure, so the track can show where it stopped. */
+  failedAt?: JobState | null;
+}
+
+export interface EngineStatus {
+  online: boolean;
+  llm?: { configured?: boolean; endpoint_present?: boolean; model?: string | null };
+  comfy?: Record<string, any>;
+  wired_tools?: string[];
+  unwired_tools?: string[];
+}
+
+export interface LedgerState {
+  balance: number | null;
+  hold?: number | null;
+  currency?: string;
+  status?: string;
+  note?: string;
+}
+
+/** Ids match the values the engine already receives as `camera_motion`. */
+export type MotionPreset =
+  | 'pan-left'
+  | 'pan-right'
+  | 'tilt-up'
+  | 'tilt-down'
+  | 'zoom-in'
+  | 'zoom-out'
+  | 'orbit'
+  | 'drone';
+
+export interface LookState {
+  lut: string;
+  exposure: number;
+  contrast: number;
+  saturation: number;
+  warmth: number;
+}
+
+export interface StudioControls {
+  aspect: AspectRatio;
+  quality: QualityTier;
+  results: 1 | 2 | 4;
+  strength: number; // 0.1–0.95, edit / reference influence
+  motion: MotionPreset;
+  motionSpeed: number; // 0.2–2
+  duration: number; // seconds
+  look: LookState;
+}
+
+export type SidebarPanel = 'create' | 'assets' | 'history' | 'favorites';

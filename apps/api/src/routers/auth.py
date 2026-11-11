@@ -7,11 +7,11 @@ from __future__ import annotations
 
 import uuid
 from typing import Any, Dict, List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from apps.api.src.auth.dependencies import get_current_user
+from apps.api.src.auth.dependencies import dev_bypass_applies, dev_bypass_enabled, get_current_user
 from apps.api.src.auth.security import (
     generate_api_key_pair,
     generate_token,
@@ -105,9 +105,32 @@ async def login(
     }
 
 
-@router.get("/me", summary="Get current authenticated user profile")
-async def me(current_user: User = Depends(get_current_user)) -> Dict[str, Any]:
+@router.get("/mode", summary="Which sign-in paths this server accepts")
+async def auth_mode() -> Dict[str, Any]:
     return {
+        "password": True,
+        "api_key": True,
+        "dev_bypass": dev_bypass_enabled(),
+    }
+
+
+@router.get("/me", summary="Get current authenticated user profile")
+async def me(
+    request: Request,
+    authorization: Optional[str] = Header(None, alias="Authorization"),
+    x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
+    current_user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    if authorization:
+        auth_via = "token"
+    elif x_api_key:
+        auth_via = "api_key"
+    elif dev_bypass_applies(request, authorization, x_api_key):
+        auth_via = "dev_bypass"
+    else:
+        auth_via = "unknown"
+    return {
+        "auth_via": auth_via,
         "id": current_user.id,
         "email": current_user.email,
         "display_name": current_user.display_name,

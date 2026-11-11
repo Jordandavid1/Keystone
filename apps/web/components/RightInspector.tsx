@@ -1,517 +1,350 @@
 'use client';
 
-import React, { useState } from 'react';
-import {
-  Sparkles,
-  Sliders,
-  Palette,
-  Video,
-  Layers,
-  ChevronDown,
-  ChevronRight,
-  ShieldCheck,
-  Zap,
-  Info
-} from 'lucide-react';
-import { GenerativeToolId, StudioAsset, CanonicalPlaybook } from '../lib/types';
-import { TOOLS_CATALOG } from '../lib/toolsCatalog';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Copy, Download, X } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Slider } from '@/components/ui/slider';
+import { cn } from '@/lib/utils';
+import { INTENT_BY_ID, LOOK_LABELS, compilePrompt, estimateCredits, routeIntent } from '@/lib/intents';
+import { selectAsset, selectSelected, useStudio } from '@/lib/studio/store';
+import { TOOLS_CATALOG } from '@/lib/toolsCatalog';
+import { AspectRatio, QualityTier } from '@/lib/types';
+import { Field, Section, Segmented } from './inspector/Section';
+import { MotionPad } from './inspector/MotionPad';
 
-interface RightInspectorProps {
-  activeTool: GenerativeToolId;
-  parameters: Record<string, any>;
-  onChangeParameters: (params: Record<string, any>) => void;
-  selectedAsset: StudioAsset | null;
-  onSetAsReference: (asset: StudioAsset) => void;
-  onQuickUpscale: (factor: 2 | 4) => void;
-  onGenerateVariation: () => void;
-  attachedPlaybook: CanonicalPlaybook | null;
-  onAttachUseCase: (text: string) => void;
-  motionPreset: string;
-  onChangeMotionPreset: (preset: string) => void;
-  motionSpeed: number;
-  onChangeMotionSpeed: (speed: number) => void;
-  activeLut: string;
-  onChangeLut: (lutId: string) => void;
-  grade: { exposure: number; contrast: number; saturation: number; warmth: number };
-  onChangeGrade: (grade: { exposure: number; contrast: number; saturation: number; warmth: number }) => void;
-  promptText: string;
+const ASPECTS: AspectRatio[] = ['21:9', '16:9', '3:2', '4:3', '1:1', '4:5', '3:4', '2:3', '9:16'];
+const QUALITY: { id: QualityTier; label: string; hint: string }[] = [
+  { id: 'draft', label: 'Draft', hint: 'Fastest, for exploring' },
+  { id: 'high', label: 'High', hint: 'Balanced detail and speed' },
+  { id: 'master', label: 'Master', hint: 'Highest detail, slowest' },
+];
+const STRENGTH = [
+  { id: 'subtle', label: 'Subtle', value: 0.35 },
+  { id: 'balanced', label: 'Balanced', value: 0.65 },
+  { id: 'bold', label: 'Bold', value: 0.85 },
+] as const;
+
+function AspectGlyph({ ratio }: { ratio: AspectRatio }) {
+  const [w, h] = ratio.split(':').map(Number);
+  const scale = 14 / Math.max(w, h);
+  return <span className="inline-block rounded-[2px] border border-current" style={{ width: w * scale, height: h * scale }} aria-hidden="true" />;
 }
 
-export const RightInspector: React.FC<RightInspectorProps> = ({
-  activeTool,
-  parameters,
-  onChangeParameters,
-  selectedAsset,
-  onSetAsReference,
-  onQuickUpscale,
-  onGenerateVariation,
-  attachedPlaybook,
-  onAttachUseCase,
-  motionPreset,
-  onChangeMotionPreset,
-  motionSpeed,
-  onChangeMotionSpeed,
-  activeLut,
-  onChangeLut,
-  grade,
-  onChangeGrade,
-  promptText,
-}) => {
-  const toolDef = TOOLS_CATALOG[activeTool];
-  const [devOpen, setDevOpen] = useState(false);
+function bytes(n?: number): string | null {
+  if (!n) return null;
+  if (n < 1024 * 1024) return `${Math.round(n / 1024)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
 
-  const updateParam = (key: string, val: any) => {
-    onChangeParameters({ ...parameters, [key]: val });
-  };
+async function sha256(text: string): Promise<string | null> {
+  if (typeof crypto === 'undefined' || !crypto.subtle) return null;
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+/** Region 4 — Result → Controls → Look → Advanced → Developer, each deeper layer collapsed until asked for. */
+export function RightInspector({ overlay = false }: { overlay?: boolean }) {
+  const { state, dispatch } = useStudio();
+  const selected = selectSelected(state);
+  const { intent, prompt, references } = state.composer;
+  const c = state.controls;
+  const run = selected ? state.runs.find((r) => r.outputIds.includes(selected.id)) : null;
+  const parent = selectAsset(state, selected?.parentId);
+  const routed = routeIntent({ intent, prompt, references, engine: state.system.engine });
+  const [hash, setHash] = useState<string | null>(null);
+
+  const compiled = useMemo(
+    () =>
+      compilePrompt({
+        text: prompt,
+        playbook: state.composer.playbook,
+        web: state.composer.web,
+        lut: c.look.lut,
+        useCase: state.composer.useCase,
+      }),
+    [prompt, state.composer.playbook, state.composer.web, state.composer.useCase, c.look.lut],
+  );
+
+  useEffect(() => {
+    if (!state.ui.developer) return;
+    let cancelled = false;
+    sha256(compiled).then((h) => !cancelled && setHash(h));
+    return () => {
+      cancelled = true;
+    };
+  }, [compiled, state.ui.developer]);
+
+  if (!state.ui.inspectorOpen) return null;
+
+  const set = (patch: Partial<typeof c>) => dispatch({ type: 'SET_CONTROLS', patch });
+  const strengthId = STRENGTH.reduce((best, s) => (Math.abs(s.value - c.strength) < Math.abs(best.value - c.strength) ? s : best)).id;
+  const hasRef = references.length > 0;
 
   return (
-    <aside className="region-inspector" role="complementary" aria-label="Tool & Parameter Inspector">
-        <div className="inspector-card" style={{ borderColor: 'rgba(56, 189, 248, 0.35)', background: 'linear-gradient(180deg, rgba(15, 23, 42, 0.85) 0%, rgba(15, 23, 42, 0.5) 100%)' }}>
-          <div className="inspector-card-header" style={{ marginBottom: 8 }}>
-            <span style={{ color: '#38bdf8', fontWeight: 700 }}>Playbook: {attachedPlaybook ? attachedPlaybook.label : 'None attached'}</span>
-            <span className="lut-active-label" style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8' }}>CONTEXT ONLY</span>
-          </div>
-          <div style={{ fontSize: 11, color: 'var(--text-primary)', lineHeight: 1.45, marginBottom: 6, padding: '6px 8px', background: 'rgba(255,255,255,0.03)', borderRadius: 5, borderLeft: '2px solid #38bdf8' }}>
-            {attachedPlaybook ? (attachedPlaybook.domain_context?.domain_brief || attachedPlaybook.outcome) : 'Attach a playbook from the left sidebar. It enriches the next job and does not auto-run.'}
-          </div>
-          {attachedPlaybook && (
-            <>
-              <div className="control-label" style={{ color: '#c084fc', fontWeight: 700, marginBottom: 5 }}>Use-case contexts (attach, do not auto-run)</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
-                {(attachedPlaybook.use_cases || []).length === 0 ? (
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>No use cases published on this playbook.</div>
-                ) : (
-                  (attachedPlaybook.use_cases || []).map((useCase: any, idx: number) => (
-                    <button key={useCase.id || idx} className="action-btn" onClick={() => onAttachUseCase(typeof useCase === 'string' ? useCase : (useCase.title || useCase.name || useCase.prompt || JSON.stringify(useCase)))} style={{ textAlign: 'left', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', padding: '6px 8px', borderRadius: 6, cursor: 'pointer', fontSize: 11 }}>
-                      {typeof useCase === 'string' ? useCase : (useCase.title || useCase.name || useCase.summary || `Use case ${idx + 1}`)}
-                    </button>
-                  ))
+    <aside
+      aria-label="Inspector"
+      className={cn(
+        'ks-region flex w-inspector flex-col border-l border-ks-line [grid-area:inspector]',
+        overlay && 'absolute inset-y-0 right-0 z-30 shadow-float max-md:w-full',
+      )}
+    >
+      {overlay && (
+        <button
+          onClick={() => dispatch({ type: 'TOGGLE_INSPECTOR', open: false })}
+          className="absolute right-2 top-2 z-10 rounded-control p-1.5 text-ks-ink-3 hover:bg-ks-lift hover:text-ks-ink"
+          aria-label="Close inspector"
+        >
+          <X className="size-4" />
+        </button>
+      )}
+      <ScrollArea className="h-full">
+        {/* Result */}
+        <Section title="Result" hint={selected ? selected.type : undefined}>
+          {!selected ? (
+            <p className="text-meta text-ks-ink-3">Select an asset to see where it came from and what you can do with it.</p>
+          ) : (
+            <div className="space-y-3">
+              <p className="break-words text-body text-ks-ink">{selected.title}</p>
+              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-meta">
+                {selected.width && selected.height ? (
+                  <>
+                    <dt className="text-ks-ink-3">Size</dt>
+                    <dd className="ks-num text-ks-ink-2">
+                      {selected.width} × {selected.height}
+                    </dd>
+                  </>
+                ) : null}
+                {bytes(selected.byteSize) && (
+                  <>
+                    <dt className="text-ks-ink-3">File</dt>
+                    <dd className="ks-num text-ks-ink-2">
+                      {bytes(selected.byteSize)}
+                      {selected.mimeType ? `, ${selected.mimeType.split('/')[1]}` : ''}
+                    </dd>
+                  </>
                 )}
-              </div>
-              <div className="control-label" style={{ color: '#34d399', fontWeight: 700, marginBottom: 5 }}>Bound skills and workflows</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginBottom: 8 }}>
-                {(attachedPlaybook.skills || []).map((skill, idx) => (
-                  <div key={skill.id || idx} style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
-                    {(skill.name || skill.id || 'Skill') + (skill.description || skill.capability ? `: ${skill.description || skill.capability}` : '')}
+                <dt className="text-ks-ink-3">Added</dt>
+                <dd className="text-ks-ink-2">{new Date(selected.createdAt).toLocaleString()}</dd>
+                {run && (
+                  <>
+                    <dt className="text-ks-ink-3">Made with</dt>
+                    <dd className="text-ks-ink-2">{run.label}</dd>
+                  </>
+                )}
+                {parent && (
+                  <>
+                    <dt className="text-ks-ink-3">Made from</dt>
+                    <dd>
+                      <button className="max-w-full truncate text-left text-ks-ink-2 underline-offset-2 hover:text-ks-ink hover:underline" onClick={() => dispatch({ type: 'SELECT_ASSET', id: parent.id })}>
+                        {parent.title}
+                      </button>
+                    </dd>
+                  </>
+                )}
+              </dl>
+              {selected.prompt && (
+                <div>
+                  <div className="mb-1 flex items-center justify-between">
+                    <span className="text-meta font-medium text-ks-ink-2">Prompt</span>
+                    <button
+                      onClick={() => dispatch({ type: 'SET_PROMPT', prompt: selected.prompt || '' })}
+                      className="flex items-center gap-1 text-meta text-ks-ink-3 hover:text-ks-ink"
+                    >
+                      <Copy className="size-3" /> Reuse
+                    </button>
                   </div>
-                ))}
-              </div>
-              <details style={{ fontSize: 10.5, color: 'var(--text-secondary)' }}>
-                <summary style={{ cursor: 'pointer', fontFamily: 'var(--font-mono)' }}>6-Step Execution Path & Critical Slots</summary>
-                <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  {(attachedPlaybook.path || []).map((step, idx) => (
-                    <div key={step.title || idx}>{idx + 1}. {step.title} — {step.objective}</div>
-                  ))}
+                  <p className="line-clamp-6 whitespace-pre-wrap text-meta text-ks-ink-2">{selected.prompt}</p>
                 </div>
-              </details>
+              )}
+              <a
+                href={selected.downloadUrl || selected.url}
+                download
+                target="_blank"
+                rel="noreferrer"
+                className="flex h-8 w-full items-center justify-center gap-2 rounded-control bg-ks-lift text-meta font-medium text-ks-ink hover:bg-[#212740]"
+              >
+                <Download className="size-3.5" /> Download original
+              </a>
+            </div>
+          )}
+        </Section>
+
+        {/* Controls — customer-level only, per intent */}
+        <Section title="Controls" hint={INTENT_BY_ID[intent].label}>
+          {intent === 'analyze' ? (
+            <p className="text-meta text-ks-ink-3">Analyze uses your question and the selected asset. There's nothing to set.</p>
+          ) : (
+            <>
+              {intent === 'animate' && (
+                <>
+                  <Field label="Camera move">
+                    <MotionPad value={c.motion} onChange={(motion) => set({ motion })} />
+                  </Field>
+                  <Field label="Speed" value={`${c.motionSpeed.toFixed(1)}×`}>
+                    <Slider min={0.2} max={2} step={0.1} value={[c.motionSpeed]} onValueChange={([v]) => set({ motionSpeed: v })} aria-label="Camera speed" />
+                  </Field>
+                  <Field label="Length" value={`${c.duration} s`}>
+                    <Segmented
+                      label="Clip length"
+                      value={c.duration}
+                      onChange={(duration) => set({ duration })}
+                      options={[5, 10, 15, 20, 30].map((d) => ({ id: d, label: `${d}s` }))}
+                    />
+                  </Field>
+                </>
+              )}
+
+              {(intent === 'edit' || (intent !== 'animate' && hasRef)) && (
+                <Field label={intent === 'edit' ? 'How much to change' : 'How closely to follow the reference'}>
+                  <Segmented
+                    label="Change amount"
+                    value={strengthId}
+                    onChange={(id) => set({ strength: STRENGTH.find((s) => s.id === id)!.value })}
+                    options={
+                      intent === 'edit'
+                        ? STRENGTH.map((s) => ({ id: s.id, label: s.label }))
+                        : [
+                            { id: 'subtle', label: 'Closely' },
+                            { id: 'balanced', label: 'Balanced' },
+                            { id: 'bold', label: 'Loosely' },
+                          ]
+                    }
+                  />
+                </Field>
+              )}
+
+              {intent !== 'edit' && (
+                <Field label="Frame" value={c.aspect}>
+                  <div role="radiogroup" aria-label="Aspect ratio" className="grid grid-cols-3 gap-1">
+                    {ASPECTS.map((a) => (
+                      <button
+                        key={a}
+                        role="radio"
+                        aria-checked={c.aspect === a}
+                        onClick={() => set({ aspect: a })}
+                        className={cn(
+                          'flex h-9 items-center justify-center gap-2 rounded-control text-meta text-ks-ink-3 ring-1 ring-inset ring-ks-line transition-colors hover:text-ks-ink',
+                          c.aspect === a && 'bg-ks-lift text-ks-ink ring-ks-line-strong',
+                        )}
+                      >
+                        <AspectGlyph ratio={a} />
+                        <span className="ks-num">{a}</span>
+                      </button>
+                    ))}
+                  </div>
+                </Field>
+              )}
+
+              <Field label="Quality" value={QUALITY.find((q) => q.id === c.quality)?.hint}>
+                <Segmented label="Quality" value={c.quality} onChange={(quality) => set({ quality })} options={QUALITY} />
+              </Field>
+
+              {intent === 'create' && 'batch_size' in (TOOLS_CATALOG[routed.capability].defaultParameters || {}) && (
+                <Field label="Results per run">
+                  <Segmented
+                    label="Results per run"
+                    value={c.results}
+                    onChange={(results) => set({ results })}
+                    options={[
+                      { id: 1 as const, label: '1' },
+                      { id: 2 as const, label: '2' },
+                      { id: 4 as const, label: '4' },
+                    ]}
+                  />
+                </Field>
+              )}
             </>
           )}
-        </div>
+        </Section>
 
-      {/* Active Tool Parameters Header */}
-      <div className="inspector-card" style={{ borderColor: 'rgba(99, 102, 241, 0.4)' }}>
-        <div className="inspector-card-header">
-          <span style={{ color: 'var(--accent-cyan)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Sliders size={14} />
-            {toolDef.name} Parameters
-          </span>
-          <span className="lut-active-label" style={{ background: 'rgba(99, 102, 241, 0.2)', color: '#c7d2fe' }}>
-            {toolDef.credits} CR
-          </span>
-        </div>
-        <p style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.45, marginBottom: 12 }}>
-          {toolDef.description}
-        </p>
-
-        {/* Model Selector (if supported) */}
-        {toolDef.models && toolDef.models.length > 0 && (
-          <div className="control-group" style={{ marginBottom: 10 }}>
-            <span className="control-label">Generative Model</span>
-            <select
-              value={parameters.model || toolDef.defaultModel}
-              onChange={(e) => updateParam('model', e.target.value)}
-              className="command-input"
-              style={{
-                width: '100%',
-                background: 'var(--bg-surface-3)',
-                border: '1px solid var(--border-subtle)',
-                color: 'var(--text-primary)',
-                padding: '6px 10px',
-                borderRadius: 6,
-                fontSize: 12,
-              }}
-            >
-              {toolDef.models.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {/* Aspect Ratio Selector (if supported) */}
-        {toolDef.supportsAspectRatios && (
-          <div className="control-group" style={{ marginBottom: 10 }}>
-            <span className="control-label">Aspect Ratio</span>
-            <div className="segmented-pills" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 4 }}>
-              {['16:9', '1:1', '9:16', '21:9', '4:3', '3:4', '2:3', '3:2'].map((ratio) => (
-                <button
-                  key={ratio}
-                  className={`seg-pill ${parameters.ratio === ratio ? 'active' : ''}`}
-                  onClick={() => updateParam('ratio', ratio)}
-                  style={{ fontSize: 10.5, padding: '5px 2px' }}
-                >
-                  {ratio}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Resolution Tier (if supported) */}
-        {toolDef.supportsTiers && (
-          <div className="control-group" style={{ marginBottom: 10 }}>
-            <span className="control-label">Resolution Tier</span>
-            <div className="segmented-pills" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4 }}>
-              {['1K', '2K', '4K'].map((tier) => (
-                <button
-                  key={tier}
-                  className={`seg-pill ${parameters.tier === tier ? 'active' : ''}`}
-                  onClick={() => updateParam('tier', tier)}
-                >
-                  {tier}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Tool-specific controls */}
-        {activeTool === 'faceswap' && (
-          <div className="control-group" style={{ marginBottom: 10 }}>
-            <span className="control-label">Swap Coverage Type</span>
-            <div className="segmented-pills" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4 }}>
-              {[
-                { id: 'face', label: 'Face Only' },
-                { id: 'head', label: 'Whole Head' },
-                { id: 'person', label: 'Full Person' },
-              ].map((item) => (
-                <button
-                  key={item.id}
-                  className={`seg-pill ${parameters.swap_type === item.id ? 'active' : ''}`}
-                  onClick={() => updateParam('swap_type', item.id)}
-                  style={{ fontSize: 10.5 }}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {activeTool === 'upscaler' && (
-          <>
-            <div className="control-group" style={{ marginBottom: 10 }}>
-              <span className="control-label">Target Resolution</span>
-              <div className="segmented-pills" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 4 }}>
-                {['2k', '4k', '6k', '8k'].map((res) => (
-                  <button
-                    key={res}
-                    className={`seg-pill ${parameters.target_resolution === res ? 'active' : ''}`}
-                    onClick={() => updateParam('target_resolution', res)}
-                  >
-                    {res.toUpperCase()}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="control-group" style={{ marginBottom: 10 }}>
-              <span className="control-label">Restoration Detail</span>
-              <div className="segmented-pills" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4 }}>
-                {['low', 'medium', 'high'].map((det) => (
-                  <button
-                    key={det}
-                    className={`seg-pill ${parameters.detail === det ? 'active' : ''}`}
-                    onClick={() => updateParam('detail', det)}
-                  >
-                    {det.toUpperCase()}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </>
-        )}
-
-        {(activeTool === 'videogen' || activeTool === 'text_to_video' || activeTool === 'video2video') && (
-          <>
-            <div className="control-group" style={{ marginBottom: 10 }}>
-              <span className="control-label">Clip Duration: {parameters.duration || 5}s</span>
-              <input
-                type="range"
-                min="5"
-                max="30"
-                step="5"
-                value={parameters.duration || 5}
-                onChange={(e) => updateParam('duration', Number(e.target.value))}
-                style={{ width: '100%', accentColor: 'var(--accent-cyan)' }}
-              />
-            </div>
-            <div className="control-group" style={{ marginBottom: 10 }}>
-              <span className="control-label">Video Resolution</span>
-              <div className="segmented-pills" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4 }}>
-                {['480p', '720p', '1080p'].map((r) => (
-                  <button
-                    key={r}
-                    className={`seg-pill ${parameters.resolution === r ? 'active' : ''}`}
-                    onClick={() => updateParam('resolution', r)}
-                  >
-                    {r}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
-              <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Native Audio Track</span>
-              <input
-                type="checkbox"
-                checked={parameters.generate_audio ?? true}
-                onChange={(e) => updateParam('generate_audio', e.target.checked)}
-                style={{ accentColor: 'var(--accent-cyan)' }}
-              />
-            </div>
-          </>
-        )}
-
-        {activeTool === 'facegen' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            <div>
-              <span className="control-label">Gender</span>
-              <select
-                value={parameters.gender || 'Female'}
-                onChange={(e) => updateParam('gender', e.target.value)}
-                className="command-input"
-                style={{ width: '100%', fontSize: 11, padding: 4 }}
-              >
-                <option value="Female">Female</option>
-                <option value="Male">Male</option>
-              </select>
-            </div>
-            <div>
-              <span className="control-label">Age</span>
-              <select
-                value={parameters.age || '26-35'}
-                onChange={(e) => updateParam('age', e.target.value)}
-                className="command-input"
-                style={{ width: '100%', fontSize: 11, padding: 4 }}
-              >
-                {['18-25', '26-35', '36-45', '46-55', '56-65'].map((a) => (
-                  <option key={a} value={a}>{a}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Selected Asset Actions */}
-      <div className="inspector-card">
-        <div className="inspector-card-header">
-          <span>Active Asset Operations</span>
-          <span className="lut-active-label">
-            {selectedAsset ? selectedAsset.type.toUpperCase() : 'NONE'}
-          </span>
-        </div>
-
-        {selectedAsset ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>
-              <strong>ID:</strong> {selectedAsset.id.slice(0, 16)}...
-            </div>
-            <button
-              className="action-btn"
-              onClick={() => onSetAsReference(selectedAsset)}
-              style={{
-                background: 'linear-gradient(135deg, #4f46e5, #06b6d4)',
-                color: '#fff',
-                border: 'none',
-                padding: '7px 10px',
-                borderRadius: 6,
-                fontSize: 11.5,
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              📌 Anchor as Generation Reference
-            </button>
-            <div style={{ display: 'flex', gap: 6 }}>
+        {/* Look */}
+        <Section title="Look" hint={LOOK_LABELS[c.look.lut]} defaultOpen={false}>
+          <p className="mb-3 text-meta text-ks-ink-3">Previewed on the stage and sent with your next run.</p>
+          <div className="grid grid-cols-2 gap-1" role="radiogroup" aria-label="Film look">
+            {Object.entries(LOOK_LABELS).map(([id, label]) => (
               <button
-                className="seg-pill"
-                onClick={() => onQuickUpscale(2)}
-                style={{ flex: 1, padding: '6px 4px', fontSize: 11 }}
+                key={id}
+                role="radio"
+                aria-checked={c.look.lut === id}
+                onClick={() => dispatch({ type: 'SET_LOOK', patch: { lut: id } })}
+                className={cn(
+                  'h-8 truncate rounded-control px-2 text-left text-meta text-ks-ink-3 ring-1 ring-inset ring-ks-line hover:text-ks-ink',
+                  c.look.lut === id && 'bg-ks-lift text-ks-ink ring-ks-line-strong',
+                )}
               >
-                Upscale 2x
+                {label}
               </button>
-              <button
-                className="seg-pill"
-                onClick={() => onQuickUpscale(4)}
-                style={{ flex: 1, padding: '6px 4px', fontSize: 11 }}
-              >
-                Upscale 4x
-              </button>
-            </div>
-            <button className="action-btn" onClick={onGenerateVariation} style={{ background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', fontSize: 11.5, padding: '7px 10px', borderRadius: 6, cursor: 'pointer', width: '100%' }}>
-              Generate Img2Img Variation
-            </button>
-            <pre className="code-block-mono">{JSON.stringify({ id: selectedAsset.id, type: selectedAsset.type, tool: selectedAsset.toolUsed, prompt: selectedAsset.prompt, parentId: selectedAsset.parentId, createdAt: selectedAsset.createdAt }, null, 2)}</pre>
+            ))}
           </div>
-        ) : (
-          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-            Select or generate an asset on the canvas to inspect and transform it.
-          </div>
-        )}
-      </div>
-
-      {/* Higgsfield Camera Motion Deck */}
-      <div className="inspector-card">
-        <div className="inspector-card-header">
-          <span>Higgsfield Camera Motion</span>
-          <span className="lut-active-label" style={{ color: 'var(--accent-cyan)' }}>
-            {motionPreset.toUpperCase()}
-          </span>
-        </div>
-        <div className="motion-grid-presets">
-          {[
-            { id: 'pan-left', label: '◄ Pan L' },
-            { id: 'pan-right', label: 'Pan R ►' },
-            { id: 'tilt-up', label: '▲ Tilt Up' },
-            { id: 'tilt-down', label: '▼ Tilt Dn' },
-            { id: 'zoom-in', label: '⊕ Zoom In' },
-            { id: 'zoom-out', label: '⊖ Zoom Out' },
-            { id: 'orbit', label: '⟳ Orbit 360' },
-            { id: 'drone', label: '✈ FPV Drone' },
-          ].map((m) => (
-            <button
-              key={m.id}
-              className={`motion-preset-btn ${motionPreset === m.id ? 'active' : ''}`}
-              onClick={() => onChangeMotionPreset(m.id)}
-            >
-              {m.label}
-            </button>
+          {(
+            [
+              { key: 'exposure', label: 'Exposure', min: -2, max: 2, step: 0.1, fmt: (v: number) => (v > 0 ? `+${v.toFixed(1)}` : v.toFixed(1)) },
+              { key: 'contrast', label: 'Contrast', min: 70, max: 150, step: 1, fmt: (v: number) => `${v}%` },
+              { key: 'saturation', label: 'Saturation', min: 0, max: 200, step: 2, fmt: (v: number) => `${v}%` },
+              { key: 'warmth', label: 'Warmth', min: -30, max: 30, step: 1, fmt: (v: number) => (v > 0 ? `+${v}` : `${v}`) },
+            ] as const
+          ).map((g) => (
+            <Field key={g.key} label={g.label} value={g.fmt(c.look[g.key])}>
+              <Slider
+                min={g.min}
+                max={g.max}
+                step={g.step}
+                value={[c.look[g.key]]}
+                onValueChange={([v]) => dispatch({ type: 'SET_LOOK', patch: { [g.key]: v } as any })}
+                aria-label={g.label}
+              />
+            </Field>
           ))}
-        </div>
-        <div className="grade-slider-row" style={{ marginTop: 10 }}>
-          <label>Speed</label>
-          <input type="range" min="0.2" max="2" step="0.1" value={motionSpeed} onChange={(e) => onChangeMotionSpeed(Number(e.target.value))} />
-          <span className="grade-val">{motionSpeed.toFixed(1)}x</span>
-        </div>
-      </div>
+          <button
+            onClick={() => dispatch({ type: 'SET_LOOK', patch: { lut: 'none', exposure: 0, contrast: 100, saturation: 100, warmth: 0 } })}
+            className="mt-3 text-meta text-ks-ink-3 hover:text-ks-ink"
+          >
+            Reset look
+          </button>
+        </Section>
 
-      {/* Hollywood Color Look & LUT Presets */}
-      <div className="inspector-card">
-        <div className="inspector-card-header">
-          <span>Cinema Look & LUT Deck</span>
-          <span className="lut-active-label">{activeLut.toUpperCase()}</span>
-        </div>
-        <div className="lut-pills-grid">
-          {[
-            { id: 'none', label: 'Raw Studio' },
-            { id: 'kodak2383', label: 'Kodak 2383' },
-            { id: 'arrilogc', label: 'Arri LogC' },
-            { id: 'bleach', label: 'Bleach Bypass' },
-            { id: 'bladerunner', label: 'Blade Runner' },
-            { id: 'matrix', label: 'Matrix Green' },
-            { id: 'technicolor', label: 'Technicolor 3' },
-            { id: 'tealorange', label: 'Teal & Orange' },
-          ].map((l) => (
-            <button
-              key={l.id}
-              className={`lut-pill ${activeLut === l.id ? 'active' : ''}`}
-              onClick={() => onChangeLut(l.id)}
-            >
-              <span>{l.label}</span>
-            </button>
-          ))}
-        </div>
+        {/* Advanced */}
+        <Section title="Advanced" defaultOpen={false}>
+          <Field label="Exact strength" value={c.strength.toFixed(2)}>
+            <Slider min={0.1} max={0.95} step={0.05} value={[c.strength]} onValueChange={([v]) => set({ strength: v })} aria-label="Exact strength" />
+          </Field>
+          <p className="mt-2 text-meta text-ks-ink-3">Used when a reference or source image is attached. Higher values move further from it.</p>
+        </Section>
 
-        {/* Realtime Grade Sliders */}
-        <div className="grade-sliders-cluster" style={{ marginTop: 10 }}>
-          <div className="grade-slider-row">
-            <label>Exposure</label>
-            <input
-              type="range"
-              min="-2"
-              max="2"
-              step="0.1"
-              value={grade.exposure}
-              onChange={(e) => onChangeGrade({ ...grade, exposure: Number(e.target.value) })}
-            />
-            <span className="grade-val">{grade.exposure}</span>
-          </div>
-          <div className="grade-slider-row">
-            <label>Contrast</label>
-            <input
-              type="range"
-              min="70"
-              max="150"
-              step="1"
-              value={grade.contrast}
-              onChange={(e) => onChangeGrade({ ...grade, contrast: Number(e.target.value) })}
-            />
-            <span className="grade-val">{grade.contrast}%</span>
-          </div>
-          <div className="grade-slider-row">
-            <label>Saturation</label>
-            <input
-              type="range"
-              min="0"
-              max="200"
-              step="2"
-              value={grade.saturation}
-              onChange={(e) => onChangeGrade({ ...grade, saturation: Number(e.target.value) })}
-            />
-            <span className="grade-val">{grade.saturation}%</span>
-          </div>
-          <div className="grade-slider-row">
-            <label>Warmth</label>
-            <input
-              type="range"
-              min="-30"
-              max="30"
-              step="1"
-              value={grade.warmth}
-              onChange={(e) => onChangeGrade({ ...grade, warmth: Number(e.target.value) })}
-            />
-            <span className="grade-val">{grade.warmth}</span>
-          </div>
-          <button className="btn-reset-grade" onClick={() => onChangeGrade({ exposure: 0, contrast: 100, saturation: 100, warmth: 0 })}>Reset Grade to Baseline</button>
-        </div>
-      </div>
-      <div className="inspector-card">
-        <div className="inspector-card-header" style={{ cursor: 'pointer', marginBottom: 0 }} onClick={() => setDevOpen((v) => !v)}>
-          <span>KEYSTONE Authority & Anatomy</span>
-          <span style={{ fontFamily: 'var(--font-mono)' }}>{devOpen ? '[Collapse -]' : '[Expand +]'}</span>
-        </div>
-        {devOpen && (
-          <div style={{ marginTop: 12 }}>
-            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 6 }}>
-              <strong>6-Part PromptAnatomy</strong> (preview of attached context + your text)
+        {/* Developer — provider details, separate from the customer UI (Bible §25) */}
+        {state.ui.developer && (
+          <Section title="Developer" hint="Not shown to customers" defaultOpen>
+            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-meta">
+              <dt className="text-ks-ink-3">Routed to</dt>
+              <dd className="text-ks-ink-2">
+                {TOOLS_CATALOG[routed.capability].name} <span className="font-mono text-ks-ink-3">{routed.capability}</span>
+              </dd>
+              <dt className="text-ks-ink-3">Estimate</dt>
+              <dd className="ks-num text-ks-ink-2">{estimateCredits(routed.capability, c)} credits (catalog)</dd>
+              <dt className="text-ks-ink-3">Engine</dt>
+              <dd className="text-ks-ink-2">
+                {state.system.engine?.unwired_tools?.includes(routed.capability) ? 'Not wired for this capability' : state.system.engine ? 'Wired' : 'Unknown'}
+              </dd>
+            </dl>
+            <div className="mt-3 text-meta font-medium text-ks-ink-2">Compiled prompt</div>
+            <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap rounded-control bg-ks-abyss p-2.5 font-mono text-[11px] leading-4 text-ks-ink-2 ks-scroll">{compiled || '—'}</pre>
+            <div className="mt-2 text-meta text-ks-ink-3">
+              SHA-256 <span className="break-all font-mono text-[11px] text-ks-ink-2">{hash || '—'}</span>
             </div>
-            <pre className="code-block-mono">{[
-              'Role: KEYSTONE prompt engine',
-              'Task: ' + (promptText.trim() || '(empty — enter a prompt to preview anatomy)'),
-              'Context: ' + (attachedPlaybook ? (attachedPlaybook.label + ' — ' + (attachedPlaybook.outcome || '')) : 'No playbook attached'),
-              'Constraints: Playbooks attach context only and do not auto-run.',
-              'Output Format: Generated media or cognition text from the Colab engine',
-              'Reasoning: Compiled at submit time by KEYSTONE',
-            ].join('\n')}</pre>
-            <div style={{ fontSize: 11, color: 'var(--text-secondary)', margin: '10px 0 6px' }}>
-              <strong>Authority Decision & Envelope</strong>
-            </div>
-            <pre className="code-block-mono">Authority is evaluated against your account when you submit a generation. It is not simulated here.</pre>
-          </div>
+            {state.runs[0] && (
+              <>
+                <div className="mt-3 text-meta font-medium text-ks-ink-2">Last request</div>
+                <pre className="mt-1 max-h-48 overflow-auto rounded-control bg-ks-abyss p-2.5 font-mono text-[11px] leading-4 text-ks-ink-2 ks-scroll">
+                  {JSON.stringify({ tool: state.runs[0].request.tool, input: { ...state.runs[0].request.input, positive_prompt: undefined, playbook_context: undefined } }, null, 2)}
+                </pre>
+              </>
+            )}
+            <p className="mt-3 text-meta text-ks-ink-3">Authority decisions and execution envelopes are made server-side at submit time and aren't returned to this client yet.</p>
+          </Section>
         )}
-      </div>
+      </ScrollArea>
     </aside>
   );
-};
+}

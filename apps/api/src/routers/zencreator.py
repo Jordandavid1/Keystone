@@ -12,6 +12,7 @@ Generation is routed to Jordan's Colab engine:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import time
@@ -26,9 +27,12 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from apps.api.src.auth.dependencies import get_optional_user
 from apps.api.src.creative import h3
 from apps.api.src.db.models import Asset, User
 from apps.api.src.db.session import get_db
+from apps.api.src.jobs import generation_progress
+from apps.api.src.jobs.generation_progress import GenerationProgress, JobIdConflict
 from apps.api.src.repositories.assets import AssetRepository
 from apps.api.src.routers.assets import content_url
 from apps.api.src.storage.service import AssetStorageService, generate_storage_key
@@ -70,6 +74,10 @@ class ToolGenerationRequest(BaseModel):
     tool: str = Field(..., description="Tool name from the 17-tool catalog")
     input: Dict[str, Any] = Field(default_factory=dict, description="Tool input matching input_schema")
     async_mode: bool = Field(default=False, description="Reserved; this router runs tools synchronously")
+    job_id: Optional[str] = Field(
+        default=None,
+        description="Optional client-chosen UUID. Poll GET /v1/zencreator/jobs/{job_id} for live progress while this request runs.",
+    )
 
 
 def _no_engine_message(tool: str) -> str:
@@ -110,13 +118,16 @@ async def _persist_bytes(
     filename: str,
     media_type: str,
     metadata: Optional[Dict[str, Any]] = None,
+    owner_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     if not payload:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="ENGINE_EMPTY_OUTPUT: the engine returned no bytes",
         )
-    tenant_id = await _ensure_studio_user(db)
+    # Signed-in callers own what they upload or generate; signed-out studio use
+    # keeps the shared studio account it always had.
+    tenant_id = owner_id or await _ensure_studio_user(db)
     asset_id = str(uuid.uuid4())
     storage_key = generate_storage_key(tenant_id, asset_id, filename)
     storage = AssetStorageService()
@@ -357,6 +368,7 @@ def get_balance() -> Dict[str, Any]:
 async def upload_asset(
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
+    owner: Optional[User] = Depends(get_optional_user),
 ) -> Dict[str, Any]:
     content = await file.read()
     if not content:
@@ -376,6 +388,7 @@ async def upload_asset(
         filename,
         media_type,
         metadata={"source": "studio_upload", "original_filename": filename},
+        owner_id=str(owner.id) if owner else None,
     )
     return {
         "asset_id": stored["asset_id"],
@@ -390,13 +403,68 @@ async def upload_asset(
     }
 
 
+@router.get("/jobs/{job_id}", summary="Live progress for a studio generation")
+async def generation_job(job_id: str) -> Dict[str, Any]:
+    try:
+        normalized = generation_progress.normalize_job_id(job_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+    snap = generation_progress.snapshot(normalized)
+    if snap is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"No generation job '{normalized}' on this server")
+    return snap
+
+
 @router.post("/generate", summary="Execute Any Generative Pipeline Tool")
 async def generate_tool(
     request: ToolGenerationRequest,
     db: AsyncSession = Depends(get_db),
+    owner: Optional[User] = Depends(get_optional_user),
+) -> Dict[str, Any]:
+    tool = (request.tool or "").strip()
+    try:
+        job_id = generation_progress.normalize_job_id(request.job_id)
+        progress = GenerationProgress(job_id, tool or "unknown")
+    except JobIdConflict as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+
+    try:
+        result = await _run_generation(request, db, progress, str(owner.id) if owner else None)
+    except HTTPException as exc:
+        progress.fail(str(exc.detail))
+        headers = dict(exc.headers or {})
+        headers["X-Keystone-Job-Id"] = job_id
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail, headers=headers) from exc
+    except Exception as exc:
+        progress.fail(f"ENGINE_ERROR: {exc}")
+        raise
+    result["job_id"] = job_id
+    result["job_state"] = progress.state
+    return result
+
+
+async def _dispatch(progress: GenerationProgress, playbook_ctx: str, engine: str) -> None:
+    """Record the planning → authorizing → queued → running steps as they happen."""
+    progress.advance(
+        "PLANNING",
+        "Compiled the prompt with the attached playbook" if playbook_ctx else "Compiled the prompt (no playbook attached)",
+    )
+    progress.advance("AUTHORIZING", "Local engine: billing is off, so no credit hold was placed")
+    progress.advance("QUEUED", f"Dispatching to {engine}")
+    progress.advance("RUNNING", f"Generating with {engine}")
+
+
+async def _run_generation(
+    request: ToolGenerationRequest,
+    db: AsyncSession,
+    progress: GenerationProgress,
+    owner_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     tool = (request.tool or "").strip()
     tool_input = request.input or {}
+    progress.advance("VALIDATING", "Checking the tool and its inputs")
     if tool not in ALL_TOOLS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -422,12 +490,21 @@ async def generate_tool(
         system_prompt = str(tool_input.get("system_prompt") or default_system)
         if playbook_ctx:
             system_prompt = f"{system_prompt}\n\nAttached playbook context:\n{playbook_ctx}"
-        text = _call_llm(
+        await _dispatch(progress, playbook_ctx, "the language model")
+        text = await asyncio.to_thread(
+            _call_llm,
             prompt,
             system_prompt,
             int(tool_input.get("max_tokens") or 2048),
             tool_input,
         )
+        progress.advance("VALIDATING_OUTPUT", "Checking the model's answer")
+        if not (text or "").strip():
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="ENGINE_EMPTY_OUTPUT: the LLM returned an empty answer",
+            )
+        progress.advance("COMPLETED", "Answer ready")
         return {
             "generation_id": gen_id,
             "status": "succeeded",
@@ -459,6 +536,7 @@ async def generate_tool(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="videogen requires a prompt describing the motion and scene",
             )
+        await _dispatch(progress, playbook_ctx, "MiniMax H3 / PinkCherry")
         try:
             video_bytes, mime_type, meta = await h3.generate(prompt, references)
         except h3.H3Error as exc:
@@ -483,6 +561,7 @@ async def generate_tool(
                 detail=f"ENGINE_ERROR: {message}",
             ) from exc
 
+        progress.advance("VALIDATING_OUTPUT", "Checking and storing the rendered video")
         stored = await _persist_bytes(
             db,
             video_bytes,
@@ -496,9 +575,11 @@ async def generate_tool(
                 "engine_meta": meta,
                 "playbook_id": tool_input.get("playbook_id"),
             },
+            owner_id=owner_id,
         )
         stored["width"] = tool_input.get("width")
         stored["height"] = tool_input.get("height")
+        progress.advance("COMPLETED", "Video stored")
         return {
             "generation_id": gen_id,
             "status": "succeeded",

@@ -1,517 +1,282 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
-import {
-  Download,
-  Play,
-  Pause,
-  SkipBack,
-  SkipForward,
-  RotateCcw,
-  Maximize2,
-  Film,
-  Layers,
-  GitBranch,
-  Grid,
-  Sparkles,
-  Repeat
-} from 'lucide-react';
-import { StudioAsset, CanvasViewMode } from '../lib/types';
+import React, { useCallback, useState } from 'react';
+import { Code2, Grid3x3, PanelLeftOpen, PanelRightClose, PanelRightOpen, RectangleHorizontal } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { cn } from '@/lib/utils';
+import { selectActiveRun, selectAsset, selectCompare, selectSelected, useStudio } from '@/lib/studio/store';
+import { useGeneration } from '@/lib/studio/useGeneration';
+import { CanvasViewMode } from '@/lib/types';
+import { FloatingComposer } from './FloatingComposer';
+import { PipelineBuilder } from './PipelineBuilder';
+import { IconButton } from './studio/IconButton';
+import { AnalysisPane } from './canvas/AnalysisPane';
+import { CompareView } from './canvas/CompareView';
+import { ContextBar } from './canvas/ContextBar';
+import { LineageView } from './canvas/LineageView';
+import { ProgressStrip } from './canvas/ProgressStrip';
+import { StageFrame } from './canvas/StageFrame';
+import { StageSlate } from './canvas/StageSlate';
+import { VariationsView } from './canvas/VariationsView';
+import { usePipeline } from '@/lib/studio/usePipeline';
 
-interface CenterCanvasProps {
-  activeMode: CanvasViewMode;
-  onChangeMode: (mode: CanvasViewMode) => void;
-  selectedAsset: StudioAsset | null;
-  referenceAsset: StudioAsset | null;
-  assets: StudioAsset[];
-  onSelectAsset: (asset: StudioAsset) => void;
-  isGenerating: boolean;
-  stageText: string;
-  stageIndex: number;
-  framingGuidesVisible: boolean;
-  activeAspectMask: string;
-  onChangeAspectMask: (mask: string) => void;
-  motionPreset: string;
-  motionSpeed: number;
-  showMotionHud: boolean;
-  loopEnabled: boolean;
-  onToggleLoop: () => void;
-  grade: { exposure: number; contrast: number; saturation: number; warmth: number };
-  transportFps: number;
-  onToggleFavorite?: (assetId: string) => void;
-  favoriteIds?: string[];
-}
+const VIEWS: { id: CanvasViewMode; label: string }[] = [
+  { id: 'single', label: 'Stage' },
+  { id: 'compare', label: 'Compare' },
+  { id: 'variations', label: 'Variations' },
+  { id: 'lineage', label: 'Lineage' },
+];
 
-export const CenterCanvas: React.FC<CenterCanvasProps> = ({
-  activeMode,
-  onChangeMode,
-  selectedAsset,
-  referenceAsset,
-  assets,
-  onSelectAsset,
-  isGenerating,
-  stageText,
-  stageIndex,
-  framingGuidesVisible,
-  activeAspectMask,
-  onChangeAspectMask,
-  motionPreset,
-  motionSpeed,
-  showMotionHud,
-  loopEnabled,
-  onToggleLoop,
-  grade,
-  transportFps,
-}) => {
-  const [zoomLevel, setZoomLevel] = useState<number>(1);
-  const [compareSplit, setCompareSplit] = useState<number>(50);
-  const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [currentTimecode, setCurrentTimecode] = useState<string>('00:00:00:00');
-  const [timelinePercent, setTimelinePercent] = useState<number>(0);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const mediaFilter = `brightness(${1 + grade.exposure / 4}) contrast(${grade.contrast}%) saturate(${grade.saturation}%) sepia(${Math.max(0, grade.warmth) / 80}) hue-rotate(${grade.warmth * 1.2}deg)`;
+const MATTES = [
+  { id: 'none', label: 'No matte' },
+  { id: 'scope', label: '2.39:1 scope' },
+  { id: 'flat', label: '1.85:1 flat' },
+  { id: 'tv', label: '16:9' },
+  { id: 'reel', label: '9:16 vertical' },
+] as const;
 
-  const scrubberRef = useRef<HTMLDivElement>(null);
+/** Region 3 — the stage. The creative asset is visually primary (Bible §25). */
+export function CenterCanvas({ composerRef }: { composerRef: React.RefObject<HTMLTextAreaElement> }) {
+  const { state, dispatch } = useStudio();
+  const { retry, upscale, variation } = useGeneration();
+  const pipeline = usePipeline();
+  const [composerH, setComposerH] = useState(150);
+  const [zoom, setZoom] = useState<'fit' | 1 | 2>('fit');
 
-  const PROGRESS_STAGES = [
-    'Understanding your request',
-    'Planning the generation',
-    'Preparing the workflow',
-    'Creating & Synthesizing',
-    'Checking the result with KHF',
-    'Refining when necessary',
-    'Finishing & Delivery'
-  ];
+  const selected = selectSelected(state);
+  const compare = selectCompare(state);
+  const activeRun = selectActiveRun(state);
+  const lastRun = state.runs[0] || null;
+  const { view, developer, guides, matte, fps } = state.ui;
+  const analysisRun = state.runs.find((r) => r.id === state.ui.analysisRunId) || null;
+  const before = compare || selectAsset(state, selected?.parentId);
 
-  // Video Timecode sync
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
+  // Routing notices live in the composer, next to the action they affect.
+  // The slate only repeats the one fact that blocks everything: no API.
+  const engineNotice = state.system.engineError ? `The studio API isn't reachable: ${state.system.engineError}` : null;
 
-    const handleTimeUpdate = () => {
-      const cur = video.currentTime;
-      const dur = video.duration || 1;
-      setTimelinePercent((cur / dur) * 100);
+  const setView = (v: CanvasViewMode) => dispatch({ type: 'SET_VIEW', view: v });
+  const focusComposer = useCallback(() => composerRef.current?.focus(), [composerRef]);
 
-      const hours = Math.floor(cur / 3600).toString().padStart(2, '0');
-      const mins = Math.floor((cur % 3600) / 60).toString().padStart(2, '0');
-      const secs = Math.floor(cur % 60).toString().padStart(2, '0');
-      const frames = Math.floor((cur % 1) * transportFps).toString().padStart(2, '0');
-      setCurrentTimecode(`${hours}:${mins}:${secs}:${frames}`);
-    };
-
-    video.addEventListener('timeupdate', handleTimeUpdate);
-    return () => video.removeEventListener('timeupdate', handleTimeUpdate);
-  }, [selectedAsset]);
-
-  const togglePlayPause = () => {
-    if (!videoRef.current) return;
-    if (videoRef.current.paused) {
-      videoRef.current.play();
-      setIsPlaying(true);
-    } else {
-      videoRef.current.pause();
-      setIsPlaying(false);
-    }
+  const startWith = (intent: 'edit' | 'animate') => {
+    if (!selected) return;
+    dispatch({ type: 'CLEAR_REFERENCES' });
+    dispatch({ type: 'ADD_REFERENCE', asset: selected });
+    dispatch({ type: 'SET_INTENT', intent });
+    focusComposer();
   };
 
-  const shuttle = (dir: number) => {
-    if (!videoRef.current) return;
-    videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime + dir * motionSpeed);
-  };
+  // Space reserved below/around the frame so media never sits under the composer.
+  const hasBar = !!selected && (view === 'single' || view === 'compare' || view === 'variations');
+  const padBottom = composerH + (hasBar ? 76 : 32);
+  const reserved = 52 + 44 + padBottom + 48;
 
-  useEffect(() => {
-    if (videoRef.current) videoRef.current.loop = loopEnabled;
-  }, [loopEnabled, selectedAsset]);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement | null)?.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-      if (e.key === 'j' || e.key === 'J') shuttle(-1);
-      if (e.key === 'k' || e.key === 'K') togglePlayPause();
-      if (e.key === 'l' || e.key === 'L') shuttle(1);
-      if (e.key === 'r' || e.key === 'R') onToggleLoop();
-      if (e.key === 'ArrowLeft') stepFrame(false);
-      if (e.key === 'ArrowRight') stepFrame(true);
-      if (e.key === ' ') {
-        e.preventDefault();
-        togglePlayPause();
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  });
-
-  const stepFrame = (forward: boolean) => {
-    if (!videoRef.current) return;
-    videoRef.current.currentTime += forward ? 1 / 24 : -1 / 24;
-  };
-
-  const handleScrub = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!scrubberRef.current || !videoRef.current) return;
-    const rect = scrubberRef.current.getBoundingClientRect();
-    const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    videoRef.current.currentTime = pos * (videoRef.current.duration || 1);
-  };
-
-  const handleDownload = () => {
-    if (!selectedAsset) return;
-    const a = document.createElement('a');
-    a.href = selectedAsset.downloadUrl || selectedAsset.url;
-    a.download = `${selectedAsset.id}_keystone.${selectedAsset.type === 'video' ? 'mp4' : 'png'}`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  };
+  const showSlate = view === 'single' && !selected;
+  const slateRun = activeRun || (lastRun && lastRun.status === 'failed' && !selected ? lastRun : null);
 
   return (
-    <main className="region-canvas" role="main">
-      {/* Top Canvas View Tabs */}
-      <div className="canvas-toolbar">
-        <div className="canvas-mode-tabs" role="tablist">
-          <button
-            className={`mode-tab ${activeMode === 'single' ? 'active' : ''}`}
-            onClick={() => onChangeMode('single')}
-          >
-            <span>Primary Canvas</span>
-          </button>
-          <button
-            className={`mode-tab ${activeMode === 'compare' ? 'active' : ''}`}
-            onClick={() => onChangeMode('compare')}
-          >
-            <span>Split Compare</span>
-          </button>
-          <button
-            className={`mode-tab ${activeMode === 'video' ? 'active' : ''}`}
-            onClick={() => onChangeMode('video')}
-          >
-            <Film size={13} style={{ marginRight: 4 }} />
-            <span>MiniMax Video</span>
-          </button>
-          <button
-            className={`mode-tab ${activeMode === 'variations' ? 'active' : ''}`}
-            onClick={() => onChangeMode('variations')}
-          >
-            <Grid size={13} style={{ marginRight: 4 }} />
-            <span>Variations</span>
-          </button>
-          <button
-            className={`mode-tab ${activeMode === 'lineage' ? 'active' : ''}`}
-            onClick={() => onChangeMode('lineage')}
-          >
-            <GitBranch size={13} style={{ marginRight: 4 }} />
-            <span>Lineage DAG</span>
-          </button>
+    <main
+      className="ks-stage relative flex min-w-0 flex-col overflow-hidden [grid-area:stage]"
+      style={{ ['--ks-reserved' as any]: `${reserved}px` }}
+      aria-label="Stage"
+    >
+      {/* Canvas header */}
+      <div className="flex h-11 shrink-0 items-center gap-2 px-3">
+        {!state.ui.panelOpen && (
+          <IconButton label="Show panel" shortcut="[" onClick={() => dispatch({ type: 'TOGGLE_PANEL', open: true })} className="max-md:hidden">
+            <PanelLeftOpen />
+          </IconButton>
+        )}
+        <div className="flex items-center gap-0.5 rounded-control p-0.5" role="tablist" aria-label="Canvas view">
+          {VIEWS.map((v) => (
+            <button
+              key={v.id}
+              role="tab"
+              aria-selected={view === v.id}
+              onClick={() => setView(v.id)}
+              className={cn(
+                'h-7 rounded-[7px] px-2.5 text-meta font-medium transition-colors duration-quick',
+                view === v.id ? 'bg-ks-lift text-ks-ink' : 'text-ks-ink-3 hover:text-ks-ink',
+              )}
+            >
+              {v.label}
+            </button>
+          ))}
+          {developer && (
+            <button
+              role="tab"
+              aria-selected={view === 'pipeline'}
+              onClick={() => setView('pipeline')}
+              className={cn(
+                'flex h-7 items-center gap-1 rounded-[7px] px-2.5 text-meta font-medium',
+                view === 'pipeline' ? 'bg-ks-lift text-ks-ink' : 'text-ks-ink-3 hover:text-ks-ink',
+              )}
+            >
+              <Code2 className="size-3.5" /> Pipeline
+            </button>
+          )}
         </div>
 
-        <div className="canvas-actions">
-          {/* Zoom loupe */}
-          <div className="zoom-segment-control">
-            <button
-              className={`zoom-btn ${zoomLevel === 1 ? 'active' : ''}`}
-              onClick={() => setZoomLevel(1)}
-            >
-              1X
-            </button>
-            <button
-              className={`zoom-btn ${zoomLevel === 2 ? 'active' : ''}`}
-              onClick={() => setZoomLevel(2)}
-            >
-              2X
-            </button>
-            <button
-              className={`zoom-btn ${zoomLevel === 4 ? 'active' : ''}`}
-              onClick={() => setZoomLevel(4)}
-            >
-              4X
-            </button>
-          </div>
-
-          {/* Download button */}
-          <button
-            className="icon-btn"
-            onClick={handleDownload}
-            disabled={!selectedAsset}
-            title="Download Persisted Asset"
-          >
-            <Download size={14} />
-            <span>Download</span>
-          </button>
-        </div>
-      </div>
-
-      {/* 7-Stage Customer Progress Banner */}
-      {isGenerating && (
-        <div className="progress-overlay-card" role="status" aria-live="polite">
-          <div className="progress-header">
-            <div className="progress-stage-label">
-              <span className="pulse-ring" />
-              <span>{stageText || 'Generating creative asset...'}</span>
-            </div>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11.5px', color: 'var(--text-secondary)' }}>
-              Stage {stageIndex + 1} / 7
-            </span>
-          </div>
-          <div className="progress-steps-track">
-            {PROGRESS_STAGES.map((label, idx) => (
-              <div
-                key={label}
-                className={`progress-step-pill ${idx < stageIndex ? 'done' : idx === stageIndex ? 'active' : ''}`}
-                title={`${idx + 1}. ${label}`}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Center Stage Viewport */}
-      <div className="stage-viewport-wrapper">
-        <div className="canvas-stage">
-          {activeMode === 'single' && (
-            <div className="media-viewport-container">
-              {selectedAsset ? (
-                selectedAsset.type === 'video' ? (
-                  <video
-                    ref={videoRef}
-                    src={selectedAsset.url}
-                    controls
-                    loop={loopEnabled}
-                    className="stage-primary-media"
-                    style={{ transform: `scale(${zoomLevel})`, filter: mediaFilter }}
-                  />
-                ) : (
-                  <img
-                    src={selectedAsset.url}
-                    alt={selectedAsset.title}
-                    className="stage-primary-media"
-                    style={{ transform: `scale(${zoomLevel})`, transition: 'transform 0.2s ease', filter: mediaFilter }}
-                  />
-                )
-              ) : (
-                <div style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
-                  <Sparkles size={36} style={{ margin: '0 auto 12px auto', color: 'var(--accent-cyan)' }} />
-                  <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>
-                    Creative Canvas Stage
-                  </div>
-                  <p style={{ fontSize: 12, marginTop: 4 }}>
-                    Select any tool on the left and enter your creative intent below.
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeMode === 'compare' && (
-            <div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}>
-              {selectedAsset ? (
-                <>
-                  <img
-                    src={referenceAsset ? referenceAsset.url : selectedAsset.url}
-                    alt="Reference / Before"
-                    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'contain' }}
-                  />
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: `${compareSplit}%`,
-                      height: '100%',
-                      overflow: 'hidden',
-                      borderRight: '2px solid var(--accent-cyan)',
-                    }}
-                  >
-                    <img
-                      src={selectedAsset.url}
-                      alt="Generated / After"
-                      style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'contain' }}
-                    />
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={compareSplit}
-                    onChange={(e) => setCompareSplit(Number(e.target.value))}
-                    style={{
-                      position: 'absolute',
-                      bottom: 20,
-                      left: '50%',
-                      transform: 'translateX(-50%)',
-                      width: '60%',
-                      accentColor: 'var(--accent-cyan)',
-                      zIndex: 10,
-                    }}
-                  />
-                </>
-              ) : (
-                <div style={{ textAlign: 'center', color: 'var(--text-muted)', paddingTop: '20%' }}>
-                  Compare mode requires at least one active asset.
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeMode === 'video' && (
-            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {selectedAsset && selectedAsset.type === 'video' ? (
-                <video
-                  ref={videoRef}
-                  src={selectedAsset.url}
-                  className="stage-primary-media"
-                  style={{ filter: mediaFilter }}
-                  loop={loopEnabled}
-                />
-              ) : (
-                <div style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
-                  <Film size={36} style={{ margin: '0 auto 12px auto', color: 'var(--accent-cyan)' }} />
-                  <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>
-                    No video on the stage
-                  </div>
-                  <p style={{ fontSize: 12, marginTop: 4 }}>
-                    Run a video tool or select a generated video asset. Demo footage is not used.
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeMode === 'variations' && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 14, padding: 20, overflowY: 'auto', height: '100%' }}>
-              {assets.map((ast) => (
-                <div
-                  key={ast.id}
-                  onClick={() => onSelectAsset(ast)}
-                  style={{
-                    borderRadius: 8,
-                    overflow: 'hidden',
-                    background: 'var(--bg-surface-2)',
-                    border: selectedAsset?.id === ast.id ? '2px solid var(--accent-cyan)' : '1px solid var(--border-subtle)',
-                    cursor: 'pointer',
-                  }}
+        <div className="ml-auto flex items-center gap-1">
+          {view === 'single' && selected && selected.type === 'image' && (
+            <div className="mr-1 flex items-center rounded-control text-meta" role="group" aria-label="Zoom">
+              {(['fit', 1, 2] as const).map((z) => (
+                <button
+                  key={String(z)}
+                  onClick={() => setZoom(z)}
+                  aria-pressed={zoom === z}
+                  className={cn('h-7 rounded-[7px] px-2 ks-num', zoom === z ? 'bg-ks-lift text-ks-ink' : 'text-ks-ink-3 hover:text-ks-ink')}
                 >
-                  <img src={ast.previewUrl || ast.url} alt={ast.title} style={{ width: '100%', height: 160, objectFit: 'cover' }} />
-                  <div style={{ padding: 8, fontSize: 11, color: 'var(--text-primary)' }}>{ast.title}</div>
-                </div>
+                  {z === 'fit' ? 'Fit' : `${z * 100}%`}
+                </button>
               ))}
             </div>
           )}
-
-          {activeMode === 'lineage' && (
-            <div style={{ padding: 24, color: 'var(--text-secondary)', overflow: 'auto', height: '100%' }}>
-              <GitBranch size={28} style={{ color: '#a5b4fc' }} />
-              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: '8px 0 12px' }}>
-                Asset Lineage DAG
-              </div>
-              {assets.length === 0 ? (
-                <div>No persisted assets yet, so there is no lineage to draw.</div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {assets.map((asset) => {
-                    const parent = assets.find((item) => item.id === asset.parentId);
-                    return (
-                      <button key={asset.id} onClick={() => onSelectAsset(asset)} style={{ textAlign: 'left', background: selectedAsset?.id === asset.id ? 'rgba(99,102,241,0.18)' : 'rgba(255,255,255,0.03)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: 10, color: 'inherit', cursor: 'pointer' }}>
-                        <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{asset.title}</div>
-                        <div style={{ fontSize: 11, fontFamily: 'var(--font-mono)' }}>
-                          {parent ? `${parent.title} -> ${asset.title}` : `Root / upload · ${asset.toolUsed || asset.type}`}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+          {view === 'single' && selected && selected.type !== 'audio' && (
+            <>
+              <IconButton label={guides ? 'Hide framing guides' : 'Show framing guides'} active={guides} onClick={() => dispatch({ type: 'UI', patch: { guides: !guides } })}>
+                <Grid3x3 />
+              </IconButton>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    aria-label="Cinema matte"
+                    className={cn(
+                      'flex h-8 items-center gap-1.5 rounded-control px-2 text-meta text-ks-ink-2 hover:bg-ks-lift hover:text-ks-ink',
+                      matte !== 'none' && 'bg-ks-lift text-ks-ink',
+                    )}
+                  >
+                    <RectangleHorizontal className="size-4" />
+                    <span className="max-lg:hidden">{MATTES.find((m) => m.id === matte)?.label}</span>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {MATTES.map((m) => (
+                    <DropdownMenuItem key={m.id} onSelect={() => dispatch({ type: 'UI', patch: { matte: m.id } })}>
+                      {m.label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
           )}
+          <IconButton
+            label={state.ui.inspectorOpen ? 'Hide inspector' : 'Show inspector'}
+            shortcut="]"
+            onClick={() => dispatch({ type: 'TOGGLE_INSPECTOR' })}
+          >
+            {state.ui.inspectorOpen ? <PanelRightClose /> : <PanelRightOpen />}
+          </IconButton>
         </div>
-
-        {/* Framing Overlays */}
-        {framingGuidesVisible && (
-          <div className="framing-grid-overlay" aria-hidden="true">
-            <div className="grid-rule horizontal top" />
-            <div className="grid-rule horizontal bottom" />
-            <div className="grid-rule vertical left" />
-            <div className="grid-rule vertical right" />
-            <div className="grid-safe-box title-safe" />
-            <div className="grid-safe-box action-safe" />
-            <div className="grid-crosshair" />
-          </div>
-        )}
-
-        {/* Aspect Ratio Mask */}
-        <div className="aspect-overlay-mask" data-mask={activeAspectMask} aria-hidden="true" />
-        <div className={`higgsfield-motion-hud ${showMotionHud ? '' : 'hidden'}`}>
-          <div className="motion-hud-header">
-            <span className="hud-title">HIGGSFIELD MOTION PATH</span>
-            <span className="hud-mode-pill">{motionPreset.toUpperCase()} · {motionSpeed.toFixed(1)}x</span>
-          </div>
-          <svg className="motion-spline-svg" viewBox="0 0 300 80">
-            <path className="spline-guide-bg" d="M 10 70 Q 80 70, 150 40 T 290 10" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="2" />
-            <path className="spline-active-curve" d="M 10 70 Q 80 70, 150 40 T 290 10" fill="none" stroke="#06b6d4" strokeWidth="3" />
-            <circle className="spline-kf-point" cx="10" cy="70" r="5" fill="#f59e0b" />
-            <circle className="spline-kf-point" cx="150" cy="40" r="4" fill="#06b6d4" />
-            <circle className="spline-kf-point" cx="290" cy="10" r="5" fill="#6366f1" />
-          </svg>
-        </div>
-
       </div>
 
-      {/* Hollywood Cinema Transport Bar */}
-      <div className="cinema-transport-bar" role="region" aria-label="Playback Transport Controls">
-        <div className="transport-timecode-cluster">
-          <span className="timecode-label">TC</span>
-          <div className="smpte-digital-display">{currentTimecode}</div>
-          <span className="timecode-fps-badge">{transportFps} FPS</span>
-        </div>
-
-        <div className="transport-shuttle-cluster">
-          <button className="transport-btn" onClick={() => stepFrame(false)} title="Step Back 1 Frame">
-            <SkipBack size={14} />
-          </button>
-          <button className="transport-btn transport-btn-play" onClick={togglePlayPause} title="Play / Pause">
-            {isPlaying ? <Pause size={16} /> : <Play size={16} />}
-          </button>
-          <button className="transport-btn" onClick={() => stepFrame(true)} title="Step Forward 1 Frame">
-            <SkipForward size={14} />
-          </button>
-          <button className={`transport-btn ${loopEnabled ? 'active' : ''}`} onClick={onToggleLoop} title="Toggle Loop Mode (R)">
-            <Repeat size={14} />
-          </button>
-        </div>
-
-        <div className="transport-scrub-container" ref={scrubberRef} onClick={handleScrub} title="Drag / Click Timeline Scrubber">
-          <div className="scrub-ticks-track">
-            <span className="scrub-tick major" />
-            <span className="scrub-tick" />
-            <span className="scrub-tick" />
-            <span className="scrub-tick" />
-            <span className="scrub-tick major" />
-            <span className="scrub-tick" />
-            <span className="scrub-tick" />
-            <span className="scrub-tick" />
-            <span className="scrub-tick major" />
-          </div>
-          <div className="scrub-cached-range" style={{ width: '100%' }} />
-          <div className="scrub-playhead" style={{ left: `${timelinePercent}%` }}>
-            <div className="playhead-needle" />
-            <div className="playhead-badge">{currentTimecode.slice(3, 8)}</div>
-          </div>
-        </div>
-
-        {/* Aspect Ratio Framing Guide Pills */}
-        <div className="transport-matte-selector" title="Cinema Matte Aspect Mask">
-          <span className="matte-label">MASK</span>
-          {['none', 'scope', 'flat', 'tv', 'reel'].map((mask) => (
-            <button
-              key={mask}
-              className={`matte-pill ${activeAspectMask === mask ? 'active' : ''}`}
-              onClick={() => onChangeAspectMask(mask)}
-            >
-              {mask === 'none' ? 'Full' : mask === 'scope' ? '2.39:1' : mask === 'flat' ? '1.85:1' : mask === 'tv' ? '16:9' : '9:16'}
-            </button>
+      {/* Stage body — bottom padding keeps media clear of the floating composer */}
+      <div className="relative min-h-0 flex-1" style={{ paddingBottom: padBottom }}>
+        {view === 'single' &&
+          (showSlate ? (
+            <StageSlate
+              intent={state.composer.intent}
+              aspect={state.controls.aspect}
+              run={slateRun}
+              engineNotice={engineNotice}
+              onRetry={slateRun && slateRun.status === 'failed' ? () => retry(slateRun.id) : undefined}
+              onEditPrompt={focusComposer}
+            />
+          ) : (
+            selected && (
+              <StageFrame asset={selected} look={state.controls.look} zoom={zoom} guides={guides} matte={matte} fps={fps} />
+            )
           ))}
-        </div>
+
+        {view === 'compare' && (
+          <CompareView
+            after={selected}
+            before={before && before.id !== selected?.id ? before : null}
+            assets={state.library.assets}
+            fps={fps}
+            onPickBefore={(id) => dispatch({ type: 'SET_COMPARE', id })}
+          />
+        )}
+
+        {view === 'variations' && (
+          <VariationsView
+            selected={selected}
+            assets={state.library.assets}
+            runs={state.runs}
+            onSelect={(id) => dispatch({ type: 'SELECT_ASSET', id })}
+            onOpen={(id) => {
+              dispatch({ type: 'SELECT_ASSET', id });
+              setView('single');
+            }}
+          />
+        )}
+
+        {view === 'lineage' && (
+          <LineageView
+            assets={state.library.assets}
+            selectedId={selected?.id || null}
+            onSelect={(id) => dispatch({ type: 'SELECT_ASSET', id })}
+            onCompareWithParent={(id) => {
+              const a = selectAsset(state, id);
+              dispatch({ type: 'SELECT_ASSET', id });
+              dispatch({ type: 'SET_COMPARE', id: a?.parentId || null });
+              setView('compare');
+            }}
+          />
+        )}
+
+        {view === 'analysis' &&
+          (analysisRun ? (
+            <AnalysisPane
+              run={analysisRun}
+              asset={selectAsset(state, analysisRun.referenceIds[0]) || selected}
+              onClose={() => dispatch({ type: 'SHOW_ANALYSIS', runId: null })}
+              onUseAsPrompt={(text) => {
+                dispatch({ type: 'SET_PROMPT', prompt: text });
+                dispatch({ type: 'SET_INTENT', intent: 'create' });
+                dispatch({ type: 'SHOW_ANALYSIS', runId: null });
+                focusComposer();
+              }}
+            />
+          ) : (
+            <div className="flex size-full items-center justify-center text-body text-ks-ink-3">Ask something with Analyze to see the answer here.</div>
+          ))}
+
+        {view === 'pipeline' && developer && (
+          <div className="size-full overflow-auto p-4 ks-scroll">
+            <PipelineBuilder
+              steps={pipeline.steps}
+              onUpdateSteps={pipeline.setSteps}
+              onExecutePipeline={pipeline.execute}
+              isExecuting={pipeline.running}
+              onSelectAsset={(a) => dispatch({ type: 'SELECT_ASSET', id: a.id })}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Floating layer: progress, context bar, composer */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex flex-col items-center gap-2.5 px-3 pb-4 sm:px-5 sm:pb-5">
+        {activeRun && !showSlate && <ProgressStrip run={activeRun} />}
+        {selected && (view === 'single' || view === 'compare' || view === 'variations') && (
+          <ContextBar
+            asset={selected}
+            favorite={state.library.favorites.includes(selected.id)}
+            busy={!!activeRun}
+            onEdit={() => startWith('edit')}
+            onAnimate={() => startWith('animate')}
+            onVariation={variation}
+            onUpscale={upscale}
+            onCompare={() => setView('compare')}
+            onReference={() => {
+              dispatch({ type: 'ADD_REFERENCE', asset: selected });
+              focusComposer();
+            }}
+            onFavorite={() => dispatch({ type: 'TOGGLE_FAVORITE', id: selected.id })}
+          />
+        )}
+        <FloatingComposer onHeight={setComposerH} inputRef={composerRef} />
       </div>
     </main>
   );
-};
+}

@@ -5,9 +5,9 @@ import { Settings, X } from 'lucide-react';
 import {
   fetchAudioConfig,
   fetchCognitionStatus,
-  fetchCurrentUser,
   fetchEngineStatus,
 } from '../../lib/api';
+import { AccountSettings } from '../auth/AccountSettings';
 
 const FLAGS_KEY = 'keystone.studio.flags';
 
@@ -45,25 +45,25 @@ interface SettingsModalProps {
   open: boolean;
   onClose: () => void;
   onFlagsSaved?: (flags: StudioFlags) => void;
+  /** Open straight on the account tab (sign-in, API key, dev bypass). */
+  initialTab?: 'account' | null;
 }
 
-export const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose, onFlagsSaved }) => {
+export const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose, onFlagsSaved, initialTab }) => {
   const [tab, setTab] = useState<SettingsTab>('config');
   const [flags, setFlags] = useState<StudioFlags>(DEFAULT_FLAGS);
   const [saveNote, setSaveNote] = useState<string | null>(null);
   const [engine, setEngine] = useState<any>(null);
   const [cognition, setCognition] = useState<any>(null);
   const [audio, setAudio] = useState<any>(null);
-  const [identity, setIdentity] = useState<any>(null);
-  const [identityError, setIdentityError] = useState<string | null>(null);
   const [engineError, setEngineError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
+    if (initialTab === 'account') setTab('security');
     setFlags(loadFlags());
     setSaveNote(null);
     setEngineError(null);
-    setIdentityError(null);
     fetchEngineStatus()
       .then(setEngine)
       .catch((err: any) => setEngineError(err?.message || 'Could not reach Colab engine status.'));
@@ -73,16 +73,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose, onF
     fetchAudioConfig()
       .then(setAudio)
       .catch(() => setAudio(null));
-    fetchCurrentUser()
-      .then((user) => {
-        setIdentity(user);
-        setIdentityError(null);
-      })
-      .catch((err: any) => {
-        setIdentity(null);
-        setIdentityError(err?.message || 'Not signed in.');
-      });
-  }, [open]);
+  }, [open, initialTab]);
 
   if (!open) return null;
 
@@ -108,7 +99,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose, onF
         <div className="modal-nav-tabs">
           <button className={`modal-nav-tab ${tab === 'config' ? 'active' : ''}`} onClick={() => setTab('config')}>Remote Config & Flags</button>
           <button className={`modal-nav-tab ${tab === 'engine' ? 'active' : ''}`} onClick={() => setTab('engine')}>Engine & Infrastructure</button>
-          <button className={`modal-nav-tab ${tab === 'security' ? 'active' : ''}`} onClick={() => setTab('security')}>Identity & Tokens</button>
+          <button className={`modal-nav-tab ${tab === 'security' ? 'active' : ''}`} onClick={() => setTab('security')}>Account & API keys</button>
         </div>
 
         {tab === 'config' && (
@@ -202,22 +193,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose, onF
         )}
 
         {tab === 'security' && (
-          <div style={{ padding: '18px 22px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {identityError && (
-              <div style={{ padding: 10, borderRadius: 8, border: '1px solid rgba(244,63,94,0.4)', color: '#fda4af', fontSize: 12 }}>{identityError}</div>
-            )}
-            <div>
-              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Account ID</label>
-              <input className="command-input" readOnly value={identity?.id || 'Not signed in'} style={{ fontFamily: 'var(--font-mono)', fontSize: 11, background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '6px 10px', width: '100%', color: 'var(--accent-cyan)' }} />
-            </div>
-            <div>
-              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Authenticated Account Email</label>
-              <input className="command-input" readOnly value={identity?.email || identity?.display_name || 'Not signed in'} style={{ fontFamily: 'var(--font-mono)', fontSize: 11, background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '6px 10px', width: '100%' }} />
-            </div>
-            <div>
-              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Bearer access token</label>
-              <textarea className="composer-textarea" readOnly value="Bearer tokens are held by the browser session and are not displayed here." style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5, height: 70, minHeight: 70, background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-subtle)', borderRadius: 6 }} />
-            </div>
+          <div style={{ overflowY: 'auto', flex: 1 }}>
+            <AccountSettings />
           </div>
         )}
       </div>
