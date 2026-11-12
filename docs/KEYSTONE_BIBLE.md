@@ -39,8 +39,7 @@ The platform may use cognitive and creative models, workflow engines, adapters, 
 11. Memory pressure is handled through discovery, offload, context reduction, concurrency reduction, controlled retry profiles, or infrastructure migration. It is not handled by silently changing the cognitive identity.
 12. `generate(goal, options) -> plan.v1` remains a supported compatibility contract.
 13. PromptAnatomy remains Role, Task, Context, Constraints, Output Format, and Reasoning.
-The original thirteen domain playbooks remain first-class prompt-engine data, joined by three extended operating modes (14 NSFW, 15 Hacker, 16 Freedom/YOLO) for sixteen playbooks total.
-
+14. The original thirteen domain playbooks remain first-class prompt-engine data, joined by three extended operating modes (14 NSFW, 15 Hacker, 16 Freedom/YOLO) for sixteen playbooks total.
 15. Kaggle is bootstrap infrastructure, not permanent architecture.
 16. Migration to dedicated infrastructure changes deployment and capacity, not KEYSTONE's identity or public contracts.
 17. KEYSTONE is proprietary and closed source. Git hosting, when used, must be private.

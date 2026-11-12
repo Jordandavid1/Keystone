@@ -213,7 +213,7 @@ export const TOOLS_CATALOG: Record<GenerativeToolId, ToolDefinition> = {
     badge: 'Duo Collab',
     icon: 'Users',
     credits: 2,
-    models: ['SEEDREAM_5_PRO', 'GENERAL'],
+    models: ['SEEDREAM_5_PRO', 'GENERAL', 'GENERAL_NSFW'],
     defaultModel: 'SEEDREAM_5_PRO',
     supportsAspectRatios: true,
     supportsTiers: true,
@@ -276,16 +276,20 @@ export const TOOLS_CATALOG: Record<GenerativeToolId, ToolDefinition> = {
     icon: 'Film',
     credits: 7,
     models: [
-      'wan@3.0',
+      'wan@2.7-nsfw',
       'wan@3.0-nsfw',
+      'wan@3.0-prime-nsfw',
+      'wan@2.2-lora',
+      'wan@2.2',
+      'seedance_2_5',
+      'seedance_2_0',
+      'wan@3.0',
       'wan@2.7',
       'kling@2.6',
-      'seedance_2_0',
-      'seedance_2_5',
       'minimax@3.0',
       'grok@4.1'
     ],
-    defaultModel: 'wan@3.0',
+    defaultModel: 'wan@2.7-nsfw',
     supportsAspectRatios: true,
     supportsTiers: false,
     inputsRequired: {
@@ -310,13 +314,16 @@ export const TOOLS_CATALOG: Record<GenerativeToolId, ToolDefinition> = {
     icon: 'Video',
     credits: 10,
     models: [
+      'wan@3.0-nsfw',
+      'wan@3.0-prime-nsfw',
+      'wan@2.7-nsfw',
+      'seedance_2_5',
+      'seedance_2_0',
       'wan@3.0',
       'wan@2.7',
-      'seedance_2_0',
-      'seedance_2_5',
       'minimax@3.0'
     ],
-    defaultModel: 'wan@3.0',
+    defaultModel: 'wan@3.0-nsfw',
     supportsAspectRatios: true,
     supportsTiers: false,
     inputsRequired: {},
@@ -337,17 +344,20 @@ export const TOOLS_CATALOG: Record<GenerativeToolId, ToolDefinition> = {
     icon: 'Repeat',
     credits: 12,
     models: [
+      'animate_nsfw',
+      'replace_nsfw',
+      'seedance_2_5_nsfw',
+      'wan3_0_nsfw',
+      'wan3_0_prime_nsfw',
       'kling_2_6_sfw',
       'replace_sfw',
-      'replace_nsfw',
       'animate_sfw',
-      'animate_nsfw',
       'dreamactor_m2',
       'seedance_2_0',
       'wan3_0',
       'minimax_3_0'
     ],
-    defaultModel: 'kling_2_6_sfw',
+    defaultModel: 'animate_nsfw',
     supportsAspectRatios: true,
     supportsTiers: false,
     inputsRequired: {
@@ -355,7 +365,7 @@ export const TOOLS_CATALOG: Record<GenerativeToolId, ToolDefinition> = {
       refAsset: true
     },
     defaultParameters: {
-      mode: 'kling_2_6_sfw',
+      mode: 'animate_nsfw',
       resolution: '720p',
       keep_original_sound: true,
       duration: 5
@@ -370,6 +380,8 @@ export const TOOLS_CATALOG: Record<GenerativeToolId, ToolDefinition> = {
     badge: 'Talking Head',
     icon: 'Mic',
     credits: 3,
+    models: ['GENERAL_NSFW', 'OMNIHUMAN'],
+    defaultModel: 'GENERAL_NSFW',
     supportsAspectRatios: false,
     supportsTiers: false,
     inputsRequired: {
@@ -377,7 +389,7 @@ export const TOOLS_CATALOG: Record<GenerativeToolId, ToolDefinition> = {
       audioAsset: true
     },
     defaultParameters: {
-      model: 'OMNIHUMAN'
+      model: 'GENERAL_NSFW'
     }
   },
 
