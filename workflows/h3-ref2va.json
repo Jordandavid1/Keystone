@@ -2081,11 +2081,11 @@
         }
       },
       "widgets_values": [
-        "MiniMaxh3 Turbo\\minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors",
+        "MiniMaxh3 Turbo/minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors",
         1
       ],
       "widgets_values_named": {
-        "lora_name": "MiniMaxh3 Turbo\\minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors",
+        "lora_name": "MiniMaxh3 Turbo/minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors",
         "strength_model": 1
       }
     },

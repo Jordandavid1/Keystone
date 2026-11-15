@@ -274,7 +274,7 @@ async def get_cognition_status() -> Dict[str, Any]:
     gpu_label = "No GPU telemetry reported"
     if comfy_url:
         try:
-            stats = ComfyUIClient(base_url=comfy_url).get_system_stats()
+            stats = ComfyUIClient().system_stats()
             devices = stats.get("devices") or []
             if devices:
                 total_bytes = sum(float(d.get("vram_total", 0)) for d in devices)

@@ -699,6 +699,8 @@ def build_minimax_h3_prompt_graph(
             for k, v in named_widgets.items():
                 if k in ("videopreview", "control_after_generate", "preview"):
                     continue
+                if k in ("lora_name", "unet_name", "ckpt_name") and isinstance(v, str):
+                    v = v.replace("\\", "/")
                 inputs[k] = v
 
         widgets = node.get("widgets_values")

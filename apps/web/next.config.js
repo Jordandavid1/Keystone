@@ -8,6 +8,10 @@ const nextConfig = {
         destination: 'http://127.0.0.1:8000/v1/:path*',
       },
       {
+        source: '/internal/:path*',
+        destination: 'http://127.0.0.1:8000/internal/:path*',
+      },
+      {
         source: '/admin/:path*',
         destination: 'http://127.0.0.1:8000/admin/:path*',
       },

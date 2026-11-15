@@ -7,7 +7,7 @@ critical slots, and 6-step execution paths per Bible §2 Invariant 14 & §6.
 
 from __future__ import annotations
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Tuple
 
 
 @dataclass(frozen=True)
@@ -41,6 +41,13 @@ class Playbook:
     domain_context: Dict[str, Any] = field(default_factory=dict)
     use_cases: List[Dict[str, Any]] = field(default_factory=list)
     skills: List[Dict[str, Any]] = field(default_factory=list)
+
+    @property
+    def bound_skills(self) -> List[str]:
+        return [
+            str(s.get("name") or s.get("id") or s) if isinstance(s, dict) else str(s)
+            for s in self.skills
+        ]
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -1223,3 +1230,29 @@ class PlaybookRegistry:
     def resolve_id(cls, playbook_id: str) -> str:
         norm = (playbook_id or "").strip().lower()
         return norm if norm in PLAYBOOKS_BY_ID else "general"
+
+    @classmethod
+    def classify(cls, goal: str) -> Tuple[Playbook, float, Optional[Dict[str, Any]]]:
+        text = (goal or "").lower()
+        best: Playbook = PLAYBOOKS_BY_ID["general"]
+        best_score = 0
+
+        for item in CANONICAL_PLAYBOOKS:
+            if item.id == "general":
+                continue
+            score = sum(1 for k in item.keywords if k in text)
+            if score > best_score:
+                best = item
+                best_score = score
+
+        confidence = min(0.5 + best_score * 0.15, 0.95) if best_score > 0 else 0.4
+        matched_uc: Optional[Dict[str, Any]] = None
+        best_uc_score = 0
+        for uc in best.use_cases:
+            uc_text = f"{uc.get('title', '')} {uc.get('summary', '')}".lower()
+            uc_score = sum(1 for w in text.split() if len(w) > 3 and w in uc_text)
+            if uc_score > best_uc_score:
+                best_uc_score = uc_score
+                matched_uc = uc
+
+        return best, confidence, matched_uc
