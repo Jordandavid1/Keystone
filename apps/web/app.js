@@ -84,8 +84,8 @@ const state = {
     credit_hold_estimate: 3
   },
   credits: {
-    balance: 1250,
-    hold: 3
+    balance: null,
+    hold: null
   },
   webContextUrl: null,
   activeDagStep: 0,
@@ -1115,7 +1115,7 @@ function renderCanvasStage() {
         <div style="font-size: 42px; margin-bottom: 8px;">💬</div>
         <div style="font-size: 18px; font-weight: 700; color: #c084fc; margin-bottom: 4px;">Direct Cognition Agent & Task Console</div>
         <div style="font-size: 12px; color: var(--text-secondary); max-width: 540px; margin-bottom: 16px; line-height: 1.5;">
-          Direct multi-turn dialog with <strong><code>huihui-ai/Huihui-Qwen3.8-27B-abliterated</code></strong>. Unrestricted creative brainstorming, live internet tool execution, and autonomous pipeline workflows.
+          Direct multi-turn dialog with <strong><code>OBLITERATUS/Qwen3.8-27B-OBLITERATED</code></strong>. Unrestricted creative brainstorming, live internet tool execution, and autonomous pipeline workflows.
         </div>
         <button id="btnOpenAgentChatFromStage" class="composer-submit-btn" style="background: linear-gradient(135deg, #a855f7, #06b6d4); font-size: 12px; padding: 8px 20px; border-radius: 6px; cursor: pointer;">
           Open Cognition Agent Chat Console
@@ -1284,18 +1284,26 @@ function renderCanvasStage() {
       });
     });
   } else if (state.activeMode === 'lineage') {
-    // ZenCreator Pro Visual Node Graph Workspace (Live Active DAG State)
+    // Live Execution Graph Inspector (reflects real configured runtimes and active prompt state)
     const asset = getSelectedAsset();
+    const composerVal = document.getElementById('composerInput') && document.getElementById('composerInput').value.trim();
     const currentPrompt = (asset && asset.prompt) ||
       (state.lastCompiledAnatomy && state.lastCompiledAnatomy.positive_prompt) ||
-      (document.getElementById('composerInput') && document.getElementById('composerInput').value) ||
-      'Cinematic Hollywood Scene';
+      composerVal ||
+      '';
     const promptHash = (state.lastCompiledAnatomy && state.lastCompiledAnatomy.prompt_hash) ||
-      (asset && asset.id ? 'sha256:' + asset.id.slice(0, 12) : 'sha256:genesis_root');
-    const assetId = asset ? asset.id.slice(0, 8) + '...' : 'Awaiting render';
-    const parentId = asset && asset.parentId ? asset.parentId.slice(0, 8) + '...' : 'None (Root Source)';
-    const workerId = 'kaggle-creative-comfyui';
-    const cognitionWorker = 'kaggle-cognition-t4x2';
+      (asset && asset.id ? 'asset:' + asset.id.slice(0, 12) : 'uncompiled');
+    const assetId = asset ? asset.id.slice(0, 8) : 'None';
+    const parentId = asset && asset.parentId ? asset.parentId.slice(0, 8) : 'None';
+    const cogOnline = Boolean(
+      (state.comfyStatus && state.comfyStatus.cognition_online) ||
+      (state.workerTelemetry.cognitionStatus && state.workerTelemetry.cognitionStatus.state === 'READY')
+    );
+    const comfyOnline = Boolean(state.comfyStatus && state.comfyStatus.online);
+    const workerId = (state.comfyStatus && state.comfyStatus.base_url) || 'Not Configured';
+    const cognitionWorker = (state.comfyStatus && state.comfyStatus.cognition_endpoint) ||
+      (state.workerTelemetry.cognitionStatus && state.workerTelemetry.cognitionStatus.active_endpoint) ||
+      'Not Configured';
     const activeStep = state.activeDagStep || 0;
 
     stage.innerHTML = `
@@ -1305,13 +1313,13 @@ function renderCanvasStage() {
           <div class="zen-node-socket socket-out"></div>
           <div class="zen-node-header">
             <span class="zen-node-title">1. PromptSource</span>
-            <span class="zen-node-status" style="color: #34d399;">✔ READY</span>
+            <span class="zen-node-status" style="color: ${currentPrompt ? '#34d399' : '#f59e0b'};">${currentPrompt ? '✔ READY' : 'AWAITING'}</span>
           </div>
           <div class="zen-node-body">
             <div><strong>Playbook:</strong> ${state.activePlaybook}</div>
-            <div style="font-size: 10px; color: #cbd5e1; word-break: break-all;">"${currentPrompt.slice(0, 42)}..."</div>
+            <div style="font-size: 10px; color: #cbd5e1; word-break: break-all;">${currentPrompt ? '"' + currentPrompt.slice(0, 42) + (currentPrompt.length > 42 ? '..."' : '"') : '<em>Enter a prompt below</em>'}</div>
             <div><strong>Aspect:</strong> ${state.activeAspect}</div>
-            <div style="color: #94a3b8; font-size: 9.5px;">Parent: ${parentId}</div>
+            <div style="color: #94a3b8; font-size: 9.5px;">Asset: ${assetId} • Parent: ${parentId}</div>
           </div>
         </div>
 
@@ -1323,13 +1331,13 @@ function renderCanvasStage() {
           <div class="zen-node-socket socket-out"></div>
           <div class="zen-node-header">
             <span class="zen-node-title">2. Qwen Cognition</span>
-            <span class="zen-node-status" style="color: #38bdf8;">ACTIVE</span>
+            <span class="zen-node-status" style="color: ${cogOnline ? '#34d399' : '#f59e0b'};">${cogOnline ? 'ONLINE' : 'STANDBY'}</span>
           </div>
           <div class="zen-node-body">
             <div><strong>Model:</strong> Qwen 27B Pinned</div>
-            <div><strong>Worker:</strong> ${cognitionWorker}</div>
+            <div style="word-break: break-all;"><strong>Endpoint:</strong> ${cognitionWorker}</div>
             <div><strong>Anatomy:</strong> 6-Part Structured</div>
-            <div style="color: #38bdf8; font-size: 9.5px;">${promptHash.slice(0, 18)}...</div>
+            <div style="color: #38bdf8; font-size: 9.5px;">${promptHash.slice(0, 22)}</div>
           </div>
         </div>
 
@@ -1341,12 +1349,12 @@ function renderCanvasStage() {
           <div class="zen-node-socket socket-out"></div>
           <div class="zen-node-header">
             <span class="zen-node-title">3. PII & Aikido Shield</span>
-            <span class="zen-node-status" style="color: #34d399;">LOCKED</span>
+            <span class="zen-node-status" style="color: #34d399;">ARMED</span>
           </div>
           <div class="zen-node-body">
             <div><strong>Vault:</strong> AES-256-GCM</div>
             <div><strong>Delimiters:</strong> Quarantined</div>
-            <div style="color: #34d399;">Threat: SAFE (0 leaks)</div>
+            <div style="color: #34d399;">Pre-dispatch policy gate</div>
             <div style="color: #94a3b8; font-size: 9.5px;">Envelope Signed HMAC-256</div>
           </div>
         </div>
@@ -1359,12 +1367,12 @@ function renderCanvasStage() {
           <div class="zen-node-socket socket-out"></div>
           <div class="zen-node-header">
             <span class="zen-node-title">4. ComfyUI Latent</span>
-            <span class="zen-node-status" style="color: #a78bfa;">ONLINE</span>
+            <span class="zen-node-status" style="color: ${comfyOnline ? '#34d399' : '#fb7185'};">${comfyOnline ? 'ONLINE' : 'OFFLINE'}</span>
           </div>
           <div class="zen-node-body">
-            <div><strong>Engine:</strong> SDXL Studio</div>
-            <div><strong>Worker:</strong> ${workerId}</div>
-            <div><strong>Sampler:</strong> euler_ancestral</div>
+            <div><strong>Engine:</strong> ComfyUI Graph</div>
+            <div style="word-break: break-all;"><strong>Target:</strong> ${workerId}</div>
+            <div><strong>Sampler:</strong> ${(asset && asset.sampler) || 'euler'}</div>
             <div><strong>Steps:</strong> ${(asset && asset.steps) || { draft: 15, high: 25, master: 40 }[state.activeQuality] || 25}</div>
           </div>
         </div>
@@ -1440,14 +1448,11 @@ async function fetchRemoteConfig() {
         const hudFps = document.getElementById('hudFramerate');
         if (hudFps) hudFps.textContent = `${state.fps}.000`;
       }
-      if (state.remoteConfig.credit_hold_estimate) {
-        state.credits.hold = Number(state.remoteConfig.credit_hold_estimate) || 3;
-        const holdBadge = document.getElementById('creditHoldBadge');
-        if (holdBadge) holdBadge.textContent = `HOLD: ${state.credits.hold}`;
-      }
     }
   } catch (err) {
-    console.warn('Remote config fetch fallback to in-app defaults:', err);
+    console.warn('Remote config fetch failed:', err);
+    const badge = document.getElementById('remoteConfigStatusBadge');
+    if (badge) badge.textContent = 'Remote Config: Offline';
   }
 }
 
@@ -1480,7 +1485,7 @@ async function fetchComfyStatus() {
     }
     if (comfyText) {
       const wfNames = Object.keys(status.workflows || {}).join(', ');
-      comfyText.textContent = `Endpoint: ${status.base_url} (${status.online ? 'Connected' : 'Unreachable'}) • Workflows: ${wfNames || 'h3-ref2va, PinkCherry_Ref2V'} (Clean)`;
+      comfyText.textContent = `Endpoint: ${status.base_url || 'Not Configured'} (${status.online ? 'Connected' : 'Offline'}) • Workflows: ${wfNames || 'None detected'}`;
     }
     if (cogBadge) {
       cogBadge.textContent = status.cognition_online ? 'ONLINE' : 'CONFIGURED';
@@ -1563,7 +1568,14 @@ async function fetchWorkerTelemetry() {
 
     const cogWorker = activeWorkers.find(w => (w.capabilities || []).some(c => c.includes('cognition') || c.includes('qwen'))) || activeWorkers[0];
     const activeEndpoint = (comfyStatus && comfyStatus.cognition_endpoint) || cogData.active_endpoint || (cogWorker && cogWorker.tunnel_url) || 'Not Configured';
-    const comfyTunnel = (comfyStatus && comfyStatus.base_url) || cogData.comfy_endpoint || 'http://127.0.0.1:8188';
+    const comfyTunnel = (comfyStatus && comfyStatus.base_url) || cogData.comfy_endpoint || 'Not Configured';
+
+    const agentBadge = document.getElementById('agentChatRuntimeBadge');
+    if (agentBadge) {
+      agentBadge.textContent = cogOnline ? 'ONLINE' : 'STANDBY';
+      agentBadge.style.color = cogOnline ? '#34d399' : '#f59e0b';
+      agentBadge.style.background = cogOnline ? 'rgba(52, 211, 153, 0.15)' : 'rgba(245, 158, 11, 0.15)';
+    }
 
     if (workerModalState) {
       workerModalState.textContent = activeWorkers.length > 0
@@ -1580,10 +1592,10 @@ async function fetchWorkerTelemetry() {
       workerModalLatency.textContent = lat !== null ? `${lat} ms` : (cogOnline ? 'LIVE' : 'STANDBY');
     }
     if (workerModalId) {
-      workerModalId.textContent = activeWorkers.map(w => w.worker_id).join(', ') || 'cloudflare-tunnel-bridge';
+      workerModalId.textContent = activeWorkers.map(w => w.worker_id).join(', ') || 'No Registered Workers';
     }
     if (workerModalModel) {
-      workerModalModel.textContent = cogData.pinned_model || 'huihui-ai/Huihui-Qwen3.8-27B-abliterated';
+      workerModalModel.textContent = cogData.pinned_model || 'OBLITERATUS/Qwen3.8-27B-OBLITERATED';
     }
     if (workerModalDriver) {
       workerModalDriver.textContent = activeEndpoint;
@@ -1969,7 +1981,7 @@ async function uploadMediaFiles(files) {
   if (stageText) stageText.textContent = `Uploading ${files.length} media file(s)...`;
 
   const session = await ensureWorkspaceSession();
-  const token = session.token || localStorage.getItem('keystone_token') || 'local_dev_token';
+  const token = session.token || localStorage.getItem('keystone_token') || '';
 
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
@@ -3300,13 +3312,6 @@ document.addEventListener('DOMContentLoaded', () => {
     clarSlider.addEventListener('input', (e) => valClar.textContent = Number(e.target.value).toFixed(2));
   }
 
-  document.querySelectorAll('.btn-sample-script').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const input = document.getElementById('ttsTextInput');
-      if (input && btn.dataset.sample) input.value = btn.dataset.sample;
-    });
-  });
-
   // ============================================================================
   // Left Sidebar Explorer Collapse
   // ============================================================================
@@ -3405,48 +3410,25 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!stream) return;
 
     if (!state.agentChatHistory || state.agentChatHistory.length === 0) {
+      const cogState = state.workerTelemetry && state.workerTelemetry.cognitionStatus;
+      const isOnline = Boolean((state.comfyStatus && state.comfyStatus.cognition_online) || (cogState && cogState.state === 'READY'));
+      const endpointLabel = (state.comfyStatus && state.comfyStatus.cognition_endpoint) || (cogState && cogState.active_endpoint) || 'Not Configured';
       stream.innerHTML = `
         <div class="chat-msg-row assistant">
           <div class="chat-avatar-icon qwen">🧠</div>
           <div class="chat-bubble-content">
             <div class="chat-bubble-header">
               <span style="font-weight: 700; color: #c084fc;">Qwen 27B Abliterated Cognition</span>
-              <span style="font-size: 10px; color: var(--text-muted); font-family: var(--font-mono);">Bible § 39 Online</span>
+              <span style="font-size: 10px; color: ${isOnline ? '#34d399' : '#f59e0b'}; font-family: var(--font-mono);">${isOnline ? 'Endpoint Ready' : 'Standby — No Canned Replies'}</span>
             </div>
             <div>
-              Welcome to your dedicated creative intelligence console. I am <strong><code>huihui-ai/Huihui-Qwen3.8-27B-abliterated</code></strong>, running on dual NVIDIA T4 GPUs with active tensor parallelism.
+              Messages dispatch directly to <strong><code>OBLITERATUS/Qwen3.8-27B-OBLITERATED</code></strong> at <code>${escapeHtml(endpointLabel)}</code>.
               <br><br>
-              You can converse directly with me like ChatGPT or Gemini: ask technical cinematography questions, brainstorm shot lists, analyze lighting recipes, or instruct me to <strong>search the live internet</strong> and <strong>autonomously generate or upscale studio assets</strong>. What would you like to build?
+              ${isOnline ? 'Enter a prompt below to query the live model directly.' : 'Configure a live OpenAI-compatible runtime URL in Settings or Admin to receive real completions.'}
             </div>
-          </div>
-        </div>
-
-        <div class="chat-starter-grid">
-          <div class="chat-starter-card" data-prompt="Who are you, what model is loaded, and what capabilities do you have?">
-            <div class="chat-starter-title"><span>💬</span> Model Identity</div>
-            <div class="chat-starter-desc">Explain the Qwen 27B abliterated architecture, dual T4 tensor parallelism, and tools.</div>
-          </div>
-          <div class="chat-starter-card" data-prompt="Search the internet for current 2026 cyberpunk visual trends and give me color palettes">
-            <div class="chat-starter-title"><span>🌐</span> Web Research Trends</div>
-            <div class="chat-starter-desc">Perform live DuckDuckGo lookup on 2026 aesthetics and return sourced citations.</div>
-          </div>
-          <div class="chat-starter-card" data-prompt="Look up recent sci-fi movies on the internet and generate an image for a futuristic Tokyo alley">
-            <div class="chat-starter-title"><span>🎨</span> Search & Generate Asset</div>
-            <div class="chat-starter-desc">Research visual mood online and dispatch real ComfyUI image render to Stage.</div>
-          </div>
-          <div class="chat-starter-card" data-prompt="Analyze cinematic lighting: How to achieve Kodak 2383 anamorphic lens flare?">
-            <div class="chat-starter-title"><span>🎥</span> Masterclass Direction</div>
-            <div class="chat-starter-desc">Deconstruct composition, optical flare, T-stop, and Hollywood LUT color timing.</div>
           </div>
         </div>
       `;
-
-      stream.querySelectorAll('.chat-starter-card').forEach(card => {
-        card.addEventListener('click', () => {
-          const prompt = card.dataset.prompt;
-          if (prompt) sendAgentPrompt(prompt);
-        });
-      });
       return;
     }
 
@@ -3602,24 +3584,32 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnStop) btnStop.addEventListener('click', stopHandler);
 
     try {
-      const session = await ensureWorkspaceSession();
-      const token = session.token || localStorage.getItem('keystone_token') || 'local_dev_token';
-
-      const resp = await fetch('/v1/cognition/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        signal: abortController.signal,
-        body: JSON.stringify({
-          messages: state.agentChatHistory.map(m => ({ role: m.role, content: m.content })),
-          web_search: state.chatWebSearchEnabled !== false,
-          allow_generation: state.chatGenEnabled !== false,
-          project_id: state.activeProjectId,
-          session_id: state.currentSessionId
-        })
+      const requestBody = JSON.stringify({
+        messages: state.agentChatHistory.map(m => ({ role: m.role, content: m.content })),
+        web_search: state.chatWebSearchEnabled !== false,
+        allow_generation: state.chatGenEnabled !== false,
+        project_id: state.activeProjectId,
+        session_id: state.currentSessionId
       });
+
+      const dispatchChat = async (forceRefresh = false) => {
+        const session = await ensureWorkspaceSession(forceRefresh);
+        const token = session.token || localStorage.getItem('keystone_token') || '';
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        return fetch('/v1/cognition/chat', {
+          method: 'POST',
+          headers,
+          signal: abortController.signal,
+          body: requestBody
+        });
+      };
+
+      let resp = await dispatchChat(false);
+      if (resp.status === 401) {
+        workspaceSession = null;
+        resp = await dispatchChat(true);
+      }
 
       thinkingDiv.remove();
 
@@ -3628,7 +3618,10 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       const data = await resp.json();
-      const replyText = (data.message && data.message.content) || 'Directive completed.';
+      const replyText = (data.message && data.message.content) || '';
+      if (!replyText) {
+        throw new Error('Live cognition endpoint returned an empty response body.');
+      }
 
       state.agentChatHistory.push({
         role: 'assistant',
@@ -3651,7 +3644,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (err.name !== 'AbortError') {
         state.agentChatHistory.push({
           role: 'assistant',
-          content: `⚠️ Communication Diagnostic: ${err.message}. Retrying via fallback cognitive engine...`,
+          content: `❌ Live Cognition Error: ${err.message}`,
           time: new Date().toLocaleTimeString()
         });
         renderAgentChatStream();
@@ -3712,15 +3705,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Quick sample buttons for agent
-  document.querySelectorAll('.btn-agent-sample').forEach(btn => {
-    btn.addEventListener('click', () => {
-      if (btn.dataset.task) {
-        sendAgentPrompt(btn.dataset.task);
-      }
-    });
-  });
-
   if (btnSendAgentChat) btnSendAgentChat.addEventListener('click', () => sendAgentPrompt());
   if (agentChatInput) {
     agentChatInput.addEventListener('input', () => {
@@ -3760,16 +3744,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const tenantIdEl = document.getElementById('settingsTenantId');
     const userEmailEl = document.getElementById('settingsUserEmail');
     const tokenTextEl = document.getElementById('settingsTokenText');
-    const storedToken = localStorage.getItem('keystone_token') || 'local_dev_token';
+    const storedToken = localStorage.getItem('keystone_token') || '';
 
-    if (tenantIdEl && !tenantIdEl.value) tenantIdEl.value = 'tenant-keystone-local';
-    if (userEmailEl && !userEmailEl.value) userEmailEl.value = 'operator@keystone.internal';
+    if (tenantIdEl && !tenantIdEl.value) tenantIdEl.value = '';
+    if (userEmailEl && !userEmailEl.value) userEmailEl.value = '';
     if (tokenTextEl && !tokenTextEl.value) tokenTextEl.value = storedToken;
 
     ensureWorkspaceSession().then(session => {
       if (!session) return;
-      if (tenantIdEl) tenantIdEl.value = session.tenant_id || session.account_id || 'tenant-keystone-local';
-      if (userEmailEl) userEmailEl.value = session.email || 'operator@keystone.internal';
+      if (tenantIdEl) tenantIdEl.value = session.tenant_id || session.account_id || session.userId || '';
+      if (userEmailEl) userEmailEl.value = session.email || '';
       if (tokenTextEl) tokenTextEl.value = session.token || storedToken;
     }).catch(() => {});
   };
@@ -3838,7 +3822,7 @@ document.addEventListener('DOMContentLoaded', () => {
       btnSaveRemoteConfig.textContent = 'Saving...';
       try {
         const session = await ensureWorkspaceSession();
-        const token = session.token || localStorage.getItem('keystone_token') || 'local_dev_token';
+        const token = session.token || localStorage.getItem('keystone_token') || '';
         const res = await fetch('/v1/config/remote', {
           method: 'POST',
           headers: {
@@ -3900,7 +3884,7 @@ document.addEventListener('DOMContentLoaded', () => {
       btnSaveComfyConfig.textContent = 'Saving...';
       try {
         const session = await ensureWorkspaceSession();
-        const token = (session && session.token) || localStorage.getItem('keystone_token') || 'local_dev_token';
+        const token = (session && session.token) || localStorage.getItem('keystone_token') || '';
         const comfyBaseUrl = document.getElementById('cfgComfyBaseUrl')?.value?.trim() || '';
         const comfyAuthToken = document.getElementById('cfgComfyAuthToken')?.value?.trim() || '';
         const openaiBaseUrl = document.getElementById('cfgOpenaiBaseUrl')?.value?.trim() || '';
@@ -4119,13 +4103,19 @@ document.addEventListener('DOMContentLoaded', () => {
   const hydrateCreditsData = async () => {
     try {
       const balance = await apiRequest('/v1/billing/balance');
-      const avail = balance.available_balance ?? 1250;
-      const hold = balance.hold_balance ?? 0;
-      const total = balance.total_balance ?? (avail + hold);
+      const avail = balance.available_credits ?? balance.available_balance;
+      const hold = balance.held_credits ?? balance.hold_balance ?? 0;
+      const total = balance.total_balance ?? (typeof avail === 'number' ? avail + hold : null);
+      if (typeof avail !== 'number') {
+        throw new Error('Billing balance response missing available_credits');
+      }
+
+      state.credits.balance = avail;
+      state.credits.hold = hold;
 
       if (modalCreditAvail) modalCreditAvail.textContent = avail.toLocaleString();
       if (modalCreditHold) modalCreditHold.textContent = hold.toLocaleString();
-      if (modalCreditTotal) modalCreditTotal.textContent = total.toLocaleString();
+      if (modalCreditTotal) modalCreditTotal.textContent = (total ?? avail).toLocaleString();
 
       const creditBalHud = document.getElementById('creditBalanceText');
       const creditHoldHud = document.getElementById('creditHoldBadge');
@@ -4133,25 +4123,40 @@ document.addEventListener('DOMContentLoaded', () => {
       if (creditHoldHud) creditHoldHud.textContent = `HOLD: ${hold}`;
 
       const txResp = await apiRequest('/v1/billing/transactions');
-      const txs = txResp.transactions || [];
+      const txs = Array.isArray(txResp) ? txResp : (txResp.transactions || []);
       if (creditsLedgerTableBody) {
         if (!txs.length) {
           creditsLedgerTableBody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 12px;">No recent transactions recorded.</td></tr>';
         } else {
-          creditsLedgerTableBody.innerHTML = txs.slice(0, 10).map(tx => `
+          creditsLedgerTableBody.innerHTML = txs.slice(0, 10).map(tx => {
+            const actionType = tx.entry_type || tx.action || 'TRANSACTION';
+            const ts = tx.created_at ? new Date(tx.created_at * 1000).toLocaleTimeString() : (tx.timestamp ? new Date(tx.timestamp).toLocaleTimeString() : '—');
+            return `
             <tr>
-              <td style="font-family: var(--font-mono); font-size: 10px;">${tx.timestamp ? new Date(tx.timestamp).toLocaleTimeString() : 'Just now'}</td>
-              <td><span class="stage-chip" style="font-size: 9px; ${tx.action === 'TOPUP' || tx.action === 'CREDIT' ? 'background: rgba(52,211,153,0.15); color: #34d399;' : 'background: rgba(239,68,68,0.15); color: #f87171;'}">${tx.action || 'TRANSACTION'}</span></td>
+              <td style="font-family: var(--font-mono); font-size: 10px;">${ts}</td>
+              <td><span class="stage-chip" style="font-size: 9px; ${actionType === 'TOPUP' || actionType === 'CREDIT' || actionType === 'REFUND' || actionType === 'RELEASE' ? 'background: rgba(52,211,153,0.15); color: #34d399;' : 'background: rgba(239,68,68,0.15); color: #f87171;'}">${actionType}</span></td>
               <td style="font-family: var(--font-mono); font-weight: 700; color: ${tx.amount > 0 ? '#34d399' : '#f87171'};">${tx.amount > 0 ? '+' : ''}${tx.amount}</td>
-              <td style="color: var(--text-secondary); font-size: 11px;">${tx.reason || 'Ledger event'}</td>
+              <td style="color: var(--text-secondary); font-size: 11px;">${escapeHtml(tx.reason || 'Ledger event')}</td>
             </tr>
-          `).join('');
+          `;
+          }).join('');
         }
       }
     } catch (err) {
-      console.warn('Billing ledger hydration notice:', err);
+      console.warn('Billing ledger hydration failed:', err);
+      if (modalCreditAvail) modalCreditAvail.textContent = '--';
+      if (modalCreditHold) modalCreditHold.textContent = '--';
+      if (modalCreditTotal) modalCreditTotal.textContent = '--';
+      const creditBalHud = document.getElementById('creditBalanceText');
+      const creditHoldHud = document.getElementById('creditHoldBadge');
+      if (creditBalHud) creditBalHud.textContent = '-- CREDITS';
+      if (creditHoldHud) creditHoldHud.textContent = 'HOLD: --';
+      if (creditsLedgerTableBody) {
+        creditsLedgerTableBody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #f87171; padding: 12px;">Billing ledger unavailable: ${escapeHtml(err.message)}</td></tr>`;
+      }
     }
   };
+  hydrateCreditsData();
 
   const openCreditsModal = () => {
     if (creditsModal) {
@@ -4234,7 +4239,7 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         const resp = await fetch('/v1/cognition/status');
         const st = await resp.json();
-        btnRefreshWorker.textContent = `✔ ${st.worker_cluster || 'T4×2 Active'} (${st.state || 'READY'})`;
+        btnRefreshWorker.textContent = `✔ ${st.worker_cluster || 'Live Runtime'} (${st.state || 'UNCONFIGURED'})`;
         setTimeout(() => {
           btnRefreshWorker.disabled = false;
           btnRefreshWorker.textContent = '🔄 Ping & Refresh Worker';

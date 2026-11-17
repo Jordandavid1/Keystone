@@ -22,7 +22,6 @@ from apps.api.src.storage.service import (
 )
 from services.audio.src.elevenlabs import (
     elevenlabs_client,
-    PREMIER_VOICES,
     ELEVENLABS_DEFAULT_MODEL,
 )
 
@@ -31,7 +30,7 @@ router = APIRouter(prefix="/v1/audio", tags=["Audio"])
 
 class GenerateSpeechRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=5000, description="Text to synthesize into speech")
-    voice_id: Optional[str] = Field("21m00Tcm4TlvDq8ikWAM", description="ElevenLabs voice ID")
+    voice_id: Optional[str] = Field(default=None, description="Live ElevenLabs or local SAPI voice ID")
     voice_settings: Optional[Dict[str, Any]] = Field(default=None, description="Voice settings override")
     project_id: Optional[str] = Field(default=None, description="Optional project ID for asset association")
     save_asset: bool = Field(default=True, description="Whether to register synthesized audio as a durable asset")
@@ -43,14 +42,21 @@ class AudioConfigUpdateRequest(BaseModel):
 
 @router.get("/config", summary="Get ElevenLabs TTS integration configuration")
 async def get_audio_config() -> Dict[str, Any]:
-    """Returns the current audio and ElevenLabs TTS configuration status."""
+    """Returns the live audio and ElevenLabs/Windows SAPI TTS configuration status."""
+    voices: List[Dict[str, Any]] = []
+    voice_error: Optional[str] = None
+    try:
+        voices = await run_in_threadpool(elevenlabs_client.list_voices)
+    except Exception as exc:
+        voice_error = f"{type(exc).__name__}: {exc}"
     return {
-        "status": "ok",
+        "status": "error" if voice_error else "ok",
         "configured": elevenlabs_client.is_configured(),
         "provider": "elevenlabs" if elevenlabs_client.is_configured() else "windows_sapi_speech",
-        "default_model": ELEVENLABS_DEFAULT_MODEL,
-        "default_voice": "21m00Tcm4TlvDq8ikWAM",
-        "voice_count": len(PREMIER_VOICES),
+        "default_model": ELEVENLABS_DEFAULT_MODEL if elevenlabs_client.is_configured() else "windows_sapi",
+        "default_voice": voices[0]["voice_id"] if voices else None,
+        "voice_count": len(voices),
+        "error": voice_error,
     }
 
 
@@ -82,10 +88,16 @@ async def configure_audio_provider(req: AudioConfigUpdateRequest) -> Dict[str, A
     return await get_audio_config()
 
 
-@router.get("/voices", summary="List available ElevenLabs and curated voices")
+@router.get("/voices", summary="List available live ElevenLabs or local SAPI voices")
 async def list_voices() -> Dict[str, Any]:
-    """Retrieves available ElevenLabs voices or returns curated premier voices."""
-    voices = await run_in_threadpool(elevenlabs_client.list_voices)
+    """Retrieves live ElevenLabs voices when configured, or live installed Windows SAPI voices."""
+    try:
+        voices = await run_in_threadpool(elevenlabs_client.list_voices)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"AUDIO_VOICES_FAILED: {exc}",
+        )
     return {
         "status": "ok",
         "count": len(voices),
@@ -109,7 +121,7 @@ async def synthesize_speech(
         intent_hint="audio",
     )
 
-    voice_id = req.voice_id or "21m00Tcm4TlvDq8ikWAM"
+    voice_id = (req.voice_id or "").strip() or None
     try:
         audio_bytes, mime_type, meta = await run_in_threadpool(
             elevenlabs_client.generate_speech,
@@ -122,6 +134,9 @@ async def synthesize_speech(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"AUDIO_SYNTHESIS_FAILED: {exc}",
         )
+
+    resolved_voice_id = str(meta.get("voice_id") or voice_id or "default")
+    resolved_voice_name = str(meta.get("voice_name") or resolved_voice_id)
 
     if not req.save_asset:
         ext = "mp3" if "mpeg" in mime_type else "wav"
@@ -146,8 +161,7 @@ async def synthesize_speech(
     storage = AssetStorageService()
     await storage.provider.put_object(storage_key, audio_bytes, mime_type)
 
-    match_voice = next((v for v in PREMIER_VOICES if v["voice_id"] == voice_id), {})
-    voice_name = match_voice.get("name", "Custom Voice")
+    voice_name = resolved_voice_name
 
     asset = await asset_repo.create_asset(
         id=asset_id,
@@ -163,7 +177,7 @@ async def synthesize_speech(
             "script": req.text,
             "compiled_prompt": compiled.positive_prompt,
             "prompt_hash": compiled.prompt_hash,
-            "voice_id": voice_id,
+            "voice_id": resolved_voice_id,
             "voice_name": voice_name,
             "provider": meta.get("provider", "elevenlabs"),
             "audio_mime": mime_type
@@ -181,7 +195,7 @@ async def synthesize_speech(
         "byte_size": len(audio_bytes),
         "download_url": download_url,
         "provider": meta.get("provider", "elevenlabs"),
-        "voice_id": voice_id,
+        "voice_id": resolved_voice_id,
         "voice_name": voice_name,
         "prompt_hash": compiled.prompt_hash,
     }

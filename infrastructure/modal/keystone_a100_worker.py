@@ -16,15 +16,18 @@ import modal
 APP_NAME = "keystone-a100-worker"
 GPU_SPEC = "A100-80GB"
 SYSTEM_RAM_MB = 184320  # 180 GiB host RAM
-COMFY_DIR = pathlib.Path("/opt/ComfyUI")
-MODELS_ROOT = pathlib.Path("/models")
+COMFY_POSIX = "/opt/ComfyUI"
+MODELS_POSIX = "/models"
+COMFY_DIR = pathlib.Path(COMFY_POSIX)
+MODELS_ROOT = pathlib.Path(MODELS_POSIX)
 
 PINKCHERRY_REPO = "SexGod1979/PinkCherry-NSFW_MiniMax-H3"
 PINKCHERRY_BF16_FILE = "PinkCherry_hybrid_v1.8_minimax_h3_pruned_bf16.safetensors"
 PINKCHERRY_SUBPATH = f"1.8-hybrid/{PINKCHERRY_BF16_FILE}"
 MINIMAX_REPO = "Comfy-Org/MiniMax-H3"
-COGNITION_MODEL_ID = "huihui-ai/Huihui-Qwen3.8-27B-abliterated"
-COGNITION_ALIAS = "huihui-qwen3.8-abliterated"
+COGNITION_MODEL_ID = "OBLITERATUS/Qwen3.8-27B-OBLITERATED"
+COGNITION_ALIAS = "obliteratus-qwen3.8-v3"
+COGNITION_DIR = MODELS_ROOT / "obliteratus_qwen3_8_27b_v3"
 
 # (remote_repo_path, relative_path_under_comfy_models)
 MINIMAX_COMPANION_ASSETS: tuple[tuple[str, str], ...] = (
@@ -72,21 +75,21 @@ image = (
         "gguf",
     )
     .run_commands(
-        f"git clone --depth 1 https://github.com/comfyanonymous/ComfyUI.git {COMFY_DIR}",
-        f"pip install --no-cache-dir -r {COMFY_DIR}/requirements.txt",
+        f"git clone --depth 1 https://github.com/comfyanonymous/ComfyUI.git {COMFY_POSIX}",
+        f"pip install --no-cache-dir -r {COMFY_POSIX}/requirements.txt",
         *[
             cmd
             for name, url in CUSTOM_NODE_REPOS
             for cmd in (
-                f"git clone --depth 1 {url} {COMFY_DIR}/custom_nodes/{name}",
-                f"if [ -f {COMFY_DIR}/custom_nodes/{name}/requirements.txt ]; then pip install --no-cache-dir -r {COMFY_DIR}/custom_nodes/{name}/requirements.txt; fi",
+                f"git clone --depth 1 {url} {COMFY_POSIX}/custom_nodes/{name}",
+                f"if [ -f {COMFY_POSIX}/custom_nodes/{name}/requirements.txt ]; then pip install --no-cache-dir -r {COMFY_POSIX}/custom_nodes/{name}/requirements.txt; fi",
             )
         ],
     )
     .env(
         {
             "HF_HUB_ENABLE_HF_TRANSFER": "1",
-            "HF_HOME": f"{MODELS_ROOT}/hf_cache",
+            "HF_HOME": f"{MODELS_POSIX}/hf_cache",
             "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True",
         }
     )
@@ -165,7 +168,7 @@ def _stage_comfy_assets(hf_token: str | None = None) -> None:
 @app.function(
     gpu=GPU_SPEC,
     memory=SYSTEM_RAM_MB,
-    volumes={str(MODELS_ROOT): models_volume},
+    volumes={MODELS_POSIX: models_volume},
     timeout=3600,
 )
 def stage_weights(hf_token: str | None = None) -> dict[str, str]:
@@ -176,7 +179,8 @@ def stage_weights(hf_token: str | None = None) -> dict[str, str]:
     _stage_comfy_assets(token)
     snapshot_download(
         repo_id=COGNITION_MODEL_ID,
-        local_dir=str(MODELS_ROOT / "qwen3_8_27b"),
+        local_dir=str(COGNITION_DIR),
+        ignore_patterns=["*.gguf", "*-of-00018.safetensors"],
         token=token,
     )
     models_volume.commit()
@@ -191,7 +195,7 @@ def stage_weights(hf_token: str | None = None) -> dict[str, str]:
 @app.function(
     gpu=GPU_SPEC,
     memory=SYSTEM_RAM_MB,
-    volumes={str(MODELS_ROOT): models_volume},
+    volumes={MODELS_POSIX: models_volume},
     scaledown_window=300,
     timeout=3600,
 )
@@ -217,15 +221,14 @@ def comfyui_server() -> None:
 @app.function(
     gpu=GPU_SPEC,
     memory=SYSTEM_RAM_MB,
-    volumes={str(MODELS_ROOT): models_volume},
+    volumes={MODELS_POSIX: models_volume},
     scaledown_window=300,
     timeout=3600,
 )
 @modal.web_server(8000, startup_timeout=300)
 def cognition_server() -> None:
-    """Serve Huihui-Qwen3.8-27B-abliterated (BF16) via vLLM on port 8000."""
-    local_model_dir = MODELS_ROOT / "qwen3_8_27b"
-    model_ref = str(local_model_dir) if (local_model_dir / "config.json").exists() else COGNITION_MODEL_ID
+    """Serve OBLITERATUS/Qwen3.8-27B-OBLITERATED v3 (BF16) via vLLM on port 8000."""
+    model_ref = str(COGNITION_DIR) if (COGNITION_DIR / "config.json").exists() else COGNITION_MODEL_ID
     api_key = os.environ.get("KEYSTONE_API_KEY", "keystone-live-key")
     subprocess.Popen(
         [
@@ -236,6 +239,7 @@ def cognition_server() -> None:
             model_ref,
             "--served-model-name",
             COGNITION_MODEL_ID,
+            f"{COGNITION_MODEL_ID}:fastest",
             COGNITION_ALIAS,
             "--api-key",
             api_key,

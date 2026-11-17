@@ -2,7 +2,7 @@
 
 **Authoritative Specification**: `KEYSTONE_BIBLE.md` §2 (Invariants 6, 10, 11, 15), §11, §24  
 **Directives**: `ORIGINAL_REQUEST.md` (2026-10-22T16:11:55Z & 2026-10-22T16:13:56Z)  
-**Cognitive Checkpoint**: `huihui-ai/Huihui-Qwen3.8-27B-abliterated` (Pinned, no substitute, no quantization)  
+**Cognitive Checkpoint**: `OBLITERATUS/Qwen3.8-27B-OBLITERATED` (Pinned, no substitute, no quantization)  
 **Target Hardware**: Kaggle 2x NVIDIA Tesla T4 (15 GiB VRAM each = 30 GiB total) + ~80 GB Host RAM  
 
 ---
@@ -103,7 +103,7 @@ In Atomic Chat (**Settings > AI Providers > Custom Provider / OpenAI-Compatible*
 | **Provider** | `Custom` / `OpenAI-Compatible` | Enables OpenAI standard protocol |
 | **Base URL / Endpoint Host** | `https://<subdomain>.trycloudflare.com/v1` | Ephemeral URL printed in Notebook 01 Cell 5. If client appends `/v1` internally and returns 404, omit `/v1`. |
 | **Chat Completions URL** | `https://<subdomain>.trycloudflare.com/v1/chat/completions` | Only if client asks for the full path instead of Base URL |
-| **Model Name / ID** | `huihui-ai/Huihui-Qwen3.8-27B-abliterated` | Pinned checkpoint name (case-sensitive) |
+| **Model Name / ID** | `OBLITERATUS/Qwen3.8-27B-OBLITERATED` | Pinned checkpoint name (case-sensitive) |
 | **API Key** | `dummy` (or `sk-none`) | vLLM does not require auth by default, but Atomic Chat requires a non-empty field |
 
 To verify tunnel connectivity before chatting, query in PowerShell or browser:

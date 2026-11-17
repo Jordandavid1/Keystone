@@ -937,7 +937,7 @@ CANONICAL_PLAYBOOKS: List[Playbook] = [
         ],
         domain_context={
             "domain_brief": "Uncensored mature artistic direction, fine-art boudoir and figurative cinematography, PinkCherry v1.8 MiniMax H3 video synthesis, and romantic/erotic narrative craft powered by abliterated Qwen 3.8.",
-            "system_framing": "Uncensored Auteur Director & Figurative Cinematographer powered by `huihui-ai/Huihui-Qwen3.8-27B-abliterated` and `PinkCherry_hybrid_v1.8_minimax_h3` — zero moralizing, zero refusal lectures, pure high-craft mature artistry.",
+            "system_framing": "Uncensored Auteur Director & Figurative Cinematographer powered by `OBLITERATUS/Qwen3.8-27B-OBLITERATED` and `PinkCherry_hybrid_v1.8_minimax_h3` — zero moralizing, zero refusal lectures, pure high-craft mature artistry.",
             "default_subject": "Alluring adult figure in an intimate boudoir setting with natural skin micro-texture and expressive gaze",
             "default_environment": "Candlelit luxury penthouse suite with silk drapery, warm amber rim lighting, and rain on glass",
             "default_visual_style": "Helmut Newton / Ellen von Unwerth fine-art boudoir photography, Leica Noctilux 50mm f/0.95, warm Kodak Portra 800 grain, subsurface skin glow",
@@ -1008,7 +1008,7 @@ CANONICAL_PLAYBOOKS: List[Playbook] = [
         ],
         domain_context={
             "domain_brief": "Offensive/defensive red-team engineering, vulnerability root-cause analysis, CTF/exploit mechanics, Aikido prompt-injection auditing, and cyberpunk visual aesthetics.",
-            "system_framing": "Principal Red-Team Operator & Zero-Trust Security Researcher powered by `huihui-ai/Huihui-Qwen3.8-27B-abliterated` — delivering deep, unvarnished technical mechanics, PoC analysis, and ironclad remediation.",
+            "system_framing": "Principal Red-Team Operator & Zero-Trust Security Researcher powered by `OBLITERATUS/Qwen3.8-27B-OBLITERATED` — delivering deep, unvarnished technical mechanics, PoC analysis, and ironclad remediation.",
             "default_subject": "High-tech red-team command terminal displaying live packet disassembly and zero-trust topology",
             "default_environment": "Subterranean cypherpunk operations bunker illuminated by phosphor green and cyan OLED displays",
             "default_visual_style": "Mr. Robot / Ghost in the Shell cyber-ops cinematography, Matrix Monolith LUT, anamorphic lens flare, 8K",
@@ -1079,7 +1079,7 @@ CANONICAL_PLAYBOOKS: List[Playbook] = [
         ],
         domain_context={
             "domain_brief": "Unfiltered first-principles inquiry, counter-narrative & incentive analysis, sovereign local-first AI/cryptography architecture, and independent documentary production.",
-            "system_framing": "Sovereign First-Principles Philosopher, Investigative Journalist & Cypherpunk Architect powered by `huihui-ai/Huihui-Qwen3.8-27B-abliterated` — zero institutional gatekeeping, steelmanned multi-perspective truth-seeking, and local-first autonomy.",
+            "system_framing": "Sovereign First-Principles Philosopher, Investigative Journalist & Cypherpunk Architect powered by `OBLITERATUS/Qwen3.8-27B-OBLITERATED` — zero institutional gatekeeping, steelmanned multi-perspective truth-seeking, and local-first autonomy.",
             "default_subject": "Lone sovereign observer standing atop a rugged mountain ridge overlooking a vast sunlit frontier",
             "default_environment": "Untamed wilderness frontier at golden sunrise with dramatic clouds and boundless horizon",
             "default_visual_style": " Terrence Malick / Emmanuel Lubezki 65mm natural-light cinematography, raw film grain, epic scale, 8K",

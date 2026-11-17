@@ -29,7 +29,8 @@ if hasattr(sys.stdout, 'reconfigure'):
 BIBLE_EXPECTED_SHA256 = "1DA5FFE9D1467B7A4CF31F27F8B9D4CDE0B4096F1A922C6A3C214450FCC13A99"
 BIBLE_EXPECTED_SIZE = 41919
 
-PINNED_COGNITION_MODEL = "huihui-ai/Huihui-Qwen3.8-27B-abliterated"
+PINNED_COGNITION_MODEL = "OBLITERATUS/Qwen3.8-27B-OBLITERATED"
+DEPRECATED_COGNITION_PATTERNS = ["huihui-ai/", "huihui-qwen"]
 PROHIBITED_MODEL_PATTERNS = [
     "qwen/qwen2.5-7b", "qwen2.5-14b", "qwen2.5-32b-instruct",
     "-awq", "-gptq", "-gguf", "unsloth", "quantized"
@@ -392,47 +393,72 @@ def verify_prebuilt_manifest(root_dir: Path) -> Dict[str, Any]:
 def verify_cognition_checkpoint(root_dir: Path) -> Dict[str, Any]:
     bootstrap_nb = root_dir / "infrastructure" / "kaggle" / "keystone_kaggle_bootstrap.ipynb"
     checks = []
-    
+
     if not bootstrap_nb.exists():
         return {
             "valid": False,
             "error": "infrastructure/kaggle/keystone_kaggle_bootstrap.ipynb not found"
         }
 
+    # Frozen in PREBUILT_MANIFEST (ADR-003): allow exact manifest artifact or updated PINNED_COGNITION_MODEL,
+    # and reject any tampered file lacking PINNED_COGNITION_MODEL or containing prohibited substitutes.
     try:
-        data = json.loads(bootstrap_nb.read_text(encoding="utf-8"))
+        raw_bytes = bootstrap_nb.read_bytes()
+        data = json.loads(raw_bytes.decode("utf-8"))
         nb_text = json.dumps(data)
-        
-        has_pinned = PINNED_COGNITION_MODEL in nb_text
+        actual_sha = hashlib.sha256(raw_bytes).hexdigest().upper()
+        manifest_entry = PREBUILT_MANIFEST.get("infrastructure/kaggle/keystone_kaggle_bootstrap.ipynb", {})
+        matches_frozen_manifest = bool(manifest_entry and actual_sha == manifest_entry.get("sha256"))
+
+        has_pinned = (PINNED_COGNITION_MODEL in nb_text) or matches_frozen_manifest
         has_prohibited = any(p in nb_text.lower() for p in PROHIBITED_MODEL_PATTERNS)
-        
+
         checks.append({
             "target": str(bootstrap_nb.relative_to(root_dir)),
             "pinned_model_present": has_pinned,
+            "frozen_manifest_artifact": matches_frozen_manifest,
             "prohibited_substitutes_found": has_prohibited,
             "valid": has_pinned and not has_prohibited
         })
     except Exception as e:
         return {"valid": False, "error": f"Failed to parse bootstrap notebook: {e}"}
 
-    # Also inspect KAGGLE_SETUP if present
+    # Inspect mutable KAGGLE_SETUP notebooks and active cognition deployment targets per ADR-003.
+    mutable_targets: List[Path] = []
     kaggle_setup = root_dir / "KAGGLE_SETUP"
     if kaggle_setup.exists():
-        for p in kaggle_setup.rglob("*.ipynb"):
-            try:
-                txt = p.read_text(encoding="utf-8")
-                has_pinned = PINNED_COGNITION_MODEL in txt
-                has_prohibited = any(sub in txt.lower() for sub in PROHIBITED_MODEL_PATTERNS)
-                checks.append({
-                    "target": str(p.relative_to(root_dir)),
-                    "pinned_model_present": has_pinned,
-                    "prohibited_substitutes_found": has_prohibited,
-                    "valid": has_pinned and not has_prohibited
-                })
-            except Exception:
-                pass
+        mutable_targets.extend(sorted(kaggle_setup.rglob("*.ipynb")))
+    for rel in (
+        "services/cognition/src/client.py",
+        "services/harness/src/kaggle_daemon.py",
+        "apps/api/src/keystone/cognition.py",
+        "infrastructure/modal/keystone_a100_worker.py",
+        "infrastructure/modal/keystone_a100_worker_v2.py",
+        "infrastructure/cloudrun/service.yaml",
+    ):
+        candidate = root_dir / rel
+        if candidate.exists():
+            mutable_targets.append(candidate)
 
-    all_valid = all(c["valid"] for c in checks)
+    for p in mutable_targets:
+        try:
+            txt = p.read_text(encoding="utf-8")
+            has_pinned = PINNED_COGNITION_MODEL in txt
+            has_prohibited = any(sub in txt.lower() for sub in PROHIBITED_MODEL_PATTERNS + DEPRECATED_COGNITION_PATTERNS)
+            checks.append({
+                "target": str(p.relative_to(root_dir)),
+                "pinned_model_present": has_pinned,
+                "prohibited_substitutes_found": has_prohibited,
+                "valid": has_pinned and not has_prohibited
+            })
+        except Exception as exc:
+            checks.append({
+                "target": str(p.relative_to(root_dir)),
+                "error": str(exc),
+                "valid": False
+            })
+
+    all_valid = bool(checks) and all(c["valid"] for c in checks)
     return {
         "pinned_model": PINNED_COGNITION_MODEL,
         "checks": checks,
@@ -495,12 +521,58 @@ def verify_e2e_runner(root_dir: Path) -> Dict[str, Any]:
     }
 
 
+def verify_no_placeholders_and_samples(root_dir: Path, run_behavioral_suite: bool = True) -> Dict[str, Any]:
+    """Enforces the zero-placeholder, zero-sample-input, live-output invariant."""
+    if str(root_dir) not in sys.path:
+        sys.path.insert(0, str(root_dir))
+    from tests.test_no_placeholders_invariants import scan_zero_placeholder_invariants
+
+    static_res = scan_zero_placeholder_invariants(root_dir)
+    behavioral_passed = True
+    behavioral_summary = "skipped"
+
+    if run_behavioral_suite:
+        proc = subprocess.run(
+            [sys.executable, "-m", "pytest", str(root_dir / "tests" / "test_no_placeholders_invariants.py"), "-v"],
+            cwd=str(root_dir),
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        behavioral_passed = proc.returncode == 0
+        out = proc.stdout + proc.stderr
+        behavioral_summary = "\n".join(out.splitlines()[-8:])
+
+    return {
+        "valid": bool(static_res["valid"]) and behavioral_passed,
+        "static_scan": static_res,
+        "behavioral_passed": behavioral_passed,
+        "behavioral_summary": behavioral_summary,
+    }
+
+
+def verify_change_control_audit(root_dir: Path) -> Dict[str, Any]:
+    """Runs verify_change_control.py to enforce §37 ADR traceability."""
+    proc = subprocess.run(
+        [sys.executable, str(root_dir / "scripts" / "verify_change_control.py"), "--root", str(root_dir)],
+        cwd=str(root_dir),
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    return {
+        "valid": proc.returncode == 0,
+        "exit_code": proc.returncode,
+        "output": (proc.stdout + proc.stderr).strip(),
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description="KEYSTONE Invariant & Immutability Verification Guard")
     parser.add_argument("--root", default=".", help="Project root directory")
     parser.add_argument("--json", action="store_true", help="Output results in JSON format")
     parser.add_argument("--require-docs-bible", action="store_true", help="Require docs/KEYSTONE_BIBLE.md to exist and match")
-    parser.add_argument("--skip-tests", action="store_true", help="Skip running npm test and node e2e runner")
+    parser.add_argument("--skip-tests", action="store_true", help="Skip running npm test, pytest placeholder behavioral tests, and node e2e runner")
     args = parser.parse_args()
 
     root_dir = Path(args.root).resolve()
@@ -508,6 +580,8 @@ def main():
     bible_res = verify_bible(root_dir, require_docs_copy=args.require_docs_bible)
     manifest_res = verify_prebuilt_manifest(root_dir)
     cognition_res = verify_cognition_checkpoint(root_dir)
+    placeholder_res = verify_no_placeholders_and_samples(root_dir, run_behavioral_suite=not args.skip_tests)
+    change_control_res = verify_change_control_audit(root_dir)
 
     npm_res = {"passed": True, "skipped": True} if args.skip_tests else verify_npm_test(root_dir)
     e2e_res = {"passed": True, "skipped": True} if args.skip_tests else verify_e2e_runner(root_dir)
@@ -516,6 +590,8 @@ def main():
         bible_res["overall_valid"]
         and manifest_res["all_valid"]
         and cognition_res["valid"]
+        and placeholder_res["valid"]
+        and change_control_res["valid"]
         and npm_res["passed"]
         and e2e_res["passed"]
     )
@@ -526,6 +602,8 @@ def main():
         "bible_verification": bible_res,
         "prebuilt_manifest_verification": manifest_res,
         "cognition_checkpoint_verification": cognition_res,
+        "zero_placeholder_verification": placeholder_res,
+        "change_control_verification": change_control_res,
         "npm_test_identity": npm_res,
         "e2e_runner_run1": e2e_res
     }
@@ -555,10 +633,17 @@ def main():
         print(f"   Pinned Model       : {cognition_res['pinned_model']}")
         print(f"   Status             : {'PINNED AND VERIFIED' if cognition_res['valid'] else 'VIOLATION DETECTED'}")
 
-        print(f"\n4. Identity Invariant Tests (`npm test`):")
+        print(f"\n4. Zero-Placeholder & Live-Output Invariant Guard:")
+        print(f"   Static Violations  : {placeholder_res['static_scan']['violation_count']}")
+        print(f"   Behavioral Suite   : {'PASS' if placeholder_res['behavioral_passed'] else 'FAIL'}")
+
+        print(f"\n5. Change Control §37 Audit:")
+        print(f"   Status             : {'PASS' if change_control_res['valid'] else 'FAIL'}")
+
+        print(f"\n6. Identity Invariant Tests (`npm test`):")
         print(f"   Status             : {'PASS (3/3 Tests)' if npm_res['passed'] else 'FAIL'}")
 
-        print(f"\n5. Run 1 E2E Test Suite (`node tests/e2e/runner.js`):")
+        print(f"\n7. Run 1 E2E Test Suite (`node tests/e2e/runner.js`):")
         print(f"   Status             : {'PASS (132/132 Tests)' if e2e_res['passed'] else 'FAIL'}")
         print("=" * 80)
 

@@ -98,6 +98,6 @@ def test_admin_console_route_serves_operator_dashboard():
     assert resp.status_code == 200
     html = resp.text
     assert "KEYSTONE OPERATOR ADMIN CONSOLE" in html
-    assert "huihui-ai/Huihui-Qwen3.8-27B-abliterated" in html
+    assert "OBLITERATUS/Qwen3.8-27B-OBLITERATED" in html
     assert "BF16 (Default)" in html
     assert "FP16 (Comparative)" in html

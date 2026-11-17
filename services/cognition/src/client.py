@@ -1,10 +1,10 @@
 """
 KEYSTONE Cognition Client & vLLM Connector (Python Implementation)
 Implements client interface to the locked abliterated cognition checkpoint
-(huihui-ai/Huihui-Qwen3.8-27B-abliterated) running on Kaggle 2x NVIDIA T4.
+(OBLITERATUS/Qwen3.8-27B-OBLITERATED) running on Modal A100 / Kaggle 2x NVIDIA T4.
 Enforces invariant checkpoint pinning, prohibits model substitution, validates structured
 ProposedAction JSON output, and collects latency and token usage telemetry
-per Bible §2 Invariant 6, 10, §10, §11, §24.
+per Bible §2 Invariant 6, 10, §10, §11, §24, §37 (ADR-003).
 """
 
 from __future__ import annotations
@@ -20,11 +20,12 @@ from pathlib import Path
 import sys
 from packages.contracts.src.models import ProposedAction, PromptIntent, CognitiveResult
 
-PINNED_CHECKPOINT = "huihui-ai/Huihui-Qwen3.8-27B-abliterated"
+PINNED_CHECKPOINT = "OBLITERATUS/Qwen3.8-27B-OBLITERATED"
 ALLOWED_SERVED_ALIASES = {
     PINNED_CHECKPOINT,
-    "huihui-qwen3.8-abliterated",
-    "huihui-qwen3.8-27b-abliterated",
+    f"{PINNED_CHECKPOINT}:fastest",
+    "obliteratus-qwen3.8-v3",
+    "obliteratus-qwen3.8-27b-obliterated",
 }
 
 
@@ -70,7 +71,7 @@ class CognitionConnector:
     """
     Cognition Connector and vLLM client adapter.
     Interface for cognitive reasoning and plan proposal generation.
-    Strictly pinned to huihui-ai/Huihui-Qwen3.8-27B-abliterated.
+    Strictly pinned to OBLITERATUS/Qwen3.8-27B-OBLITERATED.
     """
 
     PINNED_CHECKPOINT = PINNED_CHECKPOINT
@@ -81,7 +82,6 @@ class CognitionConnector:
         env_base = (
             os.getenv("COGNITION_BASE_URL", "").strip()
             or os.getenv("OPENAI_BASE_URL", "").strip()
-            or "http://localhost:8000/v1"
         )
         self.base_url = (self._explicit_base_url or env_base).rstrip("/")
         self.api_key = (
@@ -111,7 +111,7 @@ class CognitionConnector:
         1. Explicit constructor base_url (if passed by caller)
         2. Active ephemeral Kaggle/Colab worker registered in WorkerBridge
         3. COGNITION_BASE_URL or OPENAI_BASE_URL environment variable
-        4. Default local fallback (http://localhost:8000/v1)
+        Returns empty string when no cognition engine is configured.
         """
         load_keystone_dotenv()
         if self._explicit_base_url:
@@ -123,8 +123,6 @@ class CognitionConnector:
         ).rstrip("/")
         if env_url and not env_url.endswith("/v1"):
             env_url = f"{env_url}/v1"
-
-        default_placeholder = "https://kaggle-cognition-t4x2.trycloudflare.com"
 
         try:
             from services.harness.src.worker_bridge import worker_bridge
@@ -138,24 +136,19 @@ class CognitionConnector:
                 matched = worker_bridge.route_for_capability(cap)
                 if matched:
                     tunnel = matched[0].tunnel_url.rstrip("/")
-                    if env_url and tunnel == default_placeholder:
-                        return env_url
-                    return tunnel if tunnel.endswith("/v1") else f"{tunnel}/v1"
+                    if tunnel:
+                        return tunnel if tunnel.endswith("/v1") else f"{tunnel}/v1"
 
             for worker in worker_bridge.list_workers(active_only=True):
                 w_type = str(worker.get("worker_type", "")).lower()
                 if any(k in w_type for k in ("cognition", "vllm", "qwen", "gateway")):
-                    tunnel = str(worker["tunnel_url"]).rstrip("/")
-                    if env_url and tunnel == default_placeholder:
-                        return env_url
-                    return tunnel if tunnel.endswith("/v1") else f"{tunnel}/v1"
+                    tunnel = str(worker.get("tunnel_url", "")).rstrip("/")
+                    if tunnel:
+                        return tunnel if tunnel.endswith("/v1") else f"{tunnel}/v1"
         except Exception:
             pass
 
-        if env_url:
-            return env_url
-
-        return self.base_url
+        return env_url or ""
 
     @classmethod
     def build_completion_request(
@@ -314,14 +307,20 @@ class CognitionConnector:
 
     def complete(self, prompt: str, options: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
-        Synchronously dispatches completion request to vLLM endpoint.
-        Dynamically discovers active Kaggle cognition tunnels via WorkerBridge before falling back.
-        Returns parsed response dict with ProposedAction payload and telemetry.
+        Synchronously dispatches completion request to the live vLLM endpoint.
+        Dynamically discovers active Kaggle/Colab cognition tunnels via WorkerBridge or env.
+        Never returns synthetic or mock actions; raises explicitly when unconfigured or unreachable.
         """
         req_payload = self.build_completion_request(prompt, options)
         req_payload["model"] = self.resolve_served_model()
         active_base_url = self.resolve_active_endpoint()
-        endpoint = f"{active_base_url}/chat/completions"
+        if not active_base_url:
+            raise RuntimeError(
+                "COGNITION_NOT_CONFIGURED: No live cognition endpoint is configured. "
+                "Set COGNITION_BASE_URL or OPENAI_BASE_URL to the active OpenAI-compatible runtime."
+            )
+
+        endpoint = f"{active_base_url.rstrip('/')}/chat/completions"
         start_time = time.time()
 
         try:
@@ -343,38 +342,16 @@ class CognitionConnector:
                 latency_ms = int((time.time() - start_time) * 1000)
                 raw_data["latency_ms"] = latency_ms
                 return self.parse_response(raw_data, prompt=prompt)
-        except Exception:
-            # Fallback mock for testing and offline development
-            latency_ms = max(int((time.time() - start_time) * 1000), 50)
-            mock_action = {
-                "action_type": "generate",
-                "capability": "creative.generation",
-                "parameters": {"prompt": prompt, "aspect_ratio": "16:9"},
-                "rationale": "High-fidelity generation intent inferred from prompt",
-                "estimated_credits": 1
-            }
-            mock_resp = {
-                "id": f"chatcmpl-{uuid.uuid4().hex[:8]}",
-                "object": "chat.completion",
-                "model": self.PINNED_CHECKPOINT,
-                "choices": [
-                    {
-                        "index": 0,
-                        "message": {
-                            "role": "assistant",
-                            "content": json.dumps(mock_action)
-                        },
-                        "finish_reason": "stop"
-                    }
-                ],
-                "usage": {
-                    "prompt_tokens": max(1, len(prompt.split())),
-                    "completion_tokens": max(1, len(json.dumps(mock_action).split())),
-                    "total_tokens": max(1, len(prompt.split())) + max(1, len(json.dumps(mock_action).split()))
-                },
-                "latency_ms": latency_ms
-            }
-            return self.parse_response(mock_resp, prompt=prompt)
+        except urllib.error.HTTPError as exc:
+            body = exc.read()[:600].decode("utf-8", errors="replace")
+            raise ConnectionError(
+                f"COGNITION_HTTP_{exc.code}: Live cognition endpoint '{endpoint}' failed: {body or exc.reason}"
+            ) from exc
+        except Exception as exc:
+            raise ConnectionError(
+                f"COGNITION_UNREACHABLE: Live cognition endpoint '{endpoint}' failed ({type(exc).__name__}: {exc}). "
+                "Zero synthetic or mock responses are permitted."
+            ) from exc
 
 
 # Alias for versatility

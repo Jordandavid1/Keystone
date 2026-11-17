@@ -63,7 +63,7 @@ def current() -> Optional[CognitiveProvider]:
 
 class LiveQwenCognitiveProvider:
     """
-    Seats the live embedded reasoning model (huihui-ai/Huihui-Qwen3.8-27B-abliterated /
+    Seats the live embedded reasoning model (OBLITERATUS/Qwen3.8-27B-OBLITERATED /
     OPENAI_MODEL at OPENAI_BASE_URL or COGNITION_BASE_URL) inside KEYSTONE's Prompt Engine.
     """
 

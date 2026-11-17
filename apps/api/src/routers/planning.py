@@ -1,6 +1,6 @@
 """
 KEYSTONE Planning & Prompt Compilation Router
-Exposes endpoints for plan.v1 generation using the 13 domain playbooks,
+Exposes endpoints for plan.v1 generation using the 16 domain playbooks,
 PromptCompiler execution across standard/chat/reasoning profiles,
 and playbook discovery per Bible §6, §7, §9, §33.
 """
@@ -55,8 +55,11 @@ async def plan_goal(request: PlanRequestModel) -> Dict[str, Any]:
         result["compiledPrompt"] = compiled.positive_prompt
         result["promptHash"] = compiled.prompt_hash
         result["cognitionProvenance"] = compiled.provenance.get("cognition")
-    except Exception:
-        pass
+    except Exception as exc:
+        result["cognitionProvenance"] = {
+            "status": "error",
+            "detail": f"{type(exc).__name__}: {exc}",
+        }
 
     return result
 

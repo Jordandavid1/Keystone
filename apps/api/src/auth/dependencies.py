@@ -41,14 +41,14 @@ def dev_bypass_applies(request: Optional[Request], authorization: Optional[str],
         return False
     if request is None:
         return False
-    host = getattr(getattr(request, "client", None), "host", None)
+    host = str(getattr(getattr(request, "client", None), "host", None) or "").strip().lower().removeprefix("::ffff:")
     if host not in _LOOPBACK_HOSTS:
         return False
     # Behind the Next.js /v1 proxy every request arrives from loopback, so also
     # require the original client (X-Forwarded-For) to be loopback when present.
     forwarded = request.headers.get("x-forwarded-for")
     if forwarded:
-        hops = [h.strip().removeprefix("::ffff:") for h in forwarded.split(",") if h.strip()]
+        hops = [h.strip().lower().removeprefix("::ffff:") for h in forwarded.split(",") if h.strip()]
         if any(h not in _LOOPBACK_HOSTS for h in hops):
             return False
     return True

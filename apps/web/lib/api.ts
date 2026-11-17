@@ -187,18 +187,22 @@ export async function fetchCognitionStatus(): Promise<any> {
   return apiRequest('/v1/cognition/status');
 }
 
-export async function chatWithCognition(payload: {
-  messages: { role: string; content: string }[];
-  temperature?: number;
-  max_tokens?: number;
-  web_search?: boolean;
-  allow_generation?: boolean;
-  session_id?: string | null;
-  project_id?: string | null;
-}): Promise<any> {
+export async function chatWithCognition(
+  payload: {
+    messages: { role: string; content: string }[];
+    temperature?: number;
+    max_tokens?: number;
+    web_search?: boolean;
+    allow_generation?: boolean;
+    session_id?: string | null;
+    project_id?: string | null;
+  },
+  signal?: AbortSignal,
+): Promise<any> {
   return apiRequest('/v1/cognition/chat', {
     method: 'POST',
     body: JSON.stringify(payload),
+    ...(signal ? { signal } : {}),
   });
 }
 

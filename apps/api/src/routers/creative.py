@@ -192,7 +192,7 @@ def get_comfy_runtime_status() -> Dict[str, Any]:
         "cognition_endpoint": cognition_endpoint or None,
         "cognition_online": cognition_online,
         "openai_base_url": cognition_endpoint or None,
-        "openai_model": os.getenv("OPENAI_MODEL", "huihui-qwen3.8-abliterated"),
+        "openai_model": os.getenv("OPENAI_MODEL", "OBLITERATUS/Qwen3.8-27B-OBLITERATED"),
         "h3": h3_info,
         "h3_health": h3_health,
         "adapters": list(ADAPTER_REGISTRY.keys()),

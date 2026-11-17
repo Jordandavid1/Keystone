@@ -398,12 +398,12 @@ class TestPiiVaultF12:
 # ============================================================================
 
 class TestCognitionConnectorF13:
-    """Verifies F13 Cognition client for pinned checkpoint huihui-ai/Huihui-Qwen3.8-27B-abliterated."""
+    """Verifies F13 Cognition client for pinned checkpoint OBLITERATUS/Qwen3.8-27B-OBLITERATED."""
 
     def test_builds_completion_request_for_pinned_checkpoint(self):
-        """Builds valid completion payload pinned to huihui-ai/Huihui-Qwen3.8-27B-abliterated."""
+        """Builds valid completion payload pinned to OBLITERATUS/Qwen3.8-27B-OBLITERATED."""
         req = CognitionConnector.build_completion_request("Plan creative video step")
-        assert req["model"] == "huihui-ai/Huihui-Qwen3.8-27B-abliterated"
+        assert req["model"] == "OBLITERATUS/Qwen3.8-27B-OBLITERATED"
         assert len(req["messages"]) == 2
         assert req["messages"][0]["role"] == "system"
         assert "JSON ProposedAction" in req["messages"][0]["content"]
@@ -476,9 +476,55 @@ class TestCognitionConnectorF13:
         assert action.action_type == "generate"
         assert action.estimated_credits == 2
 
-    def test_complete_method_extracts_validated_proposed_action_and_telemetry(self):
-        """Calls complete() directly and verifies ProposedAction extraction and telemetry."""
+    def test_complete_unconfigured_raises_explicit_error(self, monkeypatch):
+        """When no live cognition endpoint is configured, complete() fails closed instead of synthesizing mock output."""
+        monkeypatch.delenv("COGNITION_BASE_URL", raising=False)
+        monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
+        monkeypatch.delenv("KAGGLE_COGNITION_TUNNEL", raising=False)
         client = CognitionConnector()
+        monkeypatch.setattr(client, "resolve_active_endpoint", lambda: "")
+        with pytest.raises(RuntimeError, match="COGNITION_NOT_CONFIGURED"):
+            client.complete("Design modern luxury apartment interior")
+
+    def test_complete_method_extracts_validated_proposed_action_and_telemetry(self, monkeypatch):
+        """Calls complete() against a mocked transport and verifies ProposedAction extraction and telemetry."""
+        import urllib.request
+
+        simulated_payload = {
+            "id": "chatcmpl-test-live-00",
+            "object": "chat.completion",
+            "model": PINNED_CHECKPOINT,
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": json.dumps({
+                            "action_type": "generate",
+                            "capability": "creative.generation",
+                            "parameters": {"prompt": "Modern luxury apartment interior, architectural daylight"},
+                            "rationale": "Direct generation intent verified from transport",
+                            "estimated_credits": 1
+                        })
+                    },
+                    "finish_reason": "stop"
+                }
+            ],
+            "usage": {"prompt_tokens": 12, "completion_tokens": 30, "total_tokens": 42}
+        }
+
+        class MockResponse:
+            def __init__(self, data):
+                self._data = data
+            def read(self):
+                return json.dumps(self._data).encode("utf-8")
+            def __enter__(self):
+                return self
+            def __exit__(self, exc_type, exc_val, exc_tb):
+                pass
+
+        monkeypatch.setattr(urllib.request, "urlopen", lambda req, timeout=10: MockResponse(simulated_payload))
+        client = CognitionConnector(base_url="http://127.0.0.1:9001/v1")
         res = client.complete("Design modern luxury apartment interior")
         assert res["model"] == PINNED_CHECKPOINT
         assert res["reasoning_id"].startswith("reas_")
@@ -536,7 +582,7 @@ class TestCognitionConnectorF13:
 
         monkeypatch.setattr(urllib.request, "urlopen", lambda req, timeout=10: MockResponse(simulated_payload))
 
-        client = CognitionConnector()
+        client = CognitionConnector(base_url="http://127.0.0.1:9001/v1")
         res = client.complete("Animate river flowing through forest")
         assert res["model"] == PINNED_CHECKPOINT
         assert res["proposed_action"] is not None
@@ -604,7 +650,7 @@ class TestKaggleSetupF20:
         readme_file = setup_dir / "README.md"
         assert readme_file.exists()
         readme_content = readme_file.read_text(encoding="utf-8")
-        assert "huihui-ai/Huihui-Qwen3.8-27B-abliterated" in readme_content
+        assert "OBLITERATUS/Qwen3.8-27B-OBLITERATED" in readme_content
         assert "BF16 vs FP16" in readme_content
         assert "7 Controlled Retry Profiles" in readme_content
 

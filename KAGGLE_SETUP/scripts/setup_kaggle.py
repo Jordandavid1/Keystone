@@ -21,7 +21,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Dict
 
-PINNED_CHECKPOINT = "huihui-ai/Huihui-Qwen3.8-27B-abliterated"
+PINNED_CHECKPOINT = "OBLITERATUS/Qwen3.8-27B-OBLITERATED"
 REPO_ROOT = Path(__file__).resolve().parents[2]
 KAGGLE_SETUP_DIR = REPO_ROOT / "KAGGLE_SETUP"
 

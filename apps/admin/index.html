@@ -276,7 +276,7 @@
     <div class="kpi-grid">
       <div class="kpi-card">
         <div class="kpi-label">Pinned Cognition Checkpoint (Invariant 6)</div>
-        <div class="kpi-value" style="font-size: 14px; color: #818cf8;">huihui-ai/Huihui-Qwen3.8-27B-abliterated</div>
+        <div class="kpi-value" style="font-size: 14px; color: #818cf8;">OBLITERATUS/Qwen3.8-27B-OBLITERATED</div>
         <div class="kpi-sub" id="kpiCognitionStatus">Probing live cognition tunnel...</div>
       </div>
       <div class="kpi-card">
@@ -315,7 +315,7 @@
             </div>
             <div class="form-group">
               <label class="form-label">Served Model Alias (OPENAI_MODEL)</label>
-              <input id="cfgOpenaiModel" class="form-input" type="text" placeholder="huihui-qwen3.8-abliterated" />
+              <input id="cfgOpenaiModel" class="form-input" type="text" placeholder="OBLITERATUS/Qwen3.8-27B-OBLITERATED" />
             </div>
             <div class="form-group full">
               <label class="form-label">Live ComfyUI Endpoint (COMFY_BASE_URL)</label>
@@ -478,8 +478,8 @@
           <div style="margin-top: 16px; border-top: 1px solid var(--border-subtle); padding-top: 14px;">
             <div class="form-label" style="margin-bottom: 8px;">Grant Studio Credits to Tenant / Account</div>
             <div class="form-grid">
-              <input id="topupAccountId" class="form-input" placeholder="Tenant User ID (or usr_system)" value="usr_system" />
-              <input id="topupAmount" class="form-input" type="number" value="100000" min="1" />
+              <input id="topupAccountId" class="form-input" placeholder="Tenant User ID" value="" />
+              <input id="topupAmount" class="form-input" type="number" placeholder="Credit amount" value="" min="1" />
             </div>
             <button class="btn btn-emerald" style="margin-top: 8px;" onclick="grantTenantCredits()">+ Grant Credits Immediately</button>
             <div id="topupToast" class="status-toast"></div>
@@ -736,7 +736,7 @@
           const plan = await planRes.json();
           out.textContent = JSON.stringify({ compiled_prompt: comp, plan_v1: plan }, null, 2);
         } else if (mode === 'cognition_chat') {
-          const token = localStorage.getItem('ks_studio_token') || '';
+          const token = localStorage.getItem('ks_studio_token') || localStorage.getItem('keystone.auth.token') || '';
           const headers = { 'Content-Type': 'application/json' };
           if (token) headers['Authorization'] = `Bearer ${token}`;
           const res = await fetch('/v1/cognition/chat', {
@@ -744,8 +744,8 @@
             headers,
             body: JSON.stringify({ messages: [{ role: 'user', content: prompt }] })
           });
-          const data = await res.json();
-          out.textContent = JSON.stringify(data, null, 2);
+          const data = await res.json().catch(() => ({ detail: res.statusText }));
+          out.textContent = `HTTP ${res.status}\n` + JSON.stringify(data, null, 2);
         } else {
           const params = { prompt, width: 1024, height: 1024 };
           if (mode === 'wan_i2v' || mode === 'upscale') params.source_image_asset_id = 'asset_admin_probe';
@@ -765,8 +765,11 @@
 
     async function grantTenantCredits() {
       const account_id = document.getElementById('topupAccountId').value.trim();
-      const amount = parseInt(document.getElementById('topupAmount').value, 10) || 100000;
-      if (!account_id) return;
+      const amount = parseInt(document.getElementById('topupAmount').value, 10);
+      if (!account_id || !Number.isFinite(amount) || amount <= 0) {
+        showToast('topupToast', 'Enter both an account ID and a positive credit amount.', true);
+        return;
+      }
       try {
         const res = await fetch('/v1/admin/credits/topup', {
           method: 'POST',

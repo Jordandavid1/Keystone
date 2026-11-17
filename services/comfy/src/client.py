@@ -90,13 +90,6 @@ def comfy_base_url() -> str:
                 return _normalize_comfy_url(str(worker["tunnel_url"]))
     except Exception:
         pass
-    fallback_origin = _normalize_comfy_url(
-        os.getenv("OPENAI_BASE_URL", "")
-        or os.getenv("COGNITION_BASE_URL", "")
-        or os.getenv("KAGGLE_COGNITION_TUNNEL", "")
-    )
-    if fallback_origin and not fallback_origin.startswith("http://localhost:8000"):
-        return fallback_origin
     return ""
 
 
@@ -294,41 +287,62 @@ def fetch_image(image_ref: Dict[str, Any]) -> Tuple[bytes, str]:
     return body, mime
 
 
-def upload_image_to_comfy(image_bytes: bytes, filename: str = "reference.png") -> str:
-    """Uploads an image to ComfyUI's /upload/image endpoint using multipart/form-data."""
+def upload_image_to_comfy(image_bytes: bytes, filename: Optional[str] = None) -> str:
+    """Uploads binary reference media to ComfyUI's /upload/image endpoint using multipart/form-data."""
     base = comfy_base_url()
     if not base:
-        return filename
+        raise ComfyUINotConfigured(
+            "COMFY_NOT_CONFIGURED: cannot upload reference media because COMFY_BASE_URL is not configured"
+        )
+    safe_fname = os.path.basename(filename or "") or f"upload_{uuid.uuid4().hex[:12]}.png"
+    boundary = f"----KeystoneBoundary{int(time.time()*1000)}"
+    body = bytearray()
+    # Form field 'overwrite'
+    body.extend(f"--{boundary}\r\nContent-Disposition: form-data; name=\"overwrite\"\r\n\r\ntrue\r\n".encode("utf-8"))
+    # File field 'image'
+    lower_name = safe_fname.lower()
+    if lower_name.endswith(".png"):
+        mime = "image/png"
+    elif lower_name.endswith((".jpg", ".jpeg")):
+        mime = "image/jpeg"
+    elif lower_name.endswith(".webp"):
+        mime = "image/webp"
+    elif lower_name.endswith(".wav"):
+        mime = "audio/wav"
+    elif lower_name.endswith(".mp3"):
+        mime = "audio/mpeg"
+    elif lower_name.endswith(".mp4"):
+        mime = "video/mp4"
+    else:
+        mime = "application/octet-stream"
+    body.extend(f"--{boundary}\r\nContent-Disposition: form-data; name=\"image\"; filename=\"{safe_fname}\"\r\nContent-Type: {mime}\r\n\r\n".encode("utf-8"))
+    body.extend(image_bytes)
+    body.extend(f"\r\n--{boundary}--\r\n".encode("utf-8"))
+
+    req = urllib.request.Request(f"{base}/upload/image", data=bytes(body), method="POST")
+    req.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
+    req.add_header("User-Agent", "Keystone/2.0")
+    _load_repo_env()
+    basic = os.getenv("COMFY_BASIC_AUTH", "").strip()
+    if basic:
+        token = base64.b64encode(basic.encode("utf-8")).decode("ascii")
+        req.add_header("Authorization", f"Basic {token}")
+    else:
+        bearer = comfy_bearer_token()
+        if bearer:
+            req.add_header("Authorization", f"Bearer {bearer}")
+
     try:
-        boundary = f"----KeystoneBoundary{int(time.time()*1000)}"
-        body = bytearray()
-        # Form field 'overwrite'
-        body.extend(f"--{boundary}\r\nContent-Disposition: form-data; name=\"overwrite\"\r\n\r\ntrue\r\n".encode("utf-8"))
-        # File field 'image'
-        safe_fname = os.path.basename(filename) or "reference.png"
-        mime = "image/png" if safe_fname.lower().endswith(".png") else "image/jpeg"
-        body.extend(f"--{boundary}\r\nContent-Disposition: form-data; name=\"image\"; filename=\"{safe_fname}\"\r\nContent-Type: {mime}\r\n\r\n".encode("utf-8"))
-        body.extend(image_bytes)
-        body.extend(f"\r\n--{boundary}--\r\n".encode("utf-8"))
-
-        req = urllib.request.Request(f"{base}/upload/image", data=bytes(body), method="POST")
-        req.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
-        req.add_header("User-Agent", "Keystone/2.0")
-        _load_repo_env()
-        basic = os.getenv("COMFY_BASIC_AUTH", "").strip()
-        if basic:
-            token = base64.b64encode(basic.encode("utf-8")).decode("ascii")
-            req.add_header("Authorization", f"Basic {token}")
-        else:
-            bearer = comfy_bearer_token()
-            if bearer:
-                req.add_header("Authorization", f"Bearer {bearer}")
-
         with urllib.request.urlopen(req, timeout=30) as resp:
             data = json.loads(resp.read().decode("utf-8") or "{}")
-            return data.get("name", safe_fname)
-    except Exception:
-        return filename
+            uploaded_name = data.get("name")
+            if not uploaded_name:
+                raise ComfyUIError(f"COMFY_UPLOAD_INVALID_RESPONSE: missing 'name' in /upload/image response ({data})")
+            return str(uploaded_name)
+    except ComfyUIError:
+        raise
+    except Exception as exc:
+        raise ComfyUIError(f"COMFY_UPLOAD_FAILED: {type(exc).__name__}: {exc}") from exc
 
 
 def build_img2img_graph(
@@ -492,7 +506,7 @@ def upscale_image(
     try:
         w, h, _ = decode_png_rgba(data)
     except Exception:
-        w, h = 1024 * scale, 1024 * scale
+        w, h = None, None
     return {
         "bytes": data,
         "mime_type": mime,
@@ -663,6 +677,7 @@ def build_minimax_h3_prompt_graph(
     enable_lightning_lora: bool = True,
     unet_name: Optional[str] = None,
     ref_image_size: str = "match",
+    seed: Optional[int] = None,
 ) -> Dict[str, Any]:
     """
     Constructs a ComfyUI executable prompt graph directly from the user's
@@ -735,6 +750,12 @@ def build_minimax_h3_prompt_graph(
     if "132" in graph:
         graph["132"]["inputs"]["value"] = float(duration)
         graph["132"]["inputs"]["widgets_values"] = [float(duration)]
+
+    # Inject fresh runtime seed into Node 129 (RandomNoise) so no baked template seed is reused
+    resolved_seed = seed if seed is not None else random.randint(1, 2**53 - 1)
+    if "129" in graph:
+        graph["129"]["inputs"]["noise_seed"] = resolved_seed
+        graph["129"]["inputs"]["widgets_values"] = [resolved_seed, "randomize"]
 
     # Inject Lightning LoRA toggle into Node 146
     if "146" in graph:
@@ -921,7 +942,7 @@ class ComfyUIClient:
     def upscale_image(self, image_bytes: bytes, scale_factor: int = 2, **kwargs: Any) -> Dict[str, Any]:
         return upscale_image(image_bytes, scale_factor=scale_factor, **kwargs)
 
-    def upload_image(self, image_bytes: bytes, filename: str = "reference.png") -> str:
+    def upload_image(self, image_bytes: bytes, filename: Optional[str] = None) -> str:
         return upload_image_to_comfy(image_bytes, filename)
 
 

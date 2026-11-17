@@ -22,7 +22,7 @@ from apps.api.src.storage.service import (
     generate_signed_url,
     generate_storage_key,
 )
-from services.audio.src.elevenlabs import elevenlabs_client, PREMIER_VOICES
+from services.audio.src.elevenlabs import elevenlabs_client
 
 router = APIRouter(prefix="/v1/personas", tags=["Personas"])
 
@@ -31,8 +31,8 @@ class CreatePersonaRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=128, description="Persona name")
     description: Optional[str] = Field(None, description="Persona bio, visual cues, and backstory")
     avatar_asset_id: Optional[str] = Field(None, description="Anchor image asset for persona portrait")
-    voice_id: Optional[str] = Field("21m00Tcm4TlvDq8ikWAM", description="ElevenLabs voice ID")
-    voice_name: Optional[str] = Field("Rachel (American Calm)", description="Display name for selected voice")
+    voice_id: Optional[str] = Field(default=None, description="Live ElevenLabs or local SAPI voice ID")
+    voice_name: Optional[str] = Field(default=None, description="Display name for selected voice")
     voice_settings: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Voice stability, similarity, style")
     personality_traits: Optional[List[str]] = Field(default_factory=list, description="Descriptive traits, e.g. Cyberpunk, Narrator")
     system_prompt: Optional[str] = Field(None, description="System prompt instructions injected into cognition")
@@ -115,11 +115,16 @@ async def create_persona(
 ) -> Dict[str, Any]:
     persona_id = str(uuid.uuid4())
 
-    # Resolve voice name if not explicitly set
-    voice_name = req.voice_name
-    if not voice_name and req.voice_id:
-        match = next((v for v in PREMIER_VOICES if v["voice_id"] == req.voice_id), None)
-        voice_name = match["name"] if match else "Custom ElevenLabs Voice"
+    # Resolve voice name from live voice catalog if voice_id provided without voice_name
+    voice_id = (req.voice_id or "").strip() or None
+    voice_name = (req.voice_name or "").strip() or None
+    if not voice_name and voice_id:
+        try:
+            voices = await run_in_threadpool(elevenlabs_client.list_voices)
+            match = next((v for v in voices if v.get("voice_id") == voice_id), None)
+            voice_name = match.get("name") if match else voice_id
+        except Exception:
+            voice_name = voice_id
 
     persona = Persona(
         id=persona_id,
@@ -128,8 +133,8 @@ async def create_persona(
         name=req.name,
         description=req.description,
         avatar_asset_id=req.avatar_asset_id,
-        voice_id=req.voice_id or "21m00Tcm4TlvDq8ikWAM",
-        voice_name=voice_name or "Rachel (American Calm)",
+        voice_id=voice_id or "",
+        voice_name=voice_name or "",
         voice_settings=req.voice_settings or {"stability": 0.5, "similarity_boost": 0.75, "style": 0.2},
         personality_traits=req.personality_traits or [],
         system_prompt=req.system_prompt,
@@ -256,16 +261,25 @@ async def persona_speak(
     if not persona:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Persona not found")
 
-    voice_id = req.voice_id or persona.voice_id or "21m00Tcm4TlvDq8ikWAM"
+    voice_id = (req.voice_id or persona.voice_id or "").strip() or None
     voice_settings = req.voice_settings or persona.voice_settings or {"stability": 0.5, "similarity_boost": 0.75, "style": 0.2}
 
-    # Synthesize audio bytes via ElevenLabs client
-    audio_bytes, mime_type, meta = await run_in_threadpool(
-        elevenlabs_client.generate_speech,
-        req.text,
-        voice_id=voice_id,
-        voice_settings=voice_settings
-    )
+    # Synthesize audio bytes via live ElevenLabs / Windows SAPI speech client
+    try:
+        audio_bytes, mime_type, meta = await run_in_threadpool(
+            elevenlabs_client.generate_speech,
+            req.text,
+            voice_id=voice_id,
+            voice_settings=voice_settings
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"AUDIO_SYNTHESIS_FAILED: {exc}",
+        )
+
+    resolved_voice_id = str(meta.get("voice_id") or voice_id or "")
+    resolved_voice_name = str(meta.get("voice_name") or persona.voice_name or resolved_voice_id)
 
     # Persist audio as an asset
     asset_repo = AssetRepository(db, tenant_id=tenant_id)
@@ -291,8 +305,8 @@ async def persona_speak(
             "persona_id": persona.id,
             "persona_name": persona.name,
             "script": req.text,
-            "voice_id": voice_id,
-            "voice_name": persona.voice_name,
+            "voice_id": resolved_voice_id,
+            "voice_name": resolved_voice_name,
             "provider": meta.get("provider", "elevenlabs"),
             "audio_mime": mime_type
         }
@@ -311,6 +325,6 @@ async def persona_speak(
         "byte_size": len(audio_bytes),
         "download_url": download_url,
         "provider": meta.get("provider", "elevenlabs"),
-        "voice_id": voice_id,
-        "voice_name": persona.voice_name
+        "voice_id": resolved_voice_id,
+        "voice_name": resolved_voice_name
     }

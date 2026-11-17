@@ -31,7 +31,7 @@ spec:
             - name: PORT
               value: "8000"
             - name: KEYSTONE_COGNITION_CHECKPOINT
-              value: "huihui-ai/Huihui-Qwen3.8-27B-abliterated"
+              value: "OBLITERATUS/Qwen3.8-27B-OBLITERATED"
             - name: KEYSTONE_ENVELOPE_SECRET
               valueFrom:
                 secretKeyRef:

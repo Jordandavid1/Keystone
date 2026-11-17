@@ -11,7 +11,7 @@
 KEYSTONE's customer-facing experience is **not** a fragmented grid of raw model playgrounds or technical parameter dumps. Per **KEYSTONE Bible §25**, KEYSTONE is a **unified, canvas-first creative workspace** where:
 1. **The creative asset is visually primary.**
 2. **Natural-language conversation supports the canvas.**
-3. **Ordinary users interact via creative intents (`Create`, `Edit`, `Animate`, `Analyze`) and 13 Domain Playbooks**, while KEYSTONE's embedded cognition (`huihui-ai/Huihui-Qwen3.8-27B-abliterated`), PromptCompiler, and Authority Engine own model selection, 6-part `PromptAnatomy` compilation, and execution.
+3. **Ordinary users interact via creative intents (`Create`, `Edit`, `Animate`, `Analyze`) and 13 Domain Playbooks**, while KEYSTONE's embedded cognition (`OBLITERATUS/Qwen3.8-27B-OBLITERATED`), PromptCompiler, and Authority Engine own model selection, 6-part `PromptAnatomy` compilation, and execution.
 
 To design a category-defining UX, we analyzed 6 benchmark platforms across generative media, motion control, node orchestration, privacy-first inference, and enterprise creative suites.
 

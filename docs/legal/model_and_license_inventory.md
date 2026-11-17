@@ -4,7 +4,7 @@
 **Ownership:** Jordan Maxwell  
 
 ## 1. Cognition Engine
-- **Model Checkpoint:** `huihui-ai/Huihui-Qwen3.8-27B-abliterated` (Pinned checkpoint; Invariant 10).
+- **Model Checkpoint:** `OBLITERATUS/Qwen3.8-27B-OBLITERATED` (Pinned checkpoint; Invariant 10, ADR-003).
 - **Execution Target:** Ephemeral Kaggle 2x Nvidia Tesla T4 with ~27GB CPU offload into ~80GB host RAM.
 - **Precision:** BF16 default.
 - **License:** Apache 2.0 / Qwen Open License.

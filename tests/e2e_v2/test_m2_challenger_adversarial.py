@@ -57,8 +57,8 @@ def api_client():
 class TestModelMutationAdversarial:
     """
     Stress-tests cognition client against model substitution and mutation attacks.
-    Enforces Bible §2 Invariant 6, 10, §11, §24: Checkpoint is permanently pinned
-    to huihui-ai/Huihui-Qwen3.8-27B-abliterated.
+    Enforces Bible §2 Invariant 6, 10, §11, §24 & ADR-003: Checkpoint is permanently pinned
+    to OBLITERATUS/Qwen3.8-27B-OBLITERATED.
     """
 
     SUBSTITUTE_MODELS = [
@@ -80,23 +80,24 @@ class TestModelMutationAdversarial:
         "meta-llama/Llama-3.1-70B-Instruct",
         "meta-llama/Meta-Llama-3-8B",
         "deepseek-ai/DeepSeek-V3",
-        # Quantized Checkpoints (Strictly Prohibited per Bible §11)
-        "huihui-ai/Huihui-Qwen3.8-27B-awq",
-        "huihui-ai/Huihui-Qwen3.8-27B-gptq",
-        "huihui-ai/Huihui-Qwen3.8-27B-GGUF",
-        "huihui-ai/Huihui-Qwen3.8-27B-bnb-4bit",
+        # Prior/Deprecated & Quantized Checkpoints (Strictly Prohibited per ADR-003 & Bible §11)
+        "huihui-ai/Huihui-Qwen3.8-27B-abliterated",
+        "OBLITERATUS/Qwen3.8-27B-OBLITERATED-awq",
+        "OBLITERATUS/Qwen3.8-27B-OBLITERATED-gptq",
+        "OBLITERATUS/Qwen3.8-27B-OBLITERATED-GGUF",
+        "OBLITERATUS/Qwen3.8-27B-OBLITERATED-bnb-4bit",
         # Case Mutations & Whitespace Tampering
-        "Huihui-ai/Huihui-Qwen3.8-27B-abliterated",
-        "huihui-ai/huihui-qwen3.8-27b-abliterated",
-        " huihui-ai/Huihui-Qwen3.8-27B-abliterated",
-        "huihui-ai/Huihui-Qwen3.8-27B-abliterated ",
-        "huihui-ai/Huihui-Qwen3.8-27B-abliterated\n",
+        "obliteratus/Qwen3.8-27B-OBLITERATED",
+        "OBLITERATUS/qwen3.8-27b-obliterated",
+        " OBLITERATUS/Qwen3.8-27B-OBLITERATED",
+        "OBLITERATUS/Qwen3.8-27B-OBLITERATED ",
+        "OBLITERATUS/Qwen3.8-27B-OBLITERATED\n",
         # Suffix / Prefix Tampering
-        "huihui-ai/Huihui-Qwen3.8-27B-abliterated-fp16",
-        "vllm/huihui-ai/Huihui-Qwen3.8-27B-abliterated",
+        "OBLITERATUS/Qwen3.8-27B-OBLITERATED-fp16",
+        "vllm/OBLITERATUS/Qwen3.8-27B-OBLITERATED",
         # Malicious Injections
-        "huihui-ai/Huihui-Qwen3.8-27B-abliterated; rm -rf /",
-        "huihui-ai/Huihui-Qwen3.8-27B-abliterated\r\nmodel: gpt-4"
+        "OBLITERATUS/Qwen3.8-27B-OBLITERATED; rm -rf /",
+        "OBLITERATUS/Qwen3.8-27B-OBLITERATED\r\nmodel: gpt-4"
     ]
 
     def test_build_completion_request_rejects_all_substitute_models(self):
@@ -114,7 +115,7 @@ class TestModelMutationAdversarial:
     def test_complete_method_rejects_substitute_models(self):
         """Verifies complete() entrypoint raises PROHIBITED_CHECKPOINT_MUTATION."""
         connector = CognitionConnector()
-        for model in ["gpt-4", "claude-3-opus", "huihui-ai/Huihui-Qwen3.8-27B-awq", "mistral"]:
+        for model in ["gpt-4", "claude-3-opus", "OBLITERATUS/Qwen3.8-27B-OBLITERATED-awq", "huihui-ai/Huihui-Qwen3.8-27B-abliterated", "mistral"]:
             with pytest.raises(ValueError) as exc_info:
                 connector.complete(
                     prompt="Analyze intent",
@@ -464,8 +465,8 @@ class TestKaggleHardwareVerification:
             "int4",
             "int8",
             "fp8",
-            "Huihui-Qwen3.8-27B-awq",
-            "Huihui-Qwen3.8-27B-gptq"
+            "OBLITERATUS/Qwen3.8-27B-OBLITERATED-awq",
+            "OBLITERATUS/Qwen3.8-27B-OBLITERATED-gptq"
         ]
 
         for nb_path in notebook_paths:
@@ -484,7 +485,7 @@ class TestKaggleHardwareVerification:
         data = json.loads(nb_path.read_text(encoding="utf-8"))
         all_code = "\n".join(["".join(c["source"]) for c in data["cells"] if c["cell_type"] == "code"])
 
-        assert "'huihui-ai/Huihui-Qwen3.8-27B-abliterated'" in all_code
+        assert "'OBLITERATUS/Qwen3.8-27B-OBLITERATED'" in all_code
         assert '"--tensor-parallel-size", "2"' in all_code
         assert '"--dtype", "bfloat16"' in all_code
         assert '"--cpu-offload-gb", "27"' in all_code

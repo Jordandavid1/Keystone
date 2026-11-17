@@ -11,12 +11,13 @@ import hashlib
 import hmac
 import os
 import re
+import secrets
 import time
 from pathlib import Path
 from typing import Any, Dict, Optional
 from urllib.parse import parse_qs, urlparse
 
-DEFAULT_STORAGE_SIGNING_KEY = os.getenv("STORAGE_SIGNING_KEY", "mock_storage_signing_key")
+DEFAULT_STORAGE_SIGNING_KEY = os.getenv("STORAGE_SIGNING_KEY") or secrets.token_hex(32)
 MAX_EXPIRY_SECONDS = 3600
 DEFAULT_EXPIRY_SECONDS = 900
 STORAGE_BASE_URL = os.getenv("STORAGE_BASE_URL", "https://storage.keystone.internal")
@@ -184,21 +185,39 @@ class GoogleCloudStorageProvider(StorageProvider):
     """Google Cloud Storage provider for Google Cloud Run production deployments."""
 
     def __init__(self, bucket_name: Optional[str] = None) -> None:
-        self.bucket_name = bucket_name or os.getenv("GCS_ASSET_BUCKET", "keystone-production-assets")
-        self._fallback_local = LocalStorageProvider()
+        self.bucket_name = (bucket_name or os.getenv("GCS_ASSET_BUCKET", "")).strip()
+        if not self.bucket_name:
+            raise RuntimeError("GCS_NOT_CONFIGURED: Set GCS_ASSET_BUCKET for Google Cloud Storage persistence.")
+        try:
+            from google.cloud import storage as gcs_storage  # type: ignore
+            self._client = gcs_storage.Client()
+            self._bucket = self._client.bucket(self.bucket_name)
+        except Exception as exc:
+            raise RuntimeError(
+                f"GCS_CLIENT_UNAVAILABLE: Google Cloud Storage runtime is unavailable ({exc}). "
+                "Zero local fallback mocking is permitted."
+            ) from exc
 
     async def put_object(self, key: str, data: bytes, content_type: str = "application/octet-stream") -> str:
-        # In mock or test mode without live GCP credentials, fallback to local persistence
-        return await self._fallback_local.put_object(key, data, content_type)
+        blob = self._bucket.blob(key)
+        blob.upload_from_string(data, content_type=content_type)
+        return f"gs://{self.bucket_name}/{key}"
 
     async def get_object(self, key: str) -> bytes:
-        return await self._fallback_local.get_object(key)
+        blob = self._bucket.blob(key)
+        if not blob.exists():
+            raise FileNotFoundError(f"GCS storage object not found: gs://{self.bucket_name}/{key}")
+        return blob.download_as_bytes()
 
     async def delete_object(self, key: str) -> bool:
-        return await self._fallback_local.delete_object(key)
+        blob = self._bucket.blob(key)
+        if blob.exists():
+            blob.delete()
+            return True
+        return False
 
     async def exists(self, key: str) -> bool:
-        return await self._fallback_local.exists(key)
+        return bool(self._bucket.blob(key).exists())
 
 
 class AssetStorageService:

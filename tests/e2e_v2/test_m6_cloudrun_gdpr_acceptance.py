@@ -50,7 +50,7 @@ class TestCloudRunDeploymentManifests:
         assert "memory:" in content
 
         # Check pinned cognition checkpoint
-        assert "huihui-ai/Huihui-Qwen3.8-27B-abliterated" in content
+        assert "OBLITERATUS/Qwen3.8-27B-OBLITERATED" in content
         assert "KEYSTONE_ENVELOPE_SECRET" in content
         assert "STRIPE_WEBHOOK_SECRET" in content
 

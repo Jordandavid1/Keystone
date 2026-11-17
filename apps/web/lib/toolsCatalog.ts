@@ -458,7 +458,7 @@ export const OPTIONAL_PLAYBOOKS: PlaybookTemplate[] = [
     name: 'Freedom & YOLO (Open Canvas)',
     description: 'Unconstrained creative freedom. Complete access to every model, parameter, resolution, and seed.',
     icon: 'Infinity',
-    starterPrompt: 'A hyper-detailed cinematic portrait under dramatic neon volumetric lighting, shallow depth of field, 8k resolution, raw photo aesthetic.',
+    starterPrompt: '',
     recommendedTool: 'by_prompt',
     defaultAspect: '16:9',
     parameters: { guidance: 6.5, steps: 30 }
@@ -468,7 +468,7 @@ export const OPTIONAL_PLAYBOOKS: PlaybookTemplate[] = [
     name: 'Industrial & Digital Design',
     description: 'Industrial design prototypes, UI/UX systems, architectural visualization, and high-craft product rendering.',
     icon: 'Layers',
-    starterPrompt: 'Minimalist ergonomic luxury headphone design, matte obsidian finish with brushed titanium accents, soft studio rim lighting, 8k.',
+    starterPrompt: '',
     recommendedTool: 'by_prompt',
     defaultAspect: '16:9',
     parameters: { quality: 'master' }
@@ -478,7 +478,7 @@ export const OPTIONAL_PLAYBOOKS: PlaybookTemplate[] = [
     name: 'Social Media & Content Creation',
     description: 'Eye-catching reels, viral visual hooks, thumbnails, and dynamic multi-angle brand assets.',
     icon: 'Smartphone',
-    starterPrompt: 'Dynamic fashion model walking down a futuristic rain-slicked Tokyo street, neon reflection puddles, 9:16 vertical video style.',
+    starterPrompt: '',
     recommendedTool: 'videogen',
     defaultAspect: '9:16',
     parameters: { duration: 5 }
@@ -488,7 +488,7 @@ export const OPTIONAL_PLAYBOOKS: PlaybookTemplate[] = [
     name: 'Hollywood Cinema & Film',
     description: 'Anamorphic widescreen shots, cinematic camera tracks, Kodak 2383 film look, and Hollywood color grading.',
     icon: 'Clapperboard',
-    starterPrompt: 'Wide cinematic establishing shot of a remote desert research outpost during golden hour, dust particles caught in sunlight, 2.39:1 anamorphic.',
+    starterPrompt: '',
     recommendedTool: 'by_prompt',
     defaultAspect: '21:9',
     parameters: { quality: 'master' }
@@ -498,7 +498,7 @@ export const OPTIONAL_PLAYBOOKS: PlaybookTemplate[] = [
     name: 'Digital Persona & Avatar',
     description: 'Consistent character faces, portrait headshots, fashion photoshoots, and talking avatars.',
     icon: 'User',
-    starterPrompt: 'Studio beauty portrait, high detailed skin texture, catchlights in eyes, soft beauty dish lighting, 85mm portrait lens.',
+    starterPrompt: '',
     recommendedTool: 'by_prompt',
     defaultAspect: '3:4',
     parameters: { quality: 'high' }

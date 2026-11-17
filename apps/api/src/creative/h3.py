@@ -27,6 +27,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import random
 import time
 import urllib.error
 import urllib.parse
@@ -236,6 +237,15 @@ def _prepare(template: Dict[str, Any], prompt: str, references: List[str]) -> Di
         elif kind == "VHS_VideoCombine":
             _set_widget(node, "filename_prefix", f"keystone/{uuid.uuid4().hex[:8]}")
             _set_widget(node, "format", "video/h264-mp4")
+        elif kind == "RandomNoise":
+            fresh_seed = random.randint(1, 2**53 - 1)
+            if isinstance(node.get("widgets_values_named"), dict):
+                node["widgets_values_named"]["noise_seed"] = fresh_seed
+            wv = node.get("widgets_values")
+            if isinstance(wv, list) and wv:
+                wv[0] = fresh_seed
+            else:
+                _set_widget(node, "noise_seed", fresh_seed)
 
     reference_node = nodes[REFERENCE_NODE]
     for index, input_name in enumerate(REFERENCE_INPUTS):

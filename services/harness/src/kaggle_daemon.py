@@ -21,7 +21,7 @@ load_keystone_dotenv()
 
 logger = logging.getLogger("keystone.kaggle_daemon")
 
-PINNED_CHECKPOINT = "huihui-ai/Huihui-Qwen3.8-27B-abliterated"
+PINNED_CHECKPOINT = "OBLITERATUS/Qwen3.8-27B-OBLITERATED"
 
 
 def _resolve_cognition_tunnel() -> str:

@@ -311,36 +311,48 @@ async def digest_and_compile_prompt(
         metadata={"intent_hint": intent_hint, "cognition": {"status": "not_connected"}},
     )
 
-    try:
-        live_provider = cognition.LiveQwenCognitiveProvider()
-        result = await live_provider.reason(
-            cognition.CognitiveRequest(
-                request_id=req_id,
-                user_text=user_text,
-                intent_hint=intent_hint,
-                reference_count=reference_count,
-                capability=manifest,
+    from services.cognition.src.client import CognitionConnector
+
+    if CognitionConnector().resolve_active_endpoint():
+        try:
+            live_provider = cognition.LiveQwenCognitiveProvider()
+            result = await live_provider.reason(
+                cognition.CognitiveRequest(
+                    request_id=req_id,
+                    user_text=user_text,
+                    intent_hint=intent_hint,
+                    reference_count=reference_count,
+                    capability=manifest,
+                )
             )
-        )
-        proposed = result.intent
-        intent = PromptIntent(
-            **{
-                **dump(proposed),
-                "objective": user_text,
-                "metadata": {
+            proposed = result.intent
+            intent = PromptIntent(
+                **{
+                    **dump(proposed),
+                    "objective": user_text,
+                    "metadata": {
+                        "intent_hint": intent_hint,
+                        "cognition": {
+                            "status": "used",
+                            "reasoning_id": result.reasoning_id,
+                            "confidence": result.confidence,
+                            "observations": result.observations,
+                            "proposed_objective": proposed.objective,
+                        },
+                    },
+                }
+            )
+        except Exception as exc:
+            intent = PromptIntent(
+                objective=user_text,
+                metadata={
                     "intent_hint": intent_hint,
                     "cognition": {
-                        "status": "used",
-                        "reasoning_id": result.reasoning_id,
-                        "confidence": result.confidence,
-                        "observations": result.observations,
-                        "proposed_objective": proposed.objective,
+                        "status": "error",
+                        "error": f"{type(exc).__name__}: {exc}",
                     },
                 },
-            }
-        )
-    except Exception:
-        pass
+            )
 
     request = PromptCompilationRequest(
         request_id=req_id,

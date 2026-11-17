@@ -698,7 +698,7 @@ class PiiVaultOracle {
 // ============================================================================
 
 class CognitionConnectorOracle {
-  static PINNED_CHECKPOINT = 'huihui-ai/Huihui-Qwen3.8-27B-abliterated';
+  static PINNED_CHECKPOINT = 'OBLITERATUS/Qwen3.8-27B-OBLITERATED';
 
   static buildCompletionRequest(prompt, options = {}) {
     if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
@@ -1316,7 +1316,7 @@ class AdversarialHardeningOracle {
 class PrecisionBenchmarkOracle {
   static runBenchmarkComparison() {
     return {
-      checkpoint: 'huihui-ai/Huihui-Qwen3.8-27B-abliterated',
+      checkpoint: 'OBLITERATUS/Qwen3.8-27B-OBLITERATED',
       hardware: 'Kaggle 2x NVIDIA Tesla T4',
       bf16: {
         load_success: true,

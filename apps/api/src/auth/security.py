@@ -15,7 +15,7 @@ import secrets
 import time
 from typing import Any, Dict, Optional, Tuple
 
-JWT_SECRET_KEY = os.getenv("KEYSTONE_SECRET_KEY", "mock_jwt_secret")
+JWT_SECRET_KEY = os.getenv("KEYSTONE_SECRET_KEY") or secrets.token_hex(32)
 PBKDF2_ITERATIONS = 600_000
 INTERNAL_SERVICE_TOKEN = "keystone-internal-worker-secret"
 

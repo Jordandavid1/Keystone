@@ -560,9 +560,9 @@ test('F12.5: Authenticated detokenization recovers original value', () => {
 // F13: Cognition Connector & Client
 // ============================================================================
 
-test('F13.1: Builds completion request for pinned checkpoint huihui-ai/Huihui-Qwen3.8-27B-abliterated', () => {
+test('F13.1: Builds completion request for pinned checkpoint OBLITERATUS/Qwen3.8-27B-OBLITERATED', () => {
   const req = oracle.CognitionConnectorOracle.buildCompletionRequest('Plan creative step');
-  assert.equal(req.model, 'huihui-ai/Huihui-Qwen3.8-27B-abliterated');
+  assert.equal(req.model, 'OBLITERATUS/Qwen3.8-27B-OBLITERATED');
   assert.equal(req.messages.length, 2);
 });
 
@@ -580,7 +580,7 @@ test('F13.3: Sets structured JSON output instruction in system prompt', () => {
 
 test('F13.4: Records token usage and latency metrics in parsed response', () => {
   const res = oracle.CognitionConnectorOracle.parseResponse({});
-  assert.equal(res.model, 'huihui-ai/Huihui-Qwen3.8-27B-abliterated');
+  assert.equal(res.model, 'OBLITERATUS/Qwen3.8-27B-OBLITERATED');
   assert.ok(res.usage.total_tokens > 0);
   assert.ok(res.latency_ms > 0);
 });
@@ -1411,7 +1411,7 @@ test('F34.5: Job state remains valid after crash recovery', () => {
 
 test('F35.1: Benchmark runner targets pinned checkpoint without quantization', () => {
   const bench = oracle.PrecisionBenchmarkOracle.runBenchmarkComparison();
-  assert.equal(bench.checkpoint, 'huihui-ai/Huihui-Qwen3.8-27B-abliterated');
+  assert.equal(bench.checkpoint, 'OBLITERATUS/Qwen3.8-27B-OBLITERATED');
   assert.equal(bench.hardware, 'Kaggle 2x NVIDIA Tesla T4');
 });
 

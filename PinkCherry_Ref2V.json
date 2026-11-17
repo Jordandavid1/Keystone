@@ -1220,8 +1220,8 @@
         "ver": "0.33.0",
         "models": [
           {
-            "name": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
-            "url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+            "name": "PinkCherry_hybrid_v1.8_minimax_h3_pruned_bf16.safetensors",
+            "url": "https://huggingface.co/SexGod1979/PinkCherry-NSFW_MiniMax-H3/resolve/main/1.8-hybrid/PinkCherry_hybrid_v1.8_minimax_h3_pruned_bf16.safetensors",
             "directory": "diffusion_models"
           }
         ],

@@ -1,12 +1,24 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
-import { Send, Square, X } from 'lucide-react';
-import { chatWithCognition } from '../../lib/api';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { RefreshCw, Send, Square, X } from 'lucide-react';
+import { ApiError, chatWithCognition, fetchCognitionStatus } from '../../lib/api';
+import { readableError } from '../../lib/errors';
+import { useStudio } from '@/lib/studio/store';
+import { SignedOutNote } from '../auth/SignedOutNote';
 
 interface ChatTurn {
   role: 'user' | 'assistant';
   content: string;
+}
+
+interface CognitionRuntimeStatus {
+  online?: boolean;
+  model?: string;
+  served_model?: string;
+  active_endpoint?: string;
+  cognition_detail?: string;
+  state?: string;
 }
 
 interface AgentChatModalProps {
@@ -15,32 +27,60 @@ interface AgentChatModalProps {
 }
 
 export const AgentChatModal: React.FC<AgentChatModalProps> = ({ open, onClose }) => {
+  const { state } = useStudio();
+  const { session, projectId } = state.system;
+  const isSignedIn = session.status === 'signed_in';
+
   const [messages, setMessages] = useState<ChatTurn[]>([]);
   const [input, setInput] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [authRequired, setAuthRequired] = useState(false);
   const [busy, setBusy] = useState(false);
   const [webSearch, setWebSearch] = useState(false);
   const [allowGeneration, setAllowGeneration] = useState(false);
+  const [runtime, setRuntime] = useState<CognitionRuntimeStatus | null>(null);
+  const [runtimeLoading, setRuntimeLoading] = useState(false);
+  const [runtimeError, setRuntimeError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const streamRef = useRef<HTMLDivElement>(null);
 
+  const refreshRuntime = useCallback(async () => {
+    setRuntimeLoading(true);
+    setRuntimeError(null);
+    try {
+      const status = await fetchCognitionStatus();
+      setRuntime(status);
+    } catch (err) {
+      setRuntime(null);
+      setRuntimeError(readableError(err));
+    } finally {
+      setRuntimeLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (!open) return;
+    void refreshRuntime();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+  }, [open, onClose, refreshRuntime]);
+
+  useEffect(() => {
+    if (isSignedIn) setAuthRequired(false);
+  }, [isSignedIn]);
 
   useEffect(() => {
     if (streamRef.current) streamRef.current.scrollTop = streamRef.current.scrollHeight;
-  }, [messages, busy]);
+  }, [messages, busy, error]);
 
   const handleNewChat = () => {
     abortRef.current?.abort();
     setMessages([]);
     setError(null);
+    setAuthRequired(false);
     setBusy(false);
     setInput('');
   };
@@ -53,28 +93,43 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({ open, onClose })
   const handleSend = async () => {
     const text = input.trim();
     if (!text || busy) return;
+    if (session.status === 'signed_out') {
+      setAuthRequired(true);
+      setError('Sign in or add an API key first — POST /v1/cognition/chat requires an authenticated workspace session.');
+      return;
+    }
+
     const nextMessages: ChatTurn[] = [...messages, { role: 'user', content: text }];
     setMessages(nextMessages);
     setInput('');
     setBusy(true);
     setError(null);
+    setAuthRequired(false);
+
     const controller = new AbortController();
     abortRef.current = controller;
     try {
-      const result = await chatWithCognition({
-        messages: nextMessages,
-        web_search: webSearch,
-        allow_generation: allowGeneration,
-      });
+      const result = await chatWithCognition(
+        {
+          messages: nextMessages,
+          web_search: webSearch,
+          allow_generation: allowGeneration,
+          project_id: projectId,
+        },
+        controller.signal,
+      );
       if (controller.signal.aborted) return;
       const reply = result?.message?.content || result?.text;
       if (!reply) {
-        throw new Error('Cognition returned no text. The Colab llama-server may be offline.');
+        throw new Error('Cognition returned an empty response body.');
       }
       setMessages((prev) => [...prev, { role: 'assistant', content: String(reply) }]);
     } catch (err: any) {
       if (err?.name === 'AbortError') return;
-      setError(err?.message || 'Cognition chat failed.');
+      if (err instanceof ApiError && err.status === 401) {
+        setAuthRequired(true);
+      }
+      setError(err?.message || readableError(err) || 'Cognition chat failed.');
     } finally {
       setBusy(false);
     }
@@ -82,32 +137,69 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({ open, onClose })
 
   if (!open) return null;
 
+  const badgeLabel = runtimeLoading
+    ? 'CHECKING'
+    : runtime?.online
+      ? 'ONLINE'
+      : runtime
+        ? 'OFFLINE'
+        : 'UNREACHABLE';
+  const badgeStyle = runtime?.online
+    ? { background: 'rgba(16, 185, 129, 0.16)', color: '#34d399' }
+    : { background: 'rgba(245, 158, 11, 0.16)', color: '#fbbf24' };
+
+  const activeModel = runtime?.served_model || runtime?.model || 'Awaiting live status';
+  const endpointLabel = runtime?.active_endpoint || 'no endpoint configured';
+
   return (
     <div className="modal-backdrop" onClick={onClose} role="dialog" aria-modal="true" aria-label="Direct LLM Agent Chat">
       <div className="chat-modal-window" onClick={(e) => e.stopPropagation()}>
         <div className="chat-top-header">
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <span style={{ fontWeight: 700, fontSize: 14.5 }}>Direct Cognition Console</span>
-              <span className="stage-chip" style={{ background: 'rgba(168, 85, 247, 0.2)', color: '#c084fc', fontSize: 10.5, fontWeight: 700 }}>COLAB LLM</span>
+              <span className="stage-chip" style={{ ...badgeStyle, fontSize: 10.5, fontWeight: 700 }}>
+                {badgeLabel}
+              </span>
             </div>
-            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>
-              Messages go to the OpenAI-compatible Colab llama-server via /v1/cognition/chat. No canned replies.
+            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2, wordBreak: 'break-word' }}>
+              {runtimeError
+                ? `Probe failed: ${runtimeError}`
+                : `${activeModel} • ${endpointLabel} (/v1/cognition/chat)`}
             </div>
+            {runtime && !runtime.online && runtime.cognition_detail && (
+              <div style={{ fontSize: 11, color: '#fbbf24', marginTop: 2, wordBreak: 'break-word' }}>
+                {runtime.cognition_detail}
+              </div>
+            )}
           </div>
           <div className="chat-header-actions">
-            <button id="btnNewAgentChat" className="btn-new-chat" onClick={handleNewChat} title="Clear conversation">
+            <button
+              className="icon-btn"
+              onClick={() => void refreshRuntime()}
+              title="Refresh live cognition status"
+              type="button"
+              disabled={runtimeLoading}
+            >
+              <RefreshCw size={14} className={runtimeLoading ? 'animate-spin' : ''} />
+            </button>
+            <button id="btnNewAgentChat" className="btn-new-chat" onClick={handleNewChat} title="Clear conversation" type="button">
               <span>+</span>
               <span>New Chat</span>
             </button>
-            <button className="icon-btn" onClick={onClose} title="Close"><X size={14} /></button>
+            <button className="icon-btn" onClick={onClose} title="Close" type="button"><X size={14} /></button>
           </div>
         </div>
 
         <div ref={streamRef} className="chat-stream-viewport">
-          {messages.length === 0 && !error && (
+          {(session.status === 'signed_out' || session.status === 'error' || authRequired) && (
+            <div style={{ margin: 12, padding: 12, borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.03)' }}>
+              <SignedOutNote what="the Direct Cognition Console" compact />
+            </div>
+          )}
+          {messages.length === 0 && !error && session.status !== 'signed_out' && (
             <div style={{ padding: 16, color: 'var(--text-muted)', fontSize: 12 }}>
-              No messages yet. Type below to talk to the configured cognition model.
+              No messages yet. Type below to dispatch directly to the live configured cognition runtime.
             </div>
           )}
           {messages.map((message, idx) => (
@@ -123,8 +215,24 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({ open, onClose })
               </div>
             </div>
           ))}
-          {busy && <div style={{ padding: 12, fontSize: 12, color: 'var(--text-secondary)' }}>Waiting for the Colab llama-server...</div>}
-          {error && <div style={{ margin: 12, padding: 10, borderRadius: 8, border: '1px solid rgba(244,63,94,0.4)', color: '#fda4af', fontSize: 12 }}>{error}</div>}
+          {busy && <div style={{ padding: 12, fontSize: 12, color: 'var(--text-secondary)' }}>Waiting for live cognition response...</div>}
+          {error && (
+            <div
+              role="alert"
+              style={{
+                margin: 12,
+                padding: 10,
+                borderRadius: 8,
+                border: '1px solid rgba(244,63,94,0.4)',
+                background: 'rgba(244,63,94,0.08)',
+                color: '#fda4af',
+                fontSize: 12,
+                wordBreak: 'break-word',
+              }}
+            >
+              {error}
+            </div>
+          )}
         </div>
 
         <div className="chat-bottom-composer">
@@ -147,10 +255,10 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({ open, onClose })
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
-                  handleSend();
+                  void handleSend();
                 }
               }}
-              placeholder="Message the Colab cognition model..."
+              placeholder="Message the live cognition model..."
             />
             {busy ? (
               <button className="btn-chat-send" style={{ background: '#ef4444' }} onClick={handleStop} type="button">
@@ -158,7 +266,7 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({ open, onClose })
                 <span>Stop</span>
               </button>
             ) : (
-              <button className="btn-chat-send" onClick={handleSend} type="button" disabled={!input.trim()}>
+              <button className="btn-chat-send" onClick={() => void handleSend()} type="button" disabled={!input.trim()}>
                 <Send size={14} />
                 <span>Send</span>
               </button>

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-KEYSTONE BF16 vs FP16 Precision Comparative Benchmark (Bible §11, §24, Invariant 10).
+KEYSTONE BF16 vs FP16 Precision Comparative Benchmark (Bible §11, §24, Invariant 10, ADR-003).
 Measures Kaggle 2x Nvidia Tesla T4 hardware metrics across BF16 and FP16 for
-pinned checkpoint `huihui-ai/Huihui-Qwen3.8-27B-abliterated`.
+pinned checkpoint `OBLITERATUS/Qwen3.8-27B-OBLITERATED`.
 Enforces Invariant 10: BF16 remains authorized default; FP16 is evaluated but never automatically promoted.
 """
 
@@ -12,7 +12,7 @@ import json
 import sys
 from pathlib import Path
 
-PINNED_CHECKPOINT = "huihui-ai/Huihui-Qwen3.8-27B-abliterated"
+PINNED_CHECKPOINT = "OBLITERATUS/Qwen3.8-27B-OBLITERATED"
 HARDWARE_TARGET = "Kaggle 2x NVIDIA Tesla T4 (TP=2) + ~80GB Host RAM offload"
 
 

@@ -253,8 +253,11 @@ async def generate_asset(
         storage_svc = AssetStorageService()
         try:
             ref_bytes = await storage_svc.provider.get_object(ref_asset.storage_key)
-        except Exception:
-            ref_bytes = None
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"REFERENCE_ASSET_LOAD_FAILED: {exc}",
+            ) from exc
 
     if not req.job_id:
         # Auto-provision request, authority decision, and RUNNING job for seamless caller UX
@@ -582,8 +585,11 @@ async def upscale_asset(
             relationship_type="upscale",
             job_id=None
         )
-    except Exception:
-        pass
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"LINEAGE_PERSIST_FAILED: {exc}",
+        ) from exc
 
     up_meta = upscaled_asset.metadata_ or {}
     return {

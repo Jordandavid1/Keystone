@@ -6,6 +6,7 @@ Wan 2.1 I2V, Wan 2.1 T2V, FaceFusion 3.x, and Clarity/Upscale.
 
 from __future__ import annotations
 
+import random
 import uuid
 from typing import Any, Dict, List, Optional
 from packages.contracts.src.models import CapabilityManifest, ParameterSpec, ExecutionEnvelope
@@ -104,7 +105,7 @@ class ImageGenAdapter(CreativeAdapterBase):
                 "height": ParameterSpec(type="integer", required=False, default=1024, minimum=256, maximum=2048),
                 "steps": ParameterSpec(type="integer", required=False, default=20, minimum=1, maximum=50),
                 "guidance": ParameterSpec(type="number", required=False, default=3.5, minimum=1.0, maximum=20.0),
-                "seed": ParameterSpec(type="integer", required=False, default=42)
+                "seed": ParameterSpec(type="integer", required=False, default=None)
             }
         )
 
@@ -114,12 +115,13 @@ class ImageGenAdapter(CreativeAdapterBase):
         return params
 
     def build_workflow_graph(self, params: Dict[str, Any], prompt: str) -> Dict[str, Any]:
+        resolved_seed = params.get("seed") if params.get("seed") is not None else random.randint(0, 2**32 - 1)
         return {
             "1": {"class_type": "UNETLoader", "inputs": {"unet_name": "flux1-schnell.sft", "weight_dtype": "fp8_e4m3fn"}},
             "2": {"class_type": "DualCLIPLoader", "inputs": {"clip_name1": "t5xxl_fp8_e4m3fn.safetensors", "clip_name2": "clip_l.safetensors"}},
             "3": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["2", 0], "text": prompt}},
             "4": {"class_type": "EmptySD3LatentImage", "inputs": {"width": params.get("width", 1024), "height": params.get("height", 1024), "batch_size": 1}},
-            "5": {"class_type": "KSampler", "inputs": {"model": ["1", 0], "positive": ["3", 0], "latent_image": ["4", 0], "seed": params.get("seed", 42), "steps": params.get("steps", 20), "cfg": params.get("guidance", 3.5), "sampler_name": "euler", "scheduler": "simple"}},
+            "5": {"class_type": "KSampler", "inputs": {"model": ["1", 0], "positive": ["3", 0], "latent_image": ["4", 0], "seed": resolved_seed, "steps": params.get("steps", 20), "cfg": params.get("guidance", 3.5), "sampler_name": "euler", "scheduler": "simple"}},
             "6": {"class_type": "VAEDecode", "inputs": {"samples": ["5", 0], "vae": ["7", 0]}},
             "7": {"class_type": "VAELoader", "inputs": {"vae_name": "ae.sft"}},
             "8": {"class_type": "SaveImage", "inputs": {"filename_prefix": "keystone_flux", "images": ["6", 0]}}
@@ -195,7 +197,7 @@ class WanI2VAdapter(CreativeAdapterBase):
         return {
             "1": {"class_type": "LoadImage", "inputs": {"image": params["source_image_asset_id"]}},
             "2": {"class_type": "WanVideoModelLoader", "inputs": {"model_name": "wan2.1_i2v_720p_14B.safetensors"}},
-            "3": {"class_type": "WanMotionPrompt", "inputs": {"motion_text": prompt or "subtle realistic motion"}},
+            "3": {"class_type": "WanMotionPrompt", "inputs": {"motion_text": prompt or ""}},
             "4": {"class_type": "WanVideoSampler", "inputs": {"duration": params.get("duration_seconds", 5), "resolution": params.get("resolution", "720p")}}
         }
 

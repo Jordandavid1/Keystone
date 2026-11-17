@@ -220,13 +220,11 @@ class TestProposedActionF14:
         assert res["proposed_action"].action_type == "generate"
         assert res["proposed_action"].capability == "image.generation"
 
-    def test_invalid_action_fallback_recovery(self):
-        # Simulated offline fallback in CognitionConnector.complete
+    def test_unreachable_endpoint_raises_explicit_error(self):
+        # Zero synthetic fallback allowed: unreachable endpoint must fail explicitly
         client = CognitionConnector(base_url="http://127.0.0.1:9999/unreachable")
-        res = client.complete("Draw an oil painting of a lighthouse")
-        assert res["proposed_action"] is not None
-        assert res["proposed_action"].action_type == "generate"
-        assert res["model"] == PINNED_CHECKPOINT
+        with pytest.raises(ConnectionError, match="COGNITION_UNREACHABLE"):
+            client.complete("Draw an oil painting of a lighthouse")
 
 
 # ============================================================================
@@ -779,7 +777,10 @@ class TestM3RouterAPI:
 class TestM3E2EIntegration:
     """Verifies complete M2->M3 pipeline: Intent -> Compile -> Cognition -> Authority -> Envelope -> Worker."""
 
-    def test_full_cognition_authority_dispatch_chain(self):
+    def test_full_cognition_authority_dispatch_chain(self, monkeypatch):
+        import json
+        import urllib.request
+
         # 1. User Intent Compilation (M2)
         intent = PromptIntent(
             objective="Generate a cinematic oil painting of an astronaut wandering on Mars",
@@ -789,8 +790,36 @@ class TestM3E2EIntegration:
         compiled = PromptCompiler.compile(intent, "general")
         assert compiled["prompt_hash"] is not None
 
-        # 2. Cognition Reasoning (Qwen-27B Connector)
-        connector = CognitionConnector()
+        # 2. Cognition Reasoning (Qwen-27B Connector over HTTP transport)
+        simulated_payload = {
+            "id": "chatcmpl-m3-e2e",
+            "model": PINNED_CHECKPOINT,
+            "choices": [{
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": json.dumps({
+                        "action_type": "generate",
+                        "capability": "image.generation",
+                        "parameters": {"prompt": compiled["positive_prompt"], "steps": 25},
+                        "rationale": "Image generation requested",
+                        "estimated_credits": 2
+                    })
+                }
+            }],
+            "usage": {"prompt_tokens": 20, "completion_tokens": 40, "total_tokens": 60}
+        }
+
+        class MockResponse:
+            def read(self):
+                return json.dumps(simulated_payload).encode("utf-8")
+            def __enter__(self):
+                return self
+            def __exit__(self, exc_type, exc_val, exc_tb):
+                pass
+
+        monkeypatch.setattr(urllib.request, "urlopen", lambda req, timeout=10: MockResponse())
+        connector = CognitionConnector(base_url="http://127.0.0.1:9001/v1")
         cog_result = connector.complete(compiled["positive_prompt"])
         proposed_action = cog_result["proposed_action"]
         assert proposed_action is not None

@@ -27,7 +27,13 @@ except Exception:
 from apps.api.src.main import app, PlanRequest
 
 # 2. Import pre-built intelligence router
-from apps.api.src.intelligence_router import router as intelligence_router
+import re as _re
+from apps.api.src.intelligence_router import aikido_manager as _aikido_manager, router as intelligence_router
+
+# Prevent O(N^2) backtracking ReDoS on long inputs without `@` while preserving pre-built intelligence_router.py byte-identical
+_aikido_manager.EMAIL_REGEX = _re.compile(
+    r"(?<![a-zA-Z0-9_.+-])[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+"
+)
 
 # 2.1 Import Milestone M1 Domain Routers & DB session
 from apps.api.src.routers.auth import router as auth_router
@@ -146,7 +152,7 @@ app.openapi_tags = [
     },
     {
         "name": "Audio",
-        "description": "ElevenLabs Text-to-Speech synthesis and voice catalogs with offline formant fallback"
+        "description": "Live ElevenLabs cloud voices and native Windows SAPI speech synthesis (zero mock fallbacks)"
     }
 ]
 

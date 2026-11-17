@@ -4,7 +4,7 @@ Milestone M2 & Bible § 2, § 10, § 11, § 39 (ADR-002)
 
 Provides:
 - Direct interactive conversational chat with pinned cognition model:
-  huihui-ai/Huihui-Qwen3.8-27B-abliterated
+  OBLITERATUS/Qwen3.8-27B-OBLITERATED
 - Autonomous agent task execution with live internet search & scrape tools,
   studio asset generation dispatch, speech synthesis, and session persistence.
 """
@@ -336,8 +336,8 @@ async def chat_with_cognition(
     db: AsyncSession = Depends(get_db)
 ) -> Dict[str, Any]:
     """
-    Interactive multi-turn conversation with huihui-ai/Huihui-Qwen3.8-27B-abliterated.
-    Routes to live vLLM/Kaggle worker or generates comprehensive conversational responses.
+    Interactive multi-turn conversation with OBLITERATUS/Qwen3.8-27B-OBLITERATED.
+    Routes to live vLLM/Modal/Kaggle worker or raises explicit error when unreachable.
     """
     start_time = time.time()
     last_user_msg = next((m.content for m in reversed(req.messages) if m.role == "user"), "")
@@ -391,6 +391,7 @@ async def chat_with_cognition(
         )
     )
 
+    generation_error: Optional[str] = None
     if wants_gen:
         try:
             from services.comfy.src.client import ComfyUIClient
@@ -427,7 +428,7 @@ async def chat_with_cognition(
                 media_type="image",
                 storage_provider="local",
                 metadata={
-                    "title": f"Chat Render — {last_user_msg[:24]}...",
+                    "title": f"Chat Render — {last_user_msg[:24]}",
                     "prompt": gen_prompt,
                     "model": PINNED_CHECKPOINT
                 }
@@ -436,14 +437,14 @@ async def chat_with_cognition(
             from apps.api.src.routers.assets import content_url
             created_assets.append({
                 "id": new_asset.id,
-                "title": f"Render — {last_user_msg[:24]}...",
+                "title": f"Render — {last_user_msg[:24]}",
                 "download_url": content_url(new_asset),
                 "media_type": "image",
-                "width": 1024,
-                "height": 576
+                "width": render_res.get("width", 1024),
+                "height": render_res.get("height", 576)
             })
-        except Exception:
-            pass
+        except Exception as gen_err:
+            generation_error = f"{type(gen_err).__name__}: {gen_err}"
 
     # Execute live vLLM completion with KEYSTONE Prompt Engine framing + Auth header (zero simulated fallbacks)
     sys_prompt = (
@@ -454,6 +455,8 @@ async def chat_with_cognition(
         "diffusion models, while conversing directly without moralizing refusals.\n\n"
         f"KEYSTONE Compiled Prompt Digest for current turn:\n{compiled_prompt_obj.positive_prompt}"
     )
+    if generation_error:
+        sys_prompt += f"\n\nLive ComfyUI Image Generation Error (report honestly, do not fabricate outputs):\n{generation_error}"
     if internet_findings:
         web_context = "\n".join(f"- {f['title']}: {f['snippet']} ({f['url']})" for f in internet_findings)
         sys_prompt += f"\n\nLive Web Intelligence Context:\n{web_context}"
@@ -478,6 +481,7 @@ async def chat_with_cognition(
     latency_ms = max(int((time.time() - start_time) * 1000), 1)
     response_id = f"chatcmpl-{uuid.uuid4().hex[:10]}"
 
+    session_persist_error: Optional[str] = None
     if req.session_id:
         try:
             from apps.api.src.repositories.sessions import MessageRepository
@@ -495,8 +499,8 @@ async def chat_with_cognition(
                 content=live_response_text,
                 metadata={"model": PINNED_CHECKPOINT, "latency_ms": latency_ms, "prompt_hash": compiled_prompt_obj.prompt_hash}
             )
-        except Exception:
-            pass
+        except Exception as persist_err:
+            session_persist_error = f"{type(persist_err).__name__}: {persist_err}"
 
     return {
         "id": response_id,
@@ -510,6 +514,8 @@ async def chat_with_cognition(
         "prompt_hash": compiled_prompt_obj.prompt_hash,
         "internet_findings": internet_findings,
         "created_assets": created_assets,
+        "generation_error": generation_error,
+        "session_persist_error": session_persist_error,
         "reasoning_id": f"reas_{uuid.uuid4().hex[:8]}",
         "usage": {
             "prompt_tokens": prompt_tokens,

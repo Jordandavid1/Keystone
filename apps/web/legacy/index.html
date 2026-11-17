@@ -36,8 +36,8 @@
         <!-- ZenCreator 2-Phase Credit Indicator -->
         <div class="telemetry-pill credit-ledger-pill" id="creditLedgerPill" title="ZenCreator 2-Phase Credit Ledger">
           <span class="credit-icon">⚡</span>
-          <span class="telemetry-mono" id="creditBalanceText">1,250 CREDITS</span>
-          <span class="credit-hold-badge" id="creditHoldBadge">HOLD: 3</span>
+          <span class="telemetry-mono" id="creditBalanceText">-- CREDITS</span>
+          <span class="credit-hold-badge" id="creditHoldBadge">HOLD: --</span>
         </div>
 
         <!-- Kaggle Worker Bridge Live Telemetry Pill -->
@@ -940,7 +940,7 @@
       <div class="status-center">
         <span class="status-item engine-health" id="engineHealthStatusItem" style="cursor: pointer;" title="Click to inspect Worker Bridge & Tunnel Telemetry">
           <span class="status-online-dot"></span>
-          <span id="statusEngineHealthText">KEYSTONE 2.0 • Qwen-27B Pinned • ComfyUI Engine Online</span>
+          <span id="statusEngineHealthText">KEYSTONE 2.0 • Probing live engines...</span>
         </span>
       </div>
 
@@ -1236,7 +1236,7 @@
           <div style="display: flex; justify-content: space-between; align-items: center;">
             <div style="display: flex; align-items: center; gap: 8px;">
               <span style="font-size: 12px; font-weight: 600; color: #ec4899;" id="ttsResultTitle">Generated Speech Track</span>
-              <span class="stage-chip" id="ttsResultMeta" style="color: #34d399; font-size: 10px;">audio/mpeg • 48 KB</span>
+              <span class="stage-chip" id="ttsResultMeta" style="color: #34d399; font-size: 10px;">--</span>
             </div>
             <span id="ttsProviderBadge" style="font-size: 10px; font-family: var(--font-mono); color: var(--text-secondary);">Provider: ElevenLabs</span>
           </div>
@@ -1356,7 +1356,7 @@
             <span style="font-size: 13px; font-weight: 700; color: var(--text-primary);">🧠 Cognition Checkpoint & OpenAI Tunnel</span>
             <span id="settingsCognitionStatusBadge" class="telemetry-pill" style="border-color: rgba(52,211,153,0.4); background: rgba(52,211,153,0.1); color: #34d399; font-weight: 600;">PROBING</span>
           </div>
-          <div style="font-size: 11.5px; font-family: var(--font-mono); color: #38bdf8; margin-bottom: 4px;">huihui-ai/Huihui-Qwen3.8-27B-abliterated</div>
+          <div style="font-size: 11.5px; font-family: var(--font-mono); color: #38bdf8; margin-bottom: 4px;">OBLITERATUS/Qwen3.8-27B-OBLITERATED</div>
           <div id="settingsCognitionEndpointText" style="font-size: 11px; font-family: var(--font-mono); color: #34d399; margin-top: 4px; margin-bottom: 8px;">Endpoint: Probing...</div>
           <label style="font-size: 10.5px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">OpenAI / vLLM Tunnel URL (OPENAI_BASE_URL)</label>
           <input type="text" id="cfgOpenaiBaseUrl" class="command-input" placeholder="https://your-tunnel.trycloudflare.com/v1" style="font-family: var(--font-mono); font-size: 11px; background: rgba(0,0,0,0.35); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 6px 10px; width: 100%; color: var(--text-primary);" />
@@ -1512,15 +1512,15 @@
         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
           <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 12px; text-align: center;">
             <div style="font-size: 10px; color: var(--text-secondary); text-transform: uppercase;">Available Balance</div>
-            <div id="modalCreditAvail" style="font-size: 20px; font-weight: 800; color: #38bdf8; font-family: var(--font-mono); margin-top: 4px;">1,250</div>
+            <div id="modalCreditAvail" style="font-size: 20px; font-weight: 800; color: #38bdf8; font-family: var(--font-mono); margin-top: 4px;">--</div>
           </div>
           <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 12px; text-align: center;">
             <div style="font-size: 10px; color: var(--text-secondary); text-transform: uppercase;">In-Flight Hold (Phase 1)</div>
-            <div id="modalCreditHold" style="font-size: 20px; font-weight: 800; color: #f59e0b; font-family: var(--font-mono); margin-top: 4px;">3</div>
+            <div id="modalCreditHold" style="font-size: 20px; font-weight: 800; color: #f59e0b; font-family: var(--font-mono); margin-top: 4px;">--</div>
           </div>
           <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 12px; text-align: center;">
             <div style="font-size: 10px; color: var(--text-secondary); text-transform: uppercase;">Total Ledger Pool</div>
-            <div id="modalCreditTotal" style="font-size: 20px; font-weight: 800; color: #34d399; font-family: var(--font-mono); margin-top: 4px;">1,253</div>
+            <div id="modalCreditTotal" style="font-size: 20px; font-weight: 800; color: #34d399; font-family: var(--font-mono); margin-top: 4px;">--</div>
           </div>
         </div>
 
@@ -1588,10 +1588,10 @@
         </div>
 
         <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 14px; font-family: var(--font-mono); font-size: 11px; display: flex; flex-direction: column; gap: 6px;">
-          <div><strong style="color: var(--text-secondary);">Worker ID:</strong> <span id="workerModalId">gpu-cluster-primary-01</span></div>
-          <div><strong style="color: var(--text-secondary);">Pinned Model:</strong> <span id="workerModalModel">huihui-ai/Huihui-Qwen3.8-27B-abliterated</span></div>
-          <div><strong style="color: var(--text-secondary);">Cognition Endpoint:</strong> <span id="workerModalDriver">Live OpenAI / vLLM Bridge</span></div>
-          <div><strong style="color: var(--text-secondary);">ComfyUI Tunnel:</strong> <span id="workerModalTunnel">Live ComfyUI Bridge</span></div>
+          <div><strong style="color: var(--text-secondary);">Worker ID:</strong> <span id="workerModalId">PROBING...</span></div>
+          <div><strong style="color: var(--text-secondary);">Pinned Model:</strong> <span id="workerModalModel">OBLITERATUS/Qwen3.8-27B-OBLITERATED</span></div>
+          <div><strong style="color: var(--text-secondary);">Cognition Endpoint:</strong> <span id="workerModalDriver">Probing...</span></div>
+          <div><strong style="color: var(--text-secondary);">ComfyUI Tunnel:</strong> <span id="workerModalTunnel">Probing...</span></div>
         </div>
 
         <div style="display: flex; justify-content: flex-end; gap: 8px;">
@@ -1616,10 +1616,10 @@
             <div style="display: flex; align-items: center; gap: 8px;">
               <span style="font-weight: 700; font-size: 14.5px; color: var(--text-primary);">Qwen 27B Direct Cognition Console</span>
               <span class="stage-chip" style="background: rgba(168, 85, 247, 0.2); color: #c084fc; font-size: 10.5px; font-weight: 700;">ABLITERATED</span>
-              <span class="stage-chip" style="background: rgba(52, 211, 153, 0.15); color: #34d399; font-size: 10.5px;">ONLINE</span>
+              <span id="agentChatRuntimeBadge" class="stage-chip" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; font-size: 10.5px;">PROBING</span>
             </div>
             <div style="font-size: 11px; color: var(--text-secondary); margin-top: 2px;">
-              Model: <code style="color: #38bdf8;">huihui-ai/Huihui-Qwen3.8-27B-abliterated</code> • Worker: Kaggle T4x2 (Tensor Parallelism) • Dual-Mode Chat & Agent
+              Model: <code style="color: #38bdf8;">OBLITERATUS/Qwen3.8-27B-OBLITERATED</code> • Direct live backend dispatch via <code>/v1/cognition/chat</code>
             </div>
           </div>
         </div>
@@ -1634,18 +1634,16 @@
 
       <!-- Messages Stream Viewport -->
       <div id="agentChatMessagesStream" class="chat-stream-viewport">
-        <!-- Initial Welcome Message from Qwen 27B -->
+        <!-- Live connection status rendered dynamically by app.js -->
         <div class="chat-msg-row assistant">
           <div class="chat-avatar-icon qwen">🧠</div>
           <div class="chat-bubble-content">
             <div class="chat-bubble-header">
               <span style="font-weight: 700; color: #c084fc;">Qwen 27B Abliterated Cognition</span>
-              <span style="font-size: 10px; color: var(--text-muted); font-family: var(--font-mono);">Bible § 39 Online</span>
+              <span style="font-size: 10px; color: var(--text-muted); font-family: var(--font-mono);">Live Endpoint Only</span>
             </div>
             <div>
-              Welcome to your dedicated creative intelligence console. I am <strong><code>huihui-ai/Huihui-Qwen3.8-27B-abliterated</code></strong>, running on dual NVIDIA T4 GPUs with active tensor parallelism.
-              <br><br>
-              You can converse directly with me like ChatGPT or Gemini: ask technical cinematography questions, brainstorm shot lists, analyze lighting recipes, or instruct me to <strong>search the live internet</strong> and <strong>autonomously generate or upscale studio assets</strong>. What would you like to build?
+              Messages dispatch directly to the configured OpenAI-compatible <code>OBLITERATUS/Qwen3.8-27B-OBLITERATED</code> runtime. Enter a prompt below to query the live model.
             </div>
           </div>
         </div>
