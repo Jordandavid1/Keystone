@@ -21,7 +21,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from apps.api.src.db.connection import get_db
+from apps.api.src.db.session import get_db
 from apps.api.src.db.models import Recipe, StyleRule, User
 from apps.api.src.routers.auth import get_current_user
 from apps.api.src.services.gate import GateService

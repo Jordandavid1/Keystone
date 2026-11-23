@@ -918,6 +918,31 @@ async def get_asset(
     }
 
 
+@router.get("/{asset_id}/credentials", summary="Get C2PA Content Credentials for Asset (Bible v2 §25)")
+async def get_asset_credentials(
+    asset_id: str,
+    tenant_id: str = Depends(get_current_tenant_id),
+    db: AsyncSession = Depends(get_db)
+) -> Dict[str, Any]:
+    asset_repo = AssetRepository(db, tenant_id=tenant_id)
+    asset = await asset_repo.get_asset_by_id(asset_id)
+    if not asset:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Asset not found or forbidden"
+        )
+
+    from apps.api.src.services.c2pa_credentials import sign_c2pa_manifest
+    manifest = sign_c2pa_manifest(
+        asset_id=asset.id,
+        job_id=asset.job_id or asset.id,
+        user_id=asset.user_id,
+        title=f"Keystone Asset {asset.id}",
+    )
+    return manifest
+
+
+
 def _parse_byte_range(range_header: str, total_size: int) -> Optional[Tuple[int, int]]:
     """
     Parse an HTTP Range header (`bytes=start-end`, `bytes=start-`, `bytes=-suffix`)

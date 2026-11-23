@@ -11,11 +11,19 @@ import hmac
 import json
 import os
 import uuid
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
 from apps.api.src.auth.dependencies import get_current_tenant_id, get_current_user
+from apps.api.src.db.session import get_db
+from apps.api.src.db.models import User
+from apps.api.src.services.credits import (
+    deposit as db_deposit,
+    get_balance as db_get_balance,
+)
+from sqlalchemy.orm import Session
 from services.authority.src.credits_ledger import credits_ledger
 
 router = APIRouter(prefix="/v1/billing", tags=["Billing & Credits"])
@@ -236,6 +244,61 @@ def get_current_user_transactions(tenant_id: str = Depends(get_current_tenant_id
     summary="Top-up Account Credits",
     description="Instant top-up for creative studio testing."
 )
-def topup_current_user_credits(req: TopUpRequest, tenant_id: str = Depends(get_current_tenant_id)) -> Dict[str, Any]:
+def topup_current_user_credits(
+    req: TopUpRequest,
+    tenant_id: str = Depends(get_current_tenant_id),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
     credits_ledger.topup(account_id=tenant_id, amount=req.amount, reason=req.reason or "Studio Top-up")
+    try:
+        db_deposit(db, user_id=tenant_id, amount=req.amount, processor="stripe", content_mode="sfw")
+        db.commit()
+    except Exception:
+        pass
     return get_current_user_balance(tenant_id)
+
+
+class AdultProcessorWebhookRequest(BaseModel):
+    user_id: str
+    event_type: str = "card_verified"
+    card_last4: Optional[str] = "4242"
+    processor: str = "ccbill"
+    credits: Optional[int] = None
+
+
+@router.post(
+    "/webhooks/adult-processor",
+    summary="Adult Processor Webhook (Stage-2 Age Verification)",
+    description="Receives card confirmation from adult processor (CCBill/etc), marking Stage-2 age verification."
+)
+def handle_adult_processor_webhook(
+    payload: AdultProcessorWebhookRequest,
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    user = db.query(User).filter(User.id == payload.user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.age_verified = True
+    user.age_verification_method = f"card_{payload.processor}"
+    user.age_verified_at = datetime.now(timezone.utc)
+    if hasattr(user, "content_mode"):
+        user.content_mode = "unrestricted"
+
+    if payload.credits and payload.credits > 0:
+        db_deposit(
+            db,
+            user_id=user.id,
+            amount=payload.credits,
+            processor=payload.processor,
+            content_mode="unrestricted",
+        )
+
+    db.commit()
+    return {
+        "status": "success",
+        "user_id": user.id,
+        "age_verified": True,
+        "method": user.age_verification_method,
+    }
+
