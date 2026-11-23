@@ -260,6 +260,8 @@ def get_comfy_runtime_status() -> Dict[str, Any]:
         "h3": h3_info,
         "h3_health": h3_health_info,
         "adapters": list(ADAPTER_REGISTRY.keys()),
+        "supported_video_fps": [30, 60, 100, 120],
+        "max_video_fps": 120,
         "workflows": {
             "sdxl_txt2img": "ready",
             "sdxl_img2img": "ready",

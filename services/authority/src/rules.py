@@ -53,7 +53,10 @@ VIDEO_DEFAULT_RESOLUTION: str = "720p"
 VIDEO_RESOLUTIONS: Set[str] = {"480p", "720p", "1080p"}
 VIDEO_MAX_DURATION_SECONDS: int = 10
 VIDEO_MIN_DURATION_SECONDS: int = 1
-VIDEO_FPS_RANGE: Tuple[int, int] = (8, 30)
+VIDEO_FPS_RANGE: Tuple[int, int] = (8, 120)
+VIDEO_SUPPORTED_FPS_PRESETS: Tuple[int, ...] = (30, 60, 100, 120)
+VIDEO_DEFAULT_FPS: int = 30
+VIDEO_MAX_FPS: int = 120
 
 STEPS_RANGE: Tuple[int, int] = (1, 50)
 GUIDANCE_RANGE: Tuple[float, float] = (1.0, 20.0)

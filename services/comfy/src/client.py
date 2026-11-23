@@ -31,11 +31,16 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from services.comfy.src.grade import apply_grade, is_neutral_grade
 from services.comfy.src.video_ops import (
+    VIDEO_DEFAULT_FPS,
+    VIDEO_FPS_PRESETS,
+    VIDEO_MAX_FPS,
     VideoOpsError,
+    convert_video_bytes_fps,
     encode_frames_to_video,
     extract_last_frame,
     extract_video_frames,
     probe_video_metadata,
+    resolve_target_fps,
     stitch_video_segments,
 )
 
@@ -701,6 +706,7 @@ def build_minimax_h3_prompt_graph(
     unet_name: Optional[str] = None,
     ref_image_size: str = "match",
     seed: Optional[int] = None,
+    fps: Optional[int] = None,
 ) -> Dict[str, Any]:
     """
     Constructs a ComfyUI executable prompt graph directly from the user's
@@ -821,8 +827,15 @@ def build_minimax_h3_prompt_graph(
             n136_in.pop("ref_videos.ref_video_0", None)
             graph.pop("190", None)
 
+    resolved_fps = resolve_target_fps(fps, default=None) if fps is not None else None
     if "148" in graph:
         graph["148"]["inputs"]["filename_prefix"] = "keystone/h3_"
+        if resolved_fps is not None:
+            graph["148"]["inputs"]["frame_rate"] = resolved_fps
+    if resolved_fps is not None:
+        for node_spec in graph.values():
+            if isinstance(node_spec, dict) and node_spec.get("class_type") == "VHS_VideoCombine":
+                node_spec.setdefault("inputs", {})["frame_rate"] = resolved_fps
 
     return graph
 
@@ -838,6 +851,7 @@ def generate_minimax_h3_video(
     duration_seconds: int = 5,
     resolution: str = "720p",
     ref_image_size: str = "match",
+    fps: Optional[int] = None,
     timeout: Optional[float] = None
 ) -> Dict[str, Any]:
     """
@@ -880,6 +894,7 @@ def generate_minimax_h3_video(
         )
 
     resolved_unet = _resolve_remote_unet_name()
+    target_fps = resolve_target_fps(fps, default=None) if fps is not None else None
 
     # Build real execution graph from PinkCherry_Ref2V.json
     graph = build_minimax_h3_prompt_graph(
@@ -891,6 +906,7 @@ def generate_minimax_h3_video(
         enable_lightning_lora=True,
         unet_name=resolved_unet,
         ref_image_size=ref_image_size,
+        fps=target_fps,
     )
 
     # Strip widgets_values helper keys before submitting to strict ComfyUI /prompt API
@@ -927,6 +943,8 @@ def generate_minimax_h3_video(
         "type": video_ref.get("type", "output")
     })
     _, video_bytes = _request(f"/view?{query}", raw=True)
+    if target_fps is not None and video_bytes:
+        video_bytes = convert_video_bytes_fps(video_bytes, float(target_fps))
 
     return {
         "bytes": video_bytes,
@@ -938,6 +956,7 @@ def generate_minimax_h3_video(
         "video_vae": "minimax_h3_video_vae_fp16.safetensors",
         "duration_seconds": duration_seconds,
         "resolution": resolution,
+        "fps": target_fps or 24,
         "reference_image_used": bool(ref_image_bytes),
         "reference_audio_used": bool(ref_audio_bytes),
         "filename": video_ref.get("filename", f"minimax_h3_{prompt_id[:8]}.mp4")
@@ -1043,11 +1062,12 @@ def compile_video_prompt(
     camera_motion: Optional[str] = None,
     motion_speed: Optional[float] = None,
     duration: Optional[float] = None,
+    fps: Optional[int] = None,
     aspect_ratio: Optional[str] = None,
     grade: Optional[Dict[str, Any]] = None,
     lut: Optional[str] = None,
 ) -> str:
-    """Enrich prompt text with camera motion, speed, duration, aspect ratio, and Look grade cues."""
+    """Enrich prompt text with camera motion, speed, duration, framerate (Hz), aspect ratio, and Look grade cues."""
     base = (prompt or "").strip()
     directives: List[str] = []
 
@@ -1062,6 +1082,10 @@ def compile_video_prompt(
 
     if duration is not None:
         directives.append(f"Duration: {float(duration):g}s")
+    if fps is not None:
+        resolved_fps = resolve_target_fps(fps, default=None)
+        if resolved_fps is not None:
+            directives.append(f"Framerate: {resolved_fps}Hz ({resolved_fps} fps)")
     if aspect_ratio:
         directives.append(f"Aspect ratio: {str(aspect_ratio).strip()}")
     if lut and str(lut).strip().lower() not in ("", "none"):
@@ -1115,6 +1139,8 @@ def render_workflow_graph(graph: Dict[str, Any], params: Optional[Dict[str, Any]
     aspect_ratio = str(raw.get("aspect_ratio") or raw.get("ratio") or "16:9").strip().split()[0]
     width, height = resolve_aspect_dimensions(aspect_ratio, raw.get("width"), raw.get("height"))
     duration = float(raw.get("duration") or raw.get("duration_seconds") or 5.0)
+    raw_fps = raw.get("fps") or raw.get("frame_rate") or raw.get("framerate") or raw.get("hz")
+    resolved_fps = resolve_target_fps(raw_fps, default=None) if raw_fps is not None else None
     camera_motion = raw.get("camera_motion") or raw.get("motion")
     motion_speed = raw.get("motion_speed")
     grade = normalize_grade_params(raw)
@@ -1144,6 +1170,9 @@ def render_workflow_graph(graph: Dict[str, Any], params: Optional[Dict[str, Any]
         "ref_audio": audio_name,
         "duration": duration,
         "duration_seconds": duration,
+        "fps": resolved_fps,
+        "frame_rate": resolved_fps,
+        "target_fps": resolved_fps,
         "aspect_ratio": aspect_ratio,
         "width": width,
         "height": height,
@@ -1216,8 +1245,12 @@ def render_workflow_graph(graph: Dict[str, Any], params: Optional[Dict[str, Any]
                 inputs["camera_motion"] = str(camera_motion)
             if motion_speed is not None:
                 inputs["motion_speed"] = float(motion_speed)
+            if resolved_fps is not None:
+                inputs["target_fps"] = resolved_fps
             if is_non_neutral_grade(grade):
                 inputs["grade"] = grade
+        elif ctype == "VHS_VideoCombine" and resolved_fps is not None:
+            inputs["frame_rate"] = resolved_fps
 
     # Optional secondary image / audio / video attachment for H3 workflows
     if "136" in rendered and isinstance(rendered["136"], dict):
@@ -1261,6 +1294,7 @@ def build_video_workflow_graph(
     camera_motion: Optional[str] = None,
     motion_speed: Optional[float] = None,
     duration: float = 5.0,
+    fps: Optional[int] = None,
     aspect_ratio: str = "16:9",
     width: Optional[int] = None,
     height: Optional[int] = None,
@@ -1276,12 +1310,14 @@ def build_video_workflow_graph(
     template_name = VIDEO_WORKFLOW_TEMPLATES.get(key)
     if not template_name:
         raise ComfyUIError(f"UNKNOWN_VIDEO_VARIANT: '{variant}'")
+    resolved_fps = resolve_target_fps(fps, default=None) if fps is not None else None
     template = load_workflow_template(template_name)
     compiled_prompt = compile_video_prompt(
         prompt,
         camera_motion=camera_motion,
         motion_speed=motion_speed,
         duration=duration,
+        fps=resolved_fps,
         aspect_ratio=aspect_ratio,
         grade=grade,
         lut=lut,
@@ -1297,6 +1333,7 @@ def build_video_workflow_graph(
             "camera_motion": camera_motion,
             "motion_speed": motion_speed,
             "duration": duration,
+            "fps": resolved_fps,
             "aspect_ratio": aspect_ratio,
             "width": width,
             "height": height,
@@ -1449,6 +1486,7 @@ class ComfyUIClient:
         camera_motion: Optional[str] = None,
         motion_speed: Optional[float] = None,
         duration: float = 5.0,
+        fps: Optional[int] = None,
         aspect_ratio: str = "16:9",
         width: Optional[int] = None,
         height: Optional[int] = None,
@@ -1476,6 +1514,7 @@ class ComfyUIClient:
         norm_grade = normalize_grade_params(grade)
         non_neutral = is_non_neutral_grade(norm_grade)
         variant_key = (variant or "").strip().lower()
+        target_fps = resolve_target_fps(fps, default=None) if fps is not None else None
 
         # For video_upscale(r), run deterministic grade BEFORE neural ESRGAN upscale
         effective_video_bytes = ref_video_bytes
@@ -1569,6 +1608,7 @@ class ComfyUIClient:
             camera_motion=camera_motion,
             motion_speed=motion_speed,
             duration=duration,
+            fps=target_fps,
             aspect_ratio=aspect_ratio,
             width=width,
             height=height,
@@ -1612,15 +1652,19 @@ class ComfyUIClient:
                         )
                         up_res = upscale_image(graded_f, scale_factor=scale_factor)
                         frame_seq.append(up_res["bytes"])
-                encode_frames_to_video(frame_seq, out_mp4, fps=source_fps)
+                encode_frames_to_video(frame_seq, out_mp4, fps=float(target_fps or source_fps))
                 out_bytes = out_mp4.read_bytes()
                 out_mime = "video/mp4"
 
         if not out_bytes:
             raise ComfyUIError(f"COMFY_NO_VIDEO: {variant} workflow produced no video output")
 
+        if target_fps is not None and out_mime.startswith("video/"):
+            out_bytes = convert_video_bytes_fps(out_bytes, float(target_fps))
+
         exec_res["bytes"] = out_bytes
         exec_res["mime_type"] = out_mime
+        exec_res["fps"] = target_fps or source_fps
         exec_res["grade_applied"] = non_neutral
         return exec_res
 
@@ -1686,6 +1730,8 @@ def h3_health() -> Dict[str, Any]:
 async def h3_generate(
     prompt: str,
     references: Optional[list] = None,
+    *,
+    fps: Optional[int] = None,
 ) -> Tuple[bytes, str, Dict[str, Any]]:
     import asyncio
     ref_images = [item[2] for item in (references or []) if len(item) >= 3]
@@ -1695,6 +1741,7 @@ async def h3_generate(
         prompt=prompt,
         ref_image_bytes=ref_images[0] if ref_images else None,
         ref_image_filename=ref_name,
+        fps=fps,
     )
     return res["bytes"], res.get("mime_type", "video/mp4"), res
 
@@ -1854,13 +1901,24 @@ class WanI2VAdapter(CreativeAdapterBase):
             parameters={
                 "prompt": ParameterSpec(type="string", required=True, description="Motion prompt"),
                 "image_name": ParameterSpec(type="string", required=False, description="Source image"),
+                "fps": ParameterSpec(
+                    type="integer",
+                    required=False,
+                    default=VIDEO_DEFAULT_FPS,
+                    minimum=8,
+                    maximum=VIDEO_MAX_FPS,
+                    enum=list(VIDEO_FPS_PRESETS),
+                    description="Target video framerate in Hz (30, 60, 100, 120; up to 120Hz)",
+                ),
             },
         )
 
     def build_workflow_graph(self, params: Dict[str, Any], prompt: str) -> Dict[str, Any]:
+        fps = resolve_target_fps(params.get("fps") or params.get("frame_rate") or params.get("hz"), default=VIDEO_DEFAULT_FPS)
         return {
-            "1": {"class_type": "WanImageToVideo", "inputs": {"prompt": prompt, "image": params.get("image_name", "")}},
+            "1": {"class_type": "WanImageToVideo", "inputs": {"prompt": prompt, "image": params.get("image_name", ""), "fps": fps}},
             "3": {"class_type": "WanMotionPrompt", "inputs": {"motion_text": prompt}},
+            "output": {"class_type": "VHS_VideoCombine", "inputs": {"format": "video/h264-mp4", "frame_rate": fps}},
         }
 
 
@@ -1877,11 +1935,26 @@ class WanT2VAdapter(CreativeAdapterBase):
             description="Wan 2.1 Text-to-Video generation",
             accepts=["text/plain"],
             produces=["video/mp4"],
-            parameters={"prompt": ParameterSpec(type="string", required=True, description="Video prompt")},
+            parameters={
+                "prompt": ParameterSpec(type="string", required=True, description="Video prompt"),
+                "fps": ParameterSpec(
+                    type="integer",
+                    required=False,
+                    default=VIDEO_DEFAULT_FPS,
+                    minimum=8,
+                    maximum=VIDEO_MAX_FPS,
+                    enum=list(VIDEO_FPS_PRESETS),
+                    description="Target video framerate in Hz (30, 60, 100, 120; up to 120Hz)",
+                ),
+            },
         )
 
     def build_workflow_graph(self, params: Dict[str, Any], prompt: str) -> Dict[str, Any]:
-        return {"1": {"class_type": "WanTextToVideo", "inputs": {"prompt": prompt}}}
+        fps = resolve_target_fps(params.get("fps") or params.get("frame_rate") or params.get("hz"), default=VIDEO_DEFAULT_FPS)
+        return {
+            "1": {"class_type": "WanTextToVideo", "inputs": {"prompt": prompt, "fps": fps}},
+            "output": {"class_type": "VHS_VideoCombine", "inputs": {"format": "video/h264-mp4", "frame_rate": fps}},
+        }
 
 
 class FaceFusionAdapter(CreativeAdapterBase):
@@ -1949,10 +2022,20 @@ class MiniMaxH3Adapter(CreativeAdapterBase):
             parameters={
                 "prompt": ParameterSpec(type="string", required=True),
                 "duration_seconds": ParameterSpec(type="integer", required=False, default=5),
+                "fps": ParameterSpec(
+                    type="integer",
+                    required=False,
+                    default=VIDEO_DEFAULT_FPS,
+                    minimum=8,
+                    maximum=VIDEO_MAX_FPS,
+                    enum=list(VIDEO_FPS_PRESETS),
+                    description="Target video framerate in Hz (30, 60, 100, 120; up to 120Hz)",
+                ),
             },
         )
 
     def build_workflow_graph(self, params: Dict[str, Any], prompt: str) -> Dict[str, Any]:
+        fps = resolve_target_fps(params.get("fps") or params.get("frame_rate") or params.get("hz"), default=VIDEO_DEFAULT_FPS)
         return {
             "ref2v": {
                 "class_type": "MiniMaxH3ReferenceToVideo",
@@ -1960,12 +2043,16 @@ class MiniMaxH3Adapter(CreativeAdapterBase):
                     "prompt": prompt,
                     "ref_image_size": params.get("ref_image_size", "match"),
                     "duration": params.get("duration_seconds", 5),
+                    "target_fps": fps,
                     "ref_image": params.get("ref_image_asset_id"),
                     "ref_video": params.get("ref_video_asset_id"),
                     "ref_audio": params.get("ref_audio_asset_id"),
                 },
             },
-            "output": {"class_type": "VHS_VideoCombine", "inputs": {"format": "video/h264-mp4", "audio": True, "filename_prefix": "keystone/h3_"}},
+            "output": {
+                "class_type": "VHS_VideoCombine",
+                "inputs": {"format": "video/h264-mp4", "audio": True, "frame_rate": fps, "filename_prefix": "keystone/h3_"},
+            },
         }
 
 

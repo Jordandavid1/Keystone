@@ -26,6 +26,7 @@ import {
   StudioAsset,
   StudioControls,
   StudioPreferences,
+  VideoFramerate,
 } from '../types';
 
 export type { Persona };
@@ -59,7 +60,7 @@ export const DEFAULT_PREFERENCES: StudioPreferences = {
   defaultContentMode: 'sfw',
   defaultSeed: null,
   outputPrefs: {
-    framerate: 24,
+    framerate: 30,
     format: 'auto',
     c2paBadge: true,
   },
@@ -97,7 +98,9 @@ export function loadStoredPreferences(): StudioPreferences {
       defaultContentMode: parsed?.defaultContentMode === 'unrestricted' ? 'unrestricted' : 'sfw',
       defaultSeed: typeof parsed?.defaultSeed === 'number' && Number.isFinite(parsed.defaultSeed) ? parsed.defaultSeed : null,
       outputPrefs: {
-        framerate: Number(parsed?.outputPrefs?.framerate) || 24,
+        framerate: [30, 60, 100, 120].includes(Number(parsed?.outputPrefs?.framerate))
+          ? Number(parsed.outputPrefs.framerate)
+          : 30,
         format: ['png', 'webp', 'mp4'].includes(parsed?.outputPrefs?.format) ? parsed.outputPrefs.format : 'auto',
         c2paBadge: parsed?.outputPrefs?.c2paBadge !== false,
       },
@@ -198,6 +201,7 @@ export const DEFAULT_CONTROLS: StudioControls = {
   motion: 'orbit',
   motionSpeed: 1,
   duration: 5,
+  fps: 30,
   look: { lut: 'none', exposure: 0, contrast: 100, saturation: 100, warmth: 0 },
 };
 
@@ -216,7 +220,7 @@ export const initialState: StudioState = {
     notice: null,
     analysisRunId: null,
     settingsTab: null,
-    fps: 24,
+    fps: 30,
     guides: false,
     matte: 'none',
     matureFilter: 'all',
@@ -327,7 +331,11 @@ export function reducer(state: StudioState, action: Action): StudioState {
     case 'SET_WEB':
       return { ...state, composer: { ...state.composer, web: action.web } };
     case 'SET_CONTROLS':
-      return { ...state, controls: { ...state.controls, ...action.patch } };
+      return {
+        ...state,
+        controls: { ...state.controls, ...action.patch },
+        ui: action.patch.fps ? { ...state.ui, fps: action.patch.fps } : state.ui,
+      };
     case 'SET_LOOK':
       return { ...state, controls: { ...state.controls, look: { ...state.controls.look, ...action.patch } } };
     case 'ASSETS_LOADED': {
@@ -476,15 +484,20 @@ export function reducer(state: StudioState, action: Action): StudioState {
         },
       };
       saveStoredPreferences(next);
+      const rawRate = Number(next.outputPrefs.framerate);
+      const syncedControlFps: VideoFramerate = ([30, 60, 100, 120] as const).includes(rawRate as VideoFramerate)
+        ? (rawRate as VideoFramerate)
+        : state.controls.fps;
       return {
         ...state,
         controls: {
           ...state.controls,
           quality: next.qualityTier,
+          fps: syncedControlFps,
         },
         ui: {
           ...state.ui,
-          fps: next.outputPrefs.framerate || 24,
+          fps: next.outputPrefs.framerate || 30,
           showC2paBadge: next.outputPrefs.c2paBadge,
         },
         system: {

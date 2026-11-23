@@ -345,9 +345,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose, ini
                     }))
                   }
                 >
-                  <option value={24}>24 fps</option>
-                  <option value={30}>30 fps</option>
-                  <option value={60}>60 fps</option>
+                  <option value={30}>30 Hz</option>
+                  <option value={60}>60 Hz</option>
+                  <option value={100}>100 Hz</option>
+                  <option value={120}>120 Hz</option>
                 </select>
                 <select
                   aria-label="Preferred output format"

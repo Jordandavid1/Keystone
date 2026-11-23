@@ -313,7 +313,9 @@ def get_remote_config(
             "enable_vscode_activity_bar": {"defaultValue": {"value": "true"}},
             "enable_higgsfield_motion_controls": {"defaultValue": {"value": "true"}},
             "enable_firecrawl_style_scrape": {"defaultValue": {"value": "true"}},
-            "default_cinema_framerate": {"defaultValue": {"value": "24"}},
+            "default_cinema_framerate": {"defaultValue": {"value": "30"}},
+            "supported_video_framerates": {"defaultValue": {"value": "30,60,100,120"}},
+            "max_video_framerate": {"defaultValue": {"value": "120"}},
             "credit_hold_estimate": {"defaultValue": {"value": "3"}}
         },
         "conditions": []

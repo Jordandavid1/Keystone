@@ -120,7 +120,7 @@ class PromptCompiler:
     COMPILER_VERSION = "2.0.0"
     PLAYBOOKS = list(PLAYBOOK_IDS)
     UNRESTRICTED_ONLY_PLAYBOOKS = ("nsfw", "hacker", "freedom")
-    SFW_PLAYBOOKS = [pb for pb in PLAYBOOK_IDS if pb not in UNRESTRICTED_ONLY_PLAYBOOKS]
+    SFW_PLAYBOOKS = [pb for pb in PLAYBOOK_IDS if pb not in ("nsfw", "hacker", "freedom")]
     UNRESTRICTED_PLAYBOOKS = list(PLAYBOOK_IDS)
 
     @classmethod

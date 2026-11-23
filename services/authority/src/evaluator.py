@@ -22,6 +22,7 @@ from services.authority.src.rules import (
     VIDEO_MAX_DURATION_SECONDS,
     VIDEO_MIN_DURATION_SECONDS,
     VIDEO_FPS_RANGE,
+    VIDEO_DEFAULT_FPS,
     STEPS_RANGE,
     GUIDANCE_RANGE,
     DENOISE_RANGE,
@@ -230,12 +231,28 @@ class ParameterBoundaryEvaluator:
                 except (ValueError, TypeError):
                     sanitized["duration_seconds"] = 5
 
-            if "fps" in sanitized:
+        if capability in ("video.i2v", "video.t2v", "video.minimax_h3_ref2va", "creative.video_wan", "upscale.clarity"):
+            raw_fps_val = None
+            for fps_key in ("fps", "frame_rate", "framerate", "target_fps", "hz"):
+                if fps_key in sanitized and sanitized[fps_key] is not None:
+                    raw_fps_val = sanitized[fps_key]
+                    break
+            if raw_fps_val is not None:
                 try:
-                    fps = int(sanitized["fps"])
-                    sanitized["fps"] = max(VIDEO_FPS_RANGE[0], min(fps, VIDEO_FPS_RANGE[1]))
+                    if isinstance(raw_fps_val, bool):
+                        raise TypeError("boolean fps")
+                    if isinstance(raw_fps_val, str):
+                        cleaned = raw_fps_val.strip().lower().replace("hz", "").replace("fps", "").strip()
+                        fps_int = int(round(float(cleaned)))
+                    else:
+                        fps_int = int(round(float(raw_fps_val)))
+                    if fps_int < VIDEO_FPS_RANGE[0] or fps_int > VIDEO_FPS_RANGE[1]:
+                        reason_codes.append(
+                            f"OUT_OF_BOUNDS_PARAMETER: fps {fps_int} clamped to {VIDEO_FPS_RANGE}"
+                        )
+                    sanitized["fps"] = max(VIDEO_FPS_RANGE[0], min(fps_int, VIDEO_FPS_RANGE[1]))
                 except (ValueError, TypeError):
-                    sanitized["fps"] = 24
+                    sanitized["fps"] = VIDEO_DEFAULT_FPS
 
         # 5. Steps & Guidance & Denoise
         if "steps" in sanitized:

@@ -216,6 +216,7 @@ export const TOOLS_CATALOG: Record<GenerativeToolId, ToolDefinition> = {
     },
     defaultParameters: {
       duration: 5,
+      fps: 30,
     },
   },
 
@@ -254,6 +255,7 @@ export const TOOLS_CATALOG: Record<GenerativeToolId, ToolDefinition> = {
     },
     defaultParameters: {
       duration: 5,
+      fps: 30,
       resolution: '720p',
       ratio: '16:9',
       generate_audio: true,
@@ -275,6 +277,7 @@ export const TOOLS_CATALOG: Record<GenerativeToolId, ToolDefinition> = {
     inputsRequired: {},
     defaultParameters: {
       duration: 5,
+      fps: 30,
       resolution: '720p',
       ratio: '16:9',
       generate_audio: true,
@@ -299,6 +302,7 @@ export const TOOLS_CATALOG: Record<GenerativeToolId, ToolDefinition> = {
       resolution: '720p',
       keep_original_sound: true,
       duration: 5,
+      fps: 30,
     },
   },
 
@@ -317,6 +321,7 @@ export const TOOLS_CATALOG: Record<GenerativeToolId, ToolDefinition> = {
     },
     defaultParameters: {
       duration: 5,
+      fps: 30,
       resolution: '720p',
       ratio: '16:9',
     },
@@ -336,7 +341,9 @@ export const TOOLS_CATALOG: Record<GenerativeToolId, ToolDefinition> = {
       refAsset: true,
       audioAsset: true,
     },
-    defaultParameters: {},
+    defaultParameters: {
+      fps: 30,
+    },
   },
 
   video_upscaler: {
@@ -355,6 +362,7 @@ export const TOOLS_CATALOG: Record<GenerativeToolId, ToolDefinition> = {
     defaultParameters: {
       mode: 'standard',
       resolution: '1080p',
+      fps: 30,
     },
   },
 
@@ -373,7 +381,7 @@ export const TOOLS_CATALOG: Record<GenerativeToolId, ToolDefinition> = {
     },
     defaultParameters: {
       transition: 'dissolve',
-      fps: 24,
+      fps: 30,
       keep_audio: true,
     },
   },

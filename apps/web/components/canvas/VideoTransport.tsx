@@ -10,7 +10,12 @@ function timecode(t: number, fps: number): string {
   const m = Math.floor((t % 3600) / 60);
   const s = Math.floor(t % 60);
   const f = Math.floor((t % 1) * fps);
-  return [h, m, s, f].map((n) => String(n).padStart(2, '0')).join(':');
+  return [
+    String(h).padStart(2, '0'),
+    String(m).padStart(2, '0'),
+    String(s).padStart(2, '0'),
+    String(f).padStart(fps >= 100 ? 3 : 2, '0'),
+  ].join(':');
 }
 
 /**

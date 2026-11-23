@@ -183,6 +183,9 @@ export function buildInput(args: {
   if (def.category.startsWith('Video') || capability === 'extend') {
     input.camera_motion = controls.motion;
     input.motion_speed = controls.motionSpeed;
+    const targetFps = controls.fps || preferences?.outputPrefs?.framerate || 30;
+    input.fps = targetFps;
+    input.frame_rate = targetFps;
     if ('duration' in defaults || capability === 'videogen' || capability === 'text_to_video' || capability === 'video2video' || capability === 'extend') {
       input.duration = controls.duration;
     }

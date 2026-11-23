@@ -612,18 +612,24 @@ def _detect_explicit_signals(
     return len(matched_signals) > 0, matched_signals
 
 
-def _measure_image_visual_craft(image_bytes: Optional[bytes]) -> Tuple[bool, float, Dict[str, Any]]:
+def _measure_image_visual_craft(
+    image_bytes: Optional[bytes],
+    *,
+    mime_type: str = "image/png",
+) -> Tuple[bool, float, Dict[str, Any]]:
     """
     Compute deterministic visual craft metrics (validity, resolution, luminance dynamic range)
-    directly from image bytes so VLM evaluation always inspects real artifact bytes.
+    directly from image or video artifact bytes so VLM evaluation always inspects real media bytes.
     """
     if image_bytes is None:
         return True, 0.88, {"byte_inspection": "not_provided"}
 
+    norm_mime = (mime_type or "image/png").strip().lower()
+    expected_media_type = "video" if norm_mime.startswith("video/") else "image"
     det_res = validate_asset_bytes(
         image_bytes,
-        expected_media_type="image",
-        expected_mime="image/png",
+        expected_media_type=expected_media_type,
+        expected_mime=norm_mime,
     )
     if det_res.verdict == "fail":
         return False, 0.0, {
@@ -774,7 +780,10 @@ class LocalQwenVLCognitiveProvider:
             request.asset_metadata,
             png_meta,
         )
-        _, base_craft, craft_evidence = _measure_image_visual_craft(request.image_bytes)
+        _, base_craft, craft_evidence = _measure_image_visual_craft(
+            request.image_bytes,
+            mime_type=request.mime_type,
+        )
 
         meta = request.asset_metadata
         craft_score = float(meta.get("craft_score", meta.get("technical_quality", base_craft)))
@@ -1108,9 +1117,12 @@ async def evaluate_vlm_critique_async(
     )
     eff_threshold = float(threshold) if threshold is not None else float(rubric["threshold"])
 
-    # 2. Verify image integrity when raw bytes are provided
+    # 2. Verify image/video media integrity when raw bytes are provided
     if raw_bytes is not None:
-        valid_img, _base_craft, img_evidence = _measure_image_visual_craft(raw_bytes)
+        valid_img, _base_craft, img_evidence = _measure_image_visual_craft(
+            raw_bytes,
+            mime_type=mime_type,
+        )
         if not valid_img:
             return HarnessResult(
                 harness_id=HARNESS_ID,

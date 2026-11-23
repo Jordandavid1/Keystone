@@ -20,11 +20,39 @@ import shutil
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 
 class VideoOpsError(RuntimeError):
     """Raised when ffmpeg/ffprobe execution fails or inputs are invalid."""
+
+
+VIDEO_FPS_PRESETS: Tuple[int, ...] = (30, 60, 100, 120)
+VIDEO_MIN_FPS: int = 8
+VIDEO_MAX_FPS: int = 120
+VIDEO_DEFAULT_FPS: int = 30
+_MP4_TIMESCALE: str = "120000"
+
+
+def _format_fps(fps: float) -> str:
+    return f"{float(fps):.4f}".rstrip("0").rstrip(".")
+
+
+def resolve_target_fps(raw_fps: Any = None, *, default: Optional[int] = None) -> Optional[int]:
+    """Normalize numeric/string Hz/FPS inputs (`30`, `60`, `100`, `120`, `'120Hz'`) into [8, 120]."""
+    if raw_fps is None or isinstance(raw_fps, bool):
+        return default
+    try:
+        if isinstance(raw_fps, str):
+            cleaned = raw_fps.strip().lower().replace("hz", "").replace("fps", "").strip()
+            if not cleaned:
+                return default
+            parsed = int(round(float(cleaned)))
+        else:
+            parsed = int(round(float(raw_fps)))
+    except (ValueError, TypeError):
+        return default
+    return max(VIDEO_MIN_FPS, min(parsed, VIDEO_MAX_FPS))
 
 
 def _resolve_ffmpeg() -> str:
@@ -293,7 +321,106 @@ def _concat_line(path: Path) -> str:
     return f"file '{escaped}'"
 
 
-def stitch_video_segments(segment_paths: List[Path], output_path: Path) -> Path:
+def convert_video_fps(
+    input_path: Path,
+    output_path: Path,
+    target_fps: float,
+    *,
+    interpolation_mode: str = "auto",
+) -> Path:
+    """
+    Convert an MP4/video file to `target_fps` (clamped to [8, 120] Hz, e.g. 30/60/100/120).
+    Uses FFmpeg motion-compensated or frame-blended interpolation when upsampling and
+    `-video_track_timescale 120000` so container timestamps represent 30/60/100/120 Hz cleanly.
+    """
+    in_path = _ensure_video_file(input_path)
+    out_path = Path(output_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    resolved_fps = float(max(VIDEO_MIN_FPS, min(float(target_fps), float(VIDEO_MAX_FPS))))
+    fps_str = _format_fps(resolved_fps)
+    meta = probe_video_metadata(in_path)
+    current_fps = float(meta.get("fps") or 0.0)
+    duration = float(meta.get("duration") or 0.0)
+    has_audio = bool(meta.get("has_audio"))
+
+    if current_fps > 0.0 and abs(current_fps - resolved_fps) <= 0.25:
+        if in_path.resolve() != out_path.resolve():
+            shutil.copyfile(in_path, out_path)
+        return out_path
+
+    ffmpeg_bin = _resolve_ffmpeg()
+
+    def _run_vf(vf_expr: str) -> subprocess.CompletedProcess[str]:
+        cmd = [
+            ffmpeg_bin,
+            "-y",
+            "-v",
+            "error",
+            "-i",
+            str(in_path),
+            "-vf",
+            vf_expr,
+            "-r",
+            fps_str,
+            "-video_track_timescale",
+            _MP4_TIMESCALE,
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+        ]
+        if has_audio:
+            cmd.extend(["-c:a", "aac"])
+        else:
+            cmd.append("-an")
+        cmd.extend(["-movflags", "+faststart", str(out_path)])
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=240)
+
+    mode = (interpolation_mode or "auto").strip().lower()
+    est_frames = int(round(duration * (current_fps or 24.0)))
+    upsampling = current_fps <= 0.0 or resolved_fps > current_fps + 0.25
+
+    proc: Optional[subprocess.CompletedProcess[str]] = None
+    if upsampling:
+        if mode == "mci" or (mode == "auto" and est_frames > 4 and duration <= 15.0):
+            proc = _run_vf(
+                f"pad=ceil(iw/2)*2:ceil(ih/2)*2,minterpolate=fps={fps_str}:mi_mode=mci:mc_mode=obmc:me_mode=bidir:me=epzs"
+            )
+        if proc is None or proc.returncode != 0 or not out_path.is_file() or out_path.stat().st_size == 0:
+            proc = _run_vf(f"pad=ceil(iw/2)*2:ceil(ih/2)*2,minterpolate=fps={fps_str}:mi_mode=blend")
+    else:
+        proc = _run_vf(f"pad=ceil(iw/2)*2:ceil(ih/2)*2,fps={fps_str}")
+
+    if proc.returncode != 0 or not out_path.is_file() or out_path.stat().st_size == 0:
+        raise VideoOpsError(f"FFMPEG_FPS_CONVERT_FAILED: {proc.stderr.strip()[:500] or 'empty output'}")
+    return out_path
+
+
+def convert_video_bytes_fps(
+    video_bytes: bytes,
+    target_fps: float,
+    *,
+    interpolation_mode: str = "auto",
+) -> bytes:
+    """In-memory wrapper converting MP4/video bytes to `target_fps` (up to 120 Hz)."""
+    if not video_bytes:
+        raise ValueError("EMPTY_VIDEO_BYTES: video_bytes must be non-empty")
+    with tempfile.TemporaryDirectory(prefix="ks_fps_") as tmpdir:
+        tmp_root = Path(tmpdir)
+        in_path = tmp_root / "input.mp4"
+        out_path = tmp_root / "output.mp4"
+        in_path.write_bytes(video_bytes)
+        convert_video_fps(in_path, out_path, target_fps, interpolation_mode=interpolation_mode)
+        return out_path.read_bytes()
+
+
+def stitch_video_segments(
+    segment_paths: List[Path],
+    output_path: Path,
+    *,
+    target_fps: Optional[float] = None,
+) -> Path:
     """
     Stitch ordered video segments into a single H.264 MP4 via ffmpeg's concat demuxer,
     re-encoding to matching resolution, frame rate, and yuv420p pixel format.
@@ -309,15 +436,20 @@ def stitch_video_segments(segment_paths: List[Path], output_path: Path) -> Path:
     metas = [probe_video_metadata(seg) for seg in resolved_segments]
     target_w = _even_dim(int(metas[0]["width"]))
     target_h = _even_dim(int(metas[0]["height"]))
-    target_fps = float(metas[0]["fps"] or 24.0)
-    if target_fps <= 0.0:
-        target_fps = 24.0
+    explicit_fps = resolve_target_fps(target_fps, default=None)
+    if explicit_fps is not None:
+        resolved_target_fps = float(explicit_fps)
+    else:
+        resolved_target_fps = float(metas[0]["fps"] or 24.0)
+        if resolved_target_fps <= 0.0:
+            resolved_target_fps = 24.0
+    target_fps_str = _format_fps(resolved_target_fps)
     keep_audio = all(bool(m.get("has_audio")) for m in metas)
 
-    needs_normalization = any(
+    needs_normalization = explicit_fps is not None or any(
         _even_dim(int(m["width"])) != target_w
         or _even_dim(int(m["height"])) != target_h
-        or abs(float(m.get("fps") or target_fps) - target_fps) > 0.05
+        or abs(float(m.get("fps") or resolved_target_fps) - resolved_target_fps) > 0.25
         or str(m.get("codec") or "") != "h264"
         for m in metas
     )
@@ -327,23 +459,32 @@ def stitch_video_segments(segment_paths: List[Path], output_path: Path) -> Path:
         concat_inputs: List[Path] = []
 
         if needs_normalization:
-            vf = (
-                f"scale={target_w}:{target_h}:force_original_aspect_ratio=decrease,"
-                f"pad={target_w}:{target_h}:(ow-iw)/2:(oh-ih)/2,setsar=1"
-            )
-            for idx, seg in enumerate(resolved_segments):
+            for idx, (seg, seg_meta) in enumerate(zip(resolved_segments, metas)):
                 norm_path = tmp_root / f"seg_{idx:03d}.mp4"
+                seg_input = seg
+                seg_fps = float(seg_meta.get("fps") or 0.0)
+                if explicit_fps is not None and (seg_fps <= 0.0 or resolved_target_fps > seg_fps + 0.25):
+                    interp_path = tmp_root / f"seg_interp_{idx:03d}.mp4"
+                    convert_video_fps(seg, interp_path, resolved_target_fps)
+                    seg_input = interp_path
+
+                vf = (
+                    f"scale={target_w}:{target_h}:force_original_aspect_ratio=decrease,"
+                    f"pad={target_w}:{target_h}:(ow-iw)/2:(oh-ih)/2,setsar=1"
+                )
                 norm_cmd = [
                     ffmpeg_bin,
                     "-y",
                     "-v",
                     "error",
                     "-i",
-                    str(seg),
+                    str(seg_input),
                     "-vf",
                     vf,
                     "-r",
-                    f"{target_fps:.4f}".rstrip("0").rstrip("."),
+                    target_fps_str,
+                    "-video_track_timescale",
+                    _MP4_TIMESCALE,
                     "-c:v",
                     "libx264",
                     "-pix_fmt",
@@ -383,7 +524,9 @@ def stitch_video_segments(segment_paths: List[Path], output_path: Path) -> Path:
             "-vf",
             f"scale={target_w}:{target_h},setsar=1",
             "-r",
-            f"{target_fps:.4f}".rstrip("0").rstrip("."),
+            target_fps_str,
+            "-video_track_timescale",
+            _MP4_TIMESCALE,
             "-c:v",
             "libx264",
             "-pix_fmt",
@@ -452,7 +595,7 @@ def encode_frames_to_video(
             "-v",
             "error",
             "-framerate",
-            f"{safe_fps:.4f}".rstrip("0").rstrip("."),
+            _format_fps(safe_fps),
             "-i",
             str(tmp_root / "frame_%06d.png"),
         ]
@@ -468,6 +611,10 @@ def encode_frames_to_video(
             [
                 "-vf",
                 "pad=ceil(iw/2)*2:ceil(ih/2)*2",
+                "-r",
+                _format_fps(safe_fps),
+                "-video_track_timescale",
+                _MP4_TIMESCALE,
                 "-c:v",
                 "libx264",
                 "-pix_fmt",

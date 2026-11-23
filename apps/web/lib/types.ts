@@ -283,6 +283,9 @@ export interface LookState {
   warmth: number;
 }
 
+export type VideoFramerate = 30 | 60 | 100 | 120;
+export const VIDEO_FPS_PRESETS: readonly VideoFramerate[] = [30, 60, 100, 120] as const;
+
 export interface StudioControls {
   aspect: AspectRatio;
   quality: QualityTier;
@@ -291,6 +294,7 @@ export interface StudioControls {
   motion: MotionPreset;
   motionSpeed: number; // 0.2–2
   duration: number; // seconds
+  fps: VideoFramerate;
   look: LookState;
 }
 

@@ -22,6 +22,9 @@ from services.authority.src.rules import (
     IMAGE_MAX_HEIGHT,
     VIDEO_MAX_RESOLUTION,
     VIDEO_MAX_DURATION_SECONDS,
+    VIDEO_FPS_RANGE,
+    VIDEO_MAX_FPS,
+    VIDEO_SUPPORTED_FPS_PRESETS,
     BASE_CREDIT_TABLE,
     CONFIRMATION_CREDIT_THRESHOLD,
     ACTION_TYPES,
@@ -114,8 +117,14 @@ def get_policies() -> Dict[str, Any]:
             "image_max_width": IMAGE_MAX_WIDTH,
             "image_max_height": IMAGE_MAX_HEIGHT,
             "video_max_resolution": VIDEO_MAX_RESOLUTION,
-            "video_max_duration_seconds": VIDEO_MAX_DURATION_SECONDS
+            "video_max_duration_seconds": VIDEO_MAX_DURATION_SECONDS,
+            "video_max_fps": VIDEO_MAX_FPS,
+            "video_supported_fps": list(VIDEO_SUPPORTED_FPS_PRESETS),
+            "video_fps_range": list(VIDEO_FPS_RANGE),
         },
+        "video_max_fps": VIDEO_MAX_FPS,
+        "video_supported_fps": list(VIDEO_SUPPORTED_FPS_PRESETS),
+        "video_fps_range": list(VIDEO_FPS_RANGE),
         "base_credits": BASE_CREDIT_TABLE,
         "confirmation_threshold": CONFIRMATION_CREDIT_THRESHOLD
     }

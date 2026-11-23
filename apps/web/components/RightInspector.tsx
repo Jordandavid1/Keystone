@@ -11,7 +11,7 @@ import { INTENT_BY_ID, LOOK_LABELS, compilePrompt, estimateCredits, routeIntent 
 import { selectActiveRun, selectAsset, selectSelected, useStudio } from '@/lib/studio/store';
 import { useGeneration } from '@/lib/studio/useGeneration';
 import { TOOLS_CATALOG } from '@/lib/toolsCatalog';
-import { AspectRatio, QualityTier } from '@/lib/types';
+import { AspectRatio, QualityTier, VIDEO_FPS_PRESETS } from '@/lib/types';
 import { Field, Section, Segmented } from './inspector/Section';
 import { MotionPad } from './inspector/MotionPad';
 
@@ -287,6 +287,14 @@ export function RightInspector({ overlay = false }: { overlay?: boolean }) {
                       value={c.duration}
                       onChange={(duration) => set({ duration })}
                       options={[5, 10, 15, 20, 30].map((d) => ({ id: d, label: `${d}s` }))}
+                    />
+                  </Field>
+                  <Field label="Frame rate" value={`${c.fps} Hz`}>
+                    <Segmented
+                      label="Video frame rate"
+                      value={c.fps}
+                      onChange={(fps) => set({ fps })}
+                      options={VIDEO_FPS_PRESETS.map((hz) => ({ id: hz, label: `${hz}Hz` }))}
                     />
                   </Field>
                 </>

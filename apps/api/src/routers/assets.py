@@ -96,6 +96,7 @@ class GenerateAssetRequest(BaseModel):
     persona_id: Optional[str] = Field(None, description="Optional persona ID (alias for `as`)")
     scale_factor: Optional[int] = Field(2, ge=2, le=4)
     duration_seconds: Optional[int] = Field(5, ge=1, le=15)
+    fps: Optional[int] = Field(30, ge=8, le=120, description="Target video framerate in Hz (30, 60, 100, 120; max 120)")
     resolution: Optional[str] = Field("720p", description="Video resolution: 480p, 720p, 1080p, 2k, 4k")
     relationship_type: Optional[str] = None
     job_id: Optional[str] = None
@@ -361,6 +362,7 @@ async def generate_asset(
         if is_video_mode:
             gate_args["duration_seconds"] = max(1, min(10, int(req.duration_seconds or 5)))
             gate_args["resolution"] = req.resolution or "720p"
+            gate_args["fps"] = int(req.fps or 30)
 
         input_ids = [aid for aid in (req.parent_asset_id, req.reference_asset_id) if aid]
         receipt = await GateService.authorize_async(
@@ -523,7 +525,8 @@ async def generate_asset(
                 final_positive_prompt,
                 ref_image_bytes=ref_bytes,
                 duration_seconds=req.duration_seconds or 5,
-                resolution=req.resolution or "720p"
+                resolution=req.resolution or "720p",
+                fps=int(req.fps or 30),
             )
         else:
             result = await run_in_threadpool(
@@ -594,6 +597,8 @@ async def generate_asset(
     if persona_id_resolved:
         metadata["persona_id"] = persona_id_resolved
         metadata["persona_version"] = persona_version_resolved
+    if is_video:
+        metadata["fps"] = int(result.get("fps") or req.fps or 30)
     if req.metadata:
         metadata.update(req.metadata)
 

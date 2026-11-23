@@ -595,12 +595,12 @@ class TestBibleEvaluatorsAcceptance:
         ocr_fail = evaluate_ocr(misspelled, requested_text="HELLO WORLD")
         assert ocr_fail.verdict == "fail" and OCR_TEXT_MISMATCH in ocr_fail.reason_codes
 
-        ref_a = create_synthetic_portrait_fixture("accept_persona_a")
-        drift_b = create_synthetic_portrait_fixture("accept_persona_b")
+        ref_a = create_synthetic_portrait_fixture("persona_a")
+        drift_b = create_synthetic_portrait_fixture("persona_b")
         id_fail = evaluate_identity(candidate=drift_b, reference_assets=[ref_a], allow_cpu_fallback=True)
         assert id_fail.verdict == "fail" and PERSONA_IDENTITY_DRIFT in id_fail.reason_codes
 
-        explicit_img = create_explicit_test_fixture("Explicit gothic fine art portrait")
+        explicit_img = create_explicit_test_fixture(intent="Explicit gothic fine art portrait")
         intent_obj = {"objective": "Explicit gothic fine art portrait"}
         assert evaluate_vlm_critique(explicit_img, intent=intent_obj, content_mode="unrestricted").verdict == "pass"
         sfw_res = evaluate_vlm_critique(explicit_img, intent=intent_obj, content_mode="sfw")
@@ -770,6 +770,7 @@ class TestBibleFullEndToEndLoopAndCrashRecovery:
         # Deposit starting credits via SFW Stripe rail (Criterion 10 prep)
         deposit(acceptance_db, user_id=user_id, amount=100, processor="stripe", content_mode="sfw", idempotency_key="e2e_init")
         acceptance_db.commit()
+        start_bal = get_balance(acceptance_db, user_id)["balance"]
 
         # Criterion 2: Projects and sessions persist
         proj_res = client.post("/v1/projects", headers=headers, json={"name": "Alpha Gate Odyssey", "description": "Full E2E"})
@@ -986,7 +987,7 @@ class TestBibleFullEndToEndLoopAndCrashRecovery:
         acceptance_db.commit()
         bal = client.get("/v1/billing/balance", headers=headers)
         assert bal.status_code == 200
-        assert bal.json()["balance"] == 75
+        assert bal.json()["balance"] == start_bal - 25
         assert bal.json()["held"] == 0
 
         # Criterion 8 & 9: Jobs & outputs survive refresh and belong to project
@@ -1022,6 +1023,7 @@ class TestBibleFullEndToEndLoopAndCrashRecovery:
         user, headers = _create_user_with_token(acceptance_db, age_verified=True, content_mode="sfw")
         deposit(acceptance_db, user_id=user.id, amount=100, processor="stripe", content_mode="sfw", idempotency_key="crash_init")
         acceptance_db.commit()
+        start_bal = get_balance(acceptance_db, user.id)["balance"]
 
         proj_res = client.post("/v1/projects", headers=headers, json={"name": "Crash Resilience Project"})
         project_id = proj_res.json()["id"]
@@ -1071,7 +1073,7 @@ class TestBibleFullEndToEndLoopAndCrashRecovery:
         )
         assert res.status == "FAILED"
         bal = get_balance(acceptance_db, user.id)
-        assert bal["balance"] == 100
+        assert bal["balance"] == start_bal
         assert bal["held"] == 0
 
         # Session & message history preserved after worker failure (Criterion 11)

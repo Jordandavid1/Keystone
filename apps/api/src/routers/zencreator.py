@@ -42,9 +42,11 @@ from services.comfy.src.client import (
 )
 from services.comfy.src.grade import apply_grade
 from services.comfy.src.video_ops import (
+    VIDEO_DEFAULT_FPS,
     VideoOpsError,
     extract_last_frame,
     probe_video_metadata,
+    resolve_target_fps,
     stitch_video_segments,
 )
 from apps.api.src.db.models import Asset, User
@@ -566,13 +568,25 @@ def _build_gate_arguments(
     if primary_asset_id and not args.get("input_asset_id"):
         args["input_asset_id"] = primary_asset_id
     args["aspect_ratio"] = aspect_ratio
+    raw_fps = (
+        args.get("fps")
+        or args.get("frame_rate")
+        or args.get("framerate")
+        or args.get("hz")
+        or (args.get("output_prefs") or {}).get("framerate")
+    )
     if capability_id.startswith("video.") or capability_id == "creative.video_wan":
         args["duration_seconds"] = max(1, min(15, int(round(duration))))
+        args["fps"] = resolve_target_fps(raw_fps, default=VIDEO_DEFAULT_FPS)
         res = str(args.get("resolution") or "720p").lower()
         if res not in ("480p", "720p", "1080p"):
             args["resolution"] = "1080p" if res in ("2k", "4k") else "720p"
     if capability_id == "upscale.clarity":
         args["scale_factor"] = 4 if int(scale_factor) >= 4 else 2
+        if raw_fps is not None:
+            resolved_up_fps = resolve_target_fps(raw_fps, default=None)
+            if resolved_up_fps is not None:
+                args["fps"] = resolved_up_fps
     return args
 
 
@@ -768,6 +782,17 @@ async def _run_video_generation(
     raw_speed = tool_input.get("motion_speed")
     motion_speed = float(raw_speed) if raw_speed is not None else None
     duration = float(tool_input.get("duration") or tool_input.get("duration_seconds") or 5.0)
+    raw_fps = (
+        tool_input.get("fps")
+        or tool_input.get("frame_rate")
+        or tool_input.get("framerate")
+        or tool_input.get("hz")
+        or (tool_input.get("output_prefs") or {}).get("framerate")
+    )
+    target_fps = resolve_target_fps(
+        raw_fps,
+        default=None if canonical_tool == "video_upscaler" else VIDEO_DEFAULT_FPS,
+    )
     aspect_ratio = str(tool_input.get("aspect_ratio") or tool_input.get("ratio") or "16:9").strip().split()[0]
     grade = normalize_grade_params(tool_input)
     lut = tool_input.get("lut")
@@ -815,6 +840,7 @@ async def _run_video_generation(
         camera_motion=camera_motion,
         motion_speed=motion_speed,
         duration=duration,
+        fps=target_fps,
         aspect_ratio=aspect_ratio,
         grade=grade,
         lut=lut,
@@ -895,6 +921,7 @@ async def _run_video_generation(
         camera_motion=camera_motion,
         motion_speed=motion_speed,
         duration=duration,
+        fps=target_fps,
         aspect_ratio=aspect_ratio,
         grade=grade,
         lut=lut,
@@ -931,6 +958,7 @@ async def _run_video_generation(
                     camera_motion=camera_motion,
                     motion_speed=motion_speed,
                     duration=duration,
+                    fps=target_fps,
                     aspect_ratio=aspect_ratio,
                     width=tool_input.get("width"),
                     height=tool_input.get("height"),
@@ -940,7 +968,7 @@ async def _run_video_generation(
                     lut=lut,
                 )
                 ext_path.write_bytes(exec_res["bytes"])
-                await asyncio.to_thread(stitch_video_segments, [src_path, ext_path], stitched_path)
+                await asyncio.to_thread(stitch_video_segments, [src_path, ext_path], stitched_path, target_fps=target_fps)
                 video_bytes = stitched_path.read_bytes()
                 mime_type = "video/mp4"
         else:
@@ -966,6 +994,7 @@ async def _run_video_generation(
                 camera_motion=camera_motion,
                 motion_speed=motion_speed,
                 duration=duration,
+                fps=target_fps,
                 aspect_ratio=aspect_ratio,
                 width=tool_input.get("width"),
                 height=tool_input.get("height"),
@@ -991,6 +1020,7 @@ async def _run_video_generation(
 
     out_w, out_h = resolve_aspect_dimensions(aspect_ratio, tool_input.get("width"), tool_input.get("height"))
     out_dur = duration
+    out_fps = float(exec_res.get("fps") or target_fps or VIDEO_DEFAULT_FPS)
     try:
         with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
             tmp.write(video_bytes)
@@ -1001,6 +1031,8 @@ async def _run_video_generation(
             out_h = int(probed.get("height") or out_h)
             if probed.get("duration"):
                 out_dur = float(probed["duration"])
+            if probed.get("fps"):
+                out_fps = float(probed["fps"])
         finally:
             if tmp_path.exists():
                 tmp_path.unlink()
@@ -1022,6 +1054,8 @@ async def _run_video_generation(
             "camera_motion": camera_motion,
             "motion_speed": motion_speed,
             "duration": out_dur,
+            "fps": out_fps,
+            "target_fps": target_fps,
             "aspect_ratio": aspect_ratio,
             "grade": grade,
             "comfy_prompt_id": exec_res.get("prompt_id"),
@@ -1057,6 +1091,8 @@ async def _run_video_generation(
             "motion_speed": motion_speed,
             "aspect_ratio": aspect_ratio,
             "duration": out_dur,
+            "fps": out_fps,
+            "target_fps": target_fps,
             "grade_applied": exec_res.get("grade_applied", False),
         },
         mature=effective_mature,
