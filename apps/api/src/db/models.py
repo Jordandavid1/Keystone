@@ -30,6 +30,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
+from sqlalchemy.ext.mutable import MutableDict
 from pgvector.sqlalchemy import Vector
 
 
@@ -195,6 +196,14 @@ class Asset(Base):
     height: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     duration_seconds: Mapped[Optional[float]] = mapped_column(Numeric, nullable=True)
     checksum: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(Text, nullable=False, default="ready", server_default="ready")
+    metadata_: Mapped[Dict[str, Any]] = mapped_column(
+        "metadata",
+        MutableDict.as_mutable(JSONB),
+        nullable=False,
+        default=dict,
+        server_default=sa_text("'{}'"),
+    )
     mature: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=sa_text("false"))
     c2pa_manifest: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True)
     deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)

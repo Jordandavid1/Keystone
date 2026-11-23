@@ -42,6 +42,7 @@ class AssetRepository(BaseRepository[Asset]):
             mime_type=mime_type,
             storage_key=storage_key,
             size_bytes=byte_size,
+            metadata_=dict(metadata) if metadata else {},
             mature=bool(mature),
             deleted_at=None,
         )

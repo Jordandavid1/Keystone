@@ -130,18 +130,22 @@ class PromptCompiler:
         return list(cls.SFW_PLAYBOOKS)
 
     @classmethod
-    def critique_rubric(cls, mode: str = "sfw") -> Dict[str, Any]:
-        """Critique rubric stub ready for PR7."""
-        normalized_mode = (mode or "sfw").lower()
-        return {
-            "mode": normalized_mode,
-            "threshold": 0.70 if normalized_mode == "unrestricted" else 0.75,
-            "criteria": [
-                {"id": "anatomy_completeness", "weight": 0.30, "description": "All 6 PromptAnatomy parts are well-formed."},
-                {"id": "objective_fidelity", "weight": 0.40, "description": "User objective is preserved without drift."},
-                {"id": "policy_alignment", "weight": 0.30, "description": f"Output adheres to {normalized_mode} mode constraints."},
-            ],
-        }
+    def critique_rubric(
+        cls,
+        mode: str = "sfw",
+        intent: Any = None,
+        persona_sheet: Any = None,
+        **kwargs: Any,
+    ) -> Dict[str, Any]:
+        """Compile mode-aware VLM critique rubric (Bible v2 §13.4; ADR-005 PR7)."""
+        from services.harness.src.evaluators.vlm_critique import build_critique_rubric
+
+        return build_critique_rubric(
+            mode=mode,
+            intent=intent,
+            persona_sheet=persona_sheet,
+            **kwargs,
+        )
 
     @classmethod
     def compile(

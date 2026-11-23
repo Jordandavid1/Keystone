@@ -136,15 +136,17 @@ class TestKHFQualityHarness:
         assert "EMPTY_OUTPUT_PAYLOAD" in res.reason_codes
 
     def test_high_quality_output_passes(self):
+        from services.harness.src.evaluators.ocr import render_synthetic_text_image
+
+        # Un-evaluated or self-reported dict-only input without real artifact bytes must fail
+        unevaluated = KHFQualityHarness.evaluate_output({"x": 1}, prompt="test prompt")
+        assert unevaluated.verdict == "fail"
+
         output_data = {
-            "prompt_adherence": 0.95,
-            "technical_quality": 0.92,
-            "composition": 0.90,
-            "visual_consistency": 0.88,
-            "user_satisfaction": 0.90,
-            "artifact_score": 0.05,
-            "resolution": "1024x1024",
-            "format": "png"
+            "bytes": render_synthetic_text_image("KEYSTONE"),
+            "mime_type": "image/png",
+            "media_type": "image",
+            "format": "png",
         }
         res = KHFQualityHarness.evaluate_output(output_data, prompt="test prompt")
         assert res.verdict == "pass"
