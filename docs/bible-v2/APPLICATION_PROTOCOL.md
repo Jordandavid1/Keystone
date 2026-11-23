@@ -39,6 +39,7 @@ O17   Housekeeping (proprietary LICENSE/package.json, docs/runbooks/kaggle.md,
 | `specs/SPEC_MEMORY.md` | Spec B: Memory & Recipe Library (`pgvector`, local Qwen embeddings, replay, 2-run promotion) |
 | `specs/UX_PARITY.md` | UX Parity Matrix (lead sheet for Bible v2 §25.9 Legacy Feature Ledger) |
 | `specs/DEPENDENCY_MANIFEST.md` | Dependency manifest + 10-phase build order |
+| `docs/bible-v2/EXECUTION_RUNBOOK_PR1_TO_PR10.md` | Zero-ambiguity, step-by-step mechanical execution runbook for `PR1`–`PR10` + Phase D (exact files, schemas, pitfalls, tests, commands, commits) |
 
 ---
 
