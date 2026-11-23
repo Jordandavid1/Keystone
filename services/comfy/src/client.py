@@ -16,16 +16,28 @@ Configuration (environment, falling back to the repository .env file):
 from __future__ import annotations
 
 import base64
+from copy import deepcopy
 import json
 import os
 import random
+import tempfile
 import time
 import uuid
 import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
+
+from services.comfy.src.grade import apply_grade, is_neutral_grade
+from services.comfy.src.video_ops import (
+    VideoOpsError,
+    encode_frames_to_video,
+    extract_last_frame,
+    extract_video_frames,
+    probe_video_metadata,
+    stitch_video_segments,
+)
 
 DEFAULT_CHECKPOINT = "sd_xl_base_1.0.safetensors"
 DEFAULT_NEGATIVE_PROMPT = (
@@ -485,15 +497,26 @@ def upscale_image(
     scale_factor: int = 2,
     prompt: str = "",
     timeout: Optional[float] = None,
+    grade: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """Full upscale execution against the live ComfyUI runtime."""
+    """Full upscale execution against the live ComfyUI runtime (applying non-neutral grade BEFORE ESRGAN)."""
     scale = max(2, min(4, int(scale_factor)))
     if not is_configured():
         raise ComfyUINotConfigured(
             "COMFY_NOT_CONFIGURED: set COMFY_BASE_URL to a running ComfyUI instance"
         )
+    source_bytes = image_bytes
+    norm_grade = normalize_grade_params(grade)
+    if is_non_neutral_grade(norm_grade):
+        source_bytes = apply_grade(
+            source_bytes,
+            exposure=norm_grade["exposure"],
+            contrast=norm_grade["contrast"],
+            saturation=norm_grade["saturation"],
+            warmth=norm_grade["warmth"],
+        )
     fname = f"upscale_src_{int(time.time())}.png"
-    comfy_name = upload_image_to_comfy(image_bytes, fname)
+    comfy_name = upload_image_to_comfy(source_bytes, fname)
     graph = build_upscale_graph(comfy_name, scale_factor=scale)
     prompt_id = submit_graph(graph)
     outputs = wait_for_result(prompt_id, timeout=timeout)
@@ -921,6 +944,429 @@ def generate_minimax_h3_video(
     }
 
 
+ASPECT_RATIO_DIMENSIONS: Dict[str, Tuple[int, int]] = {
+    "1:1": (768, 768),
+    "16:9": (1280, 720),
+    "9:16": (720, 1280),
+    "4:3": (960, 720),
+    "3:4": (720, 960),
+    "21:9": (1344, 576),
+}
+
+_ASPECT_RESOLUTION_LABELS: Dict[str, str] = {
+    "16:9": "16:9 (Widescreen)",
+    "9:16": "9:16 (Portrait)",
+    "1:1": "1:1 (Square)",
+    "4:3": "4:3 (Standard)",
+    "3:4": "3:4 (Portrait)",
+    "21:9": "21:9 (Cinema)",
+}
+
+VIDEO_WORKFLOW_TEMPLATES: Dict[str, str] = {
+    "t2v": "h3_t2v",
+    "text_to_video": "h3_t2v",
+    "i2v": "h3_i2v",
+    "image_to_video": "h3_i2v",
+    "ref2v": "h3_ref2v",
+    "videogen": "h3_ref2v",
+    "v2v": "h3_v2v",
+    "video2video": "h3_v2v",
+    "re-render": "h3_v2v",
+    "video_upscale": "video_esrgan_upscale",
+    "video_upscaler": "video_esrgan_upscale",
+}
+
+
+def resolve_aspect_dimensions(
+    aspect_ratio: Optional[str] = None,
+    width: Optional[int] = None,
+    height: Optional[int] = None,
+) -> Tuple[int, int]:
+    """Map an aspect ratio string to pixel dimensions when explicit dimensions are omitted."""
+    if width and height:
+        return int(width), int(height)
+    ar = (aspect_ratio or "16:9").strip().split()[0]
+    return ASPECT_RATIO_DIMENSIONS.get(ar, (1280, 720))
+
+
+def normalize_grade_params(params: Optional[Dict[str, Any]] = None) -> Dict[str, float]:
+    """Extract and normalize Look grade parameters (handling both unit scale and UI % sliders)."""
+    src = dict(params or {})
+    nested = src.get("grade") or src.get("look") or {}
+    merged = {**src, **nested} if isinstance(nested, dict) else src
+
+    def _pick(key: str, default: float) -> float:
+        val = merged.get(key)
+        if val is None:
+            return default
+        try:
+            return float(val)
+        except (TypeError, ValueError):
+            return default
+
+    exposure = _pick("exposure", 0.0)
+    contrast = _pick("contrast", 1.0)
+    saturation = _pick("saturation", 1.0)
+    warmth = _pick("warmth", 0.0)
+
+    if contrast > 10.0:
+        contrast = contrast / 100.0
+    if saturation > 10.0:
+        saturation = saturation / 100.0
+    if abs(warmth) > 2.0:
+        warmth = warmth / 30.0
+
+    return {
+        "exposure": max(-2.0, min(2.0, exposure)),
+        "contrast": max(0.0, min(2.0, contrast)),
+        "saturation": max(0.0, min(2.0, saturation)),
+        "warmth": max(-1.0, min(1.0, warmth)),
+    }
+
+
+def is_non_neutral_grade(grade: Optional[Dict[str, Any]]) -> bool:
+    """Return True when normalized grade parameters differ from identity."""
+    if not grade:
+        return False
+    norm = normalize_grade_params(grade)
+    return not is_neutral_grade(
+        exposure=norm["exposure"],
+        contrast=norm["contrast"],
+        saturation=norm["saturation"],
+        warmth=norm["warmth"],
+    )
+
+
+def compile_video_prompt(
+    prompt: str,
+    *,
+    camera_motion: Optional[str] = None,
+    motion_speed: Optional[float] = None,
+    duration: Optional[float] = None,
+    aspect_ratio: Optional[str] = None,
+    grade: Optional[Dict[str, Any]] = None,
+    lut: Optional[str] = None,
+) -> str:
+    """Enrich prompt text with camera motion, speed, duration, aspect ratio, and Look grade cues."""
+    base = (prompt or "").strip()
+    directives: List[str] = []
+
+    if camera_motion:
+        cam_str = str(camera_motion).strip()
+        if motion_speed is not None:
+            directives.append(f"Camera motion: {cam_str} (speed {float(motion_speed):.2f}x)")
+        else:
+            directives.append(f"Camera motion: {cam_str}")
+    elif motion_speed is not None:
+        directives.append(f"Motion speed: {float(motion_speed):.2f}x")
+
+    if duration is not None:
+        directives.append(f"Duration: {float(duration):g}s")
+    if aspect_ratio:
+        directives.append(f"Aspect ratio: {str(aspect_ratio).strip()}")
+    if lut and str(lut).strip().lower() not in ("", "none"):
+        directives.append(f"Film look: {str(lut).strip()}")
+
+    norm_grade = normalize_grade_params(grade)
+    if is_non_neutral_grade(norm_grade):
+        directives.append(
+            f"Color grade: exposure={norm_grade['exposure']:+.2f}, "
+            f"contrast={norm_grade['contrast']:.2f}, "
+            f"saturation={norm_grade['saturation']:.2f}, "
+            f"warmth={norm_grade['warmth']:+.2f}"
+        )
+
+    if not directives:
+        return base
+    directive_block = "; ".join(directives)
+    if directive_block in base:
+        return base
+    return f"{base}\n\n[{directive_block}]" if base else f"[{directive_block}]"
+
+
+def _substitute_placeholders(obj: Any, values: Dict[str, Any]) -> Any:
+    """Recursively substitute `{{key}}` placeholders, preserving native numeric/bool types."""
+    if isinstance(obj, dict):
+        return {k: _substitute_placeholders(v, values) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_substitute_placeholders(item, values) for item in obj]
+    if isinstance(obj, str) and "{{" in obj:
+        stripped = obj.strip()
+        if stripped.startswith("{{") and stripped.endswith("}}") and stripped.count("{{") == 1:
+            key = stripped[2:-2].strip()
+            if key in values and values[key] is not None:
+                return values[key]
+        out = obj
+        for k, v in values.items():
+            if v is not None and f"{{{{{k}}}}}" in out:
+                out = out.replace(f"{{{{{k}}}}}", str(v))
+        return out
+    return obj
+
+
+def render_workflow_graph(graph: Dict[str, Any], params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """
+    Hydrate a ComfyUI workflow template with runtime prompt, media references,
+    seed, motion, duration, aspect ratio, and Look grade parameters.
+    """
+    raw = dict(params or {})
+    prompt = str(raw.get("prompt") or raw.get("positive_prompt") or "").strip()
+    negative_prompt = raw.get("negative_prompt") or DEFAULT_NEGATIVE_PROMPT
+    aspect_ratio = str(raw.get("aspect_ratio") or raw.get("ratio") or "16:9").strip().split()[0]
+    width, height = resolve_aspect_dimensions(aspect_ratio, raw.get("width"), raw.get("height"))
+    duration = float(raw.get("duration") or raw.get("duration_seconds") or 5.0)
+    camera_motion = raw.get("camera_motion") or raw.get("motion")
+    motion_speed = raw.get("motion_speed")
+    grade = normalize_grade_params(raw)
+    seed_val = raw.get("seed")
+    resolved_seed = int(seed_val) if seed_val is not None else random.randint(1, 2**32 - 1)
+    steps = int(raw.get("steps") or 25)
+    cfg = float(raw.get("cfg") or raw.get("guidance") or 6.0)
+    denoise = raw.get("denoise") if raw.get("denoise") is not None else raw.get("strength")
+    scale_factor = int(raw.get("scale_factor") or raw.get("scale") or 2)
+
+    image_name = raw.get("image_name") or raw.get("ref_image") or raw.get("source_image")
+    second_image_name = raw.get("second_image_name")
+    video_name = raw.get("video_name") or raw.get("ref_video") or raw.get("source_video")
+    audio_name = raw.get("audio_name") or raw.get("ref_audio")
+
+    sub_values: Dict[str, Any] = {
+        "prompt": prompt,
+        "positive_prompt": prompt,
+        "negative_prompt": negative_prompt,
+        "image_name": image_name,
+        "ref_image": image_name,
+        "source_image": image_name,
+        "video_name": video_name,
+        "ref_video": video_name,
+        "source_video": video_name,
+        "audio_name": audio_name,
+        "ref_audio": audio_name,
+        "duration": duration,
+        "duration_seconds": duration,
+        "aspect_ratio": aspect_ratio,
+        "width": width,
+        "height": height,
+        "camera_motion": camera_motion,
+        "motion_speed": float(motion_speed) if motion_speed is not None else None,
+        "seed": resolved_seed,
+        "steps": steps,
+        "cfg": cfg,
+        "denoise": float(denoise) if denoise is not None else None,
+        "scale_factor": scale_factor,
+        "exposure": grade["exposure"],
+        "contrast": grade["contrast"],
+        "saturation": grade["saturation"],
+        "warmth": grade["warmth"],
+    }
+
+    rendered = _substitute_placeholders(deepcopy(graph), sub_values)
+
+    for nid, node in list(rendered.items()):
+        if not isinstance(node, dict):
+            continue
+        ctype = node.get("class_type", "")
+        inputs = node.setdefault("inputs", {})
+
+        if ctype == "PrimitiveStringMultiline" and prompt:
+            inputs["value"] = prompt
+        elif ctype == "CLIPTextEncode":
+            txt = inputs.get("text")
+            if isinstance(txt, str) and ("{{prompt}}" in txt or (nid == "2" and prompt)):
+                inputs["text"] = prompt
+            elif isinstance(txt, str) and "{{negative_prompt}}" in txt:
+                inputs["text"] = negative_prompt
+        elif ctype == "EmptyLatentImage":
+            inputs["width"] = width
+            inputs["height"] = height
+        elif ctype == "ResolutionSelector":
+            inputs["aspect_ratio"] = _ASPECT_RESOLUTION_LABELS.get(aspect_ratio, aspect_ratio)
+        elif ctype == "PrimitiveFloat" and nid == "132":
+            inputs["value"] = duration
+        elif ctype == "RandomNoise":
+            inputs["noise_seed"] = resolved_seed
+        elif ctype == "KSampler":
+            inputs["seed"] = resolved_seed
+            if raw.get("steps") is not None:
+                inputs["steps"] = steps
+            if raw.get("cfg") is not None or raw.get("guidance") is not None:
+                inputs["cfg"] = cfg
+            if denoise is not None:
+                inputs["denoise"] = max(0.05, min(1.0, float(denoise)))
+        elif ctype == "BasicScheduler" and denoise is not None:
+            inputs["denoise"] = max(0.05, min(1.0, float(denoise)))
+        elif ctype == "LoadImage":
+            if nid == "187" and second_image_name:
+                inputs["image"] = second_image_name
+            elif image_name:
+                inputs["image"] = image_name
+        elif ctype == "VHS_LoadVideo" and video_name:
+            inputs["video"] = video_name
+        elif ctype == "ImageUpscaleWithModel":
+            if raw.get("scale_factor") is not None or raw.get("scale") is not None:
+                inputs["scale_factor"] = scale_factor
+            if is_non_neutral_grade(grade):
+                inputs["grade"] = grade
+        elif ctype == "MiniMaxH3ReferenceToVideo":
+            inputs["duration"] = duration
+            inputs["aspect_ratio"] = aspect_ratio
+            inputs["target_width"] = width
+            inputs["target_height"] = height
+            if camera_motion:
+                inputs["camera_motion"] = str(camera_motion)
+            if motion_speed is not None:
+                inputs["motion_speed"] = float(motion_speed)
+            if is_non_neutral_grade(grade):
+                inputs["grade"] = grade
+
+    # Optional secondary image / audio / video attachment for H3 workflows
+    if "136" in rendered and isinstance(rendered["136"], dict):
+        n136_inputs = rendered["136"].setdefault("inputs", {})
+        if second_image_name:
+            rendered["187"] = {
+                "class_type": "LoadImage",
+                "inputs": {"image": second_image_name, "upload": "image"},
+            }
+            n136_inputs["ref_images.ref_image_1"] = ["187", 0]
+        if image_name and "181" not in rendered:
+            rendered["181"] = {
+                "class_type": "LoadImage",
+                "inputs": {"image": image_name, "upload": "image"},
+            }
+            n136_inputs["ref_images.ref_image_0"] = ["181", 0]
+        if video_name and "190" not in rendered:
+            rendered["190"] = {
+                "class_type": "VHS_LoadVideo",
+                "inputs": {"video": video_name, "format": "H3"},
+            }
+            n136_inputs["ref_videos.ref_video_0"] = ["190", 0]
+        if audio_name:
+            rendered["188"] = {
+                "class_type": "LoadAudio",
+                "inputs": {"audio": audio_name},
+            }
+            n136_inputs["ref_audios.ref_audio_0"] = ["188", 0]
+
+    return rendered
+
+
+def build_video_workflow_graph(
+    variant: str,
+    prompt: str,
+    *,
+    image_name: Optional[str] = None,
+    second_image_name: Optional[str] = None,
+    video_name: Optional[str] = None,
+    audio_name: Optional[str] = None,
+    camera_motion: Optional[str] = None,
+    motion_speed: Optional[float] = None,
+    duration: float = 5.0,
+    aspect_ratio: str = "16:9",
+    width: Optional[int] = None,
+    height: Optional[int] = None,
+    denoise: Optional[float] = None,
+    seed: Optional[int] = None,
+    steps: Optional[int] = None,
+    grade: Optional[Dict[str, Any]] = None,
+    lut: Optional[str] = None,
+    scale_factor: int = 2,
+) -> Dict[str, Any]:
+    """Load the canonical video workflow template for `variant` and hydrate all runtime params."""
+    key = (variant or "").strip().lower()
+    template_name = VIDEO_WORKFLOW_TEMPLATES.get(key)
+    if not template_name:
+        raise ComfyUIError(f"UNKNOWN_VIDEO_VARIANT: '{variant}'")
+    template = load_workflow_template(template_name)
+    compiled_prompt = compile_video_prompt(
+        prompt,
+        camera_motion=camera_motion,
+        motion_speed=motion_speed,
+        duration=duration,
+        aspect_ratio=aspect_ratio,
+        grade=grade,
+        lut=lut,
+    )
+    return render_workflow_graph(
+        template,
+        {
+            "prompt": compiled_prompt,
+            "image_name": image_name,
+            "second_image_name": second_image_name,
+            "video_name": video_name,
+            "audio_name": audio_name,
+            "camera_motion": camera_motion,
+            "motion_speed": motion_speed,
+            "duration": duration,
+            "aspect_ratio": aspect_ratio,
+            "width": width,
+            "height": height,
+            "denoise": denoise,
+            "seed": seed,
+            "steps": steps,
+            "grade": grade,
+            "scale_factor": scale_factor,
+        },
+    )
+
+
+def _fetch_view_ref(media_ref: Dict[str, Any], default_mime: str) -> Tuple[bytes, str, str]:
+    filename = str(media_ref.get("filename", ""))
+    query = urllib.parse.urlencode(
+        {
+            "filename": filename,
+            "subfolder": media_ref.get("subfolder", ""),
+            "type": media_ref.get("type", "output"),
+        }
+    )
+    _, body = _request(f"/view?{query}", raw=True)
+    if not body:
+        raise ComfyUIError("COMFY_EMPTY_OUTPUT: /view returned no bytes")
+
+    lower = filename.lower()
+    mime = default_mime
+    if lower.endswith(".mp4"):
+        mime = "video/mp4"
+    elif lower.endswith(".webm"):
+        mime = "video/webm"
+    elif lower.endswith(".mov"):
+        mime = "video/quicktime"
+    elif lower.endswith(".png"):
+        mime = "image/png"
+    elif lower.endswith((".jpg", ".jpeg")):
+        mime = "image/jpeg"
+    elif lower.endswith(".webp"):
+        mime = "image/webp"
+    return body, mime, filename
+
+
+def _extract_output_media(outputs: Dict[str, Any]) -> Tuple[Optional[bytes], Optional[str], Optional[str]]:
+    """Fetch first video/gif or image output produced in ComfyUI history outputs."""
+    if not isinstance(outputs, dict):
+        return None, None, None
+
+    video_refs: List[Dict[str, Any]] = []
+    if "148" in outputs and isinstance(outputs["148"], dict):
+        video_refs.extend(outputs["148"].get("videos") or outputs["148"].get("gifs") or [])
+    if not video_refs:
+        for node_out in outputs.values():
+            if not isinstance(node_out, dict):
+                continue
+            video_refs.extend(node_out.get("videos") or node_out.get("gifs") or [])
+            if video_refs:
+                break
+    if video_refs:
+        return _fetch_view_ref(video_refs[0], "video/mp4")
+
+    image_refs: List[Dict[str, Any]] = []
+    for node_out in outputs.values():
+        if isinstance(node_out, dict):
+            image_refs.extend(node_out.get("images") or [])
+    if image_refs:
+        return _fetch_view_ref(image_refs[0], "image/png")
+
+    return None, None, None
+
+
 class ComfyUIClient:
     """Thin object wrapper so callers can depend on an injectable client."""
 
@@ -940,24 +1386,243 @@ class ComfyUIClient:
         graph: Optional[Dict[str, Any]] = None,
         expected_mode: Optional[str] = None,
         timeout: Optional[float] = None,
+        parameters: Optional[Dict[str, Any]] = None,
+        workflow: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Verify ExecutionEnvelope v2 signature & mode, then execute workflow on ComfyUI."""
         from services.harness.src.envelope import EnvelopeEngine
 
+        if envelope is None:
+            raise ValueError("MISSING_ENVELOPE: ExecutionEnvelope v2 is required")
+
         verified = EnvelopeEngine.verify_envelope(envelope, expected_mode=expected_mode)
-        if graph is None:
+
+        target_graph = graph if graph is not None else workflow
+        from_template = False
+        if target_graph is None:
             if not workflow_name:
                 raise ComfyUIError("Either workflow_name or graph must be provided")
-            graph = load_workflow_template(workflow_name)
+            target_graph = load_workflow_template(workflow_name)
+            from_template = True
 
-        prompt_id = submit_graph(graph)
+        env_args = envelope.get("arguments") if isinstance(envelope, dict) else getattr(envelope, "arguments", None)
+        merged_params: Dict[str, Any] = {}
+        if isinstance(env_args, dict):
+            merged_params.update(env_args)
+        if isinstance(parameters, dict):
+            merged_params.update(parameters)
+
+        if from_template or isinstance(parameters, dict):
+            rendered_graph = render_workflow_graph(target_graph, merged_params)
+        else:
+            rendered_graph = target_graph
+
+        prompt_id = submit_graph(rendered_graph)
         history = wait_for_result(prompt_id, timeout=timeout)
+        media_bytes, mime_type, filename = _extract_output_media(history)
         return {
             "prompt_id": prompt_id,
             "envelope_id": verified.get("envelope_id"),
             "job_id": verified.get("job_id"),
             "history": history,
+            "bytes": media_bytes,
+            "mime_type": mime_type,
+            "filename": filename,
+            "graph": rendered_graph,
         }
+
+    def execute_video_workflow(
+        self,
+        envelope: Any,
+        variant: str,
+        prompt: str,
+        *,
+        expected_mode: Optional[str] = None,
+        ref_image_bytes: Optional[bytes] = None,
+        ref_image_filename: Optional[str] = None,
+        second_image_bytes: Optional[bytes] = None,
+        second_image_filename: Optional[str] = None,
+        ref_video_bytes: Optional[bytes] = None,
+        ref_video_filename: Optional[str] = None,
+        ref_audio_bytes: Optional[bytes] = None,
+        ref_audio_filename: Optional[str] = None,
+        camera_motion: Optional[str] = None,
+        motion_speed: Optional[float] = None,
+        duration: float = 5.0,
+        aspect_ratio: str = "16:9",
+        width: Optional[int] = None,
+        height: Optional[int] = None,
+        denoise: Optional[float] = None,
+        seed: Optional[int] = None,
+        steps: Optional[int] = None,
+        grade: Optional[Dict[str, Any]] = None,
+        lut: Optional[str] = None,
+        scale_factor: int = 2,
+        timeout: Optional[float] = None,
+    ) -> Dict[str, Any]:
+        """Verify envelope, upload reference media, apply grade before upscale, and execute video graph."""
+        from services.harness.src.envelope import EnvelopeEngine
+
+        if envelope is None:
+            raise ValueError("MISSING_ENVELOPE: ExecutionEnvelope v2 is required")
+        # Pre-check signature & mode without consuming nonce yet (consumed once in execute_workflow)
+        EnvelopeEngine.verify_envelope(envelope, expected_mode=expected_mode, check_nonce=False)
+
+        if not is_configured():
+            raise ComfyUINotConfigured(
+                "COMFY_NOT_CONFIGURED: set COMFY_BASE_URL to a running ComfyUI instance"
+            )
+
+        norm_grade = normalize_grade_params(grade)
+        non_neutral = is_non_neutral_grade(norm_grade)
+        variant_key = (variant or "").strip().lower()
+
+        # For video_upscale(r), run deterministic grade BEFORE neural ESRGAN upscale
+        effective_video_bytes = ref_video_bytes
+        extracted_frames: List[bytes] = []
+        source_fps = 24.0
+        if variant_key in ("video_upscale", "video_upscaler") and ref_video_bytes:
+            with tempfile.TemporaryDirectory(prefix="ks_vup_") as tmpdir:
+                tmp_root = Path(tmpdir)
+                src_path = tmp_root / "src.mp4"
+                src_path.write_bytes(ref_video_bytes)
+                try:
+                    meta = probe_video_metadata(src_path)
+                    if meta.get("fps"):
+                        source_fps = float(meta["fps"])
+                    has_audio = bool(meta.get("has_audio"))
+                except VideoOpsError:
+                    has_audio = False
+
+                try:
+                    extracted_frames = extract_video_frames(src_path)
+                except VideoOpsError:
+                    extracted_frames = []
+
+                if non_neutral and extracted_frames:
+                    graded_frames = [
+                        apply_grade(
+                            frame,
+                            exposure=norm_grade["exposure"],
+                            contrast=norm_grade["contrast"],
+                            saturation=norm_grade["saturation"],
+                            warmth=norm_grade["warmth"],
+                        )
+                        for frame in extracted_frames
+                    ]
+                    graded_path = tmp_root / "graded.mp4"
+                    encode_frames_to_video(
+                        graded_frames,
+                        graded_path,
+                        fps=source_fps,
+                        audio_source=src_path if has_audio else None,
+                    )
+                    effective_video_bytes = graded_path.read_bytes()
+
+        image_name = None
+        if ref_image_bytes:
+            src_img = ref_image_bytes
+            if non_neutral and variant_key not in ("video_upscale", "video_upscaler"):
+                try:
+                    src_img = apply_grade(
+                        src_img,
+                        exposure=norm_grade["exposure"],
+                        contrast=norm_grade["contrast"],
+                        saturation=norm_grade["saturation"],
+                        warmth=norm_grade["warmth"],
+                    )
+                except Exception:
+                    pass
+            image_name = upload_image_to_comfy(
+                src_img,
+                ref_image_filename or f"ref_{uuid.uuid4().hex[:8]}.png",
+            )
+
+        second_image_name = None
+        if second_image_bytes:
+            second_image_name = upload_image_to_comfy(
+                second_image_bytes,
+                second_image_filename or f"ref2_{uuid.uuid4().hex[:8]}.png",
+            )
+
+        video_name = None
+        if effective_video_bytes:
+            video_name = upload_image_to_comfy(
+                effective_video_bytes,
+                ref_video_filename or f"vid_{uuid.uuid4().hex[:8]}.mp4",
+            )
+
+        audio_name = None
+        if ref_audio_bytes:
+            audio_name = upload_image_to_comfy(
+                ref_audio_bytes,
+                ref_audio_filename or f"aud_{uuid.uuid4().hex[:8]}.wav",
+            )
+
+        graph = build_video_workflow_graph(
+            variant,
+            prompt,
+            image_name=image_name,
+            second_image_name=second_image_name,
+            video_name=video_name,
+            audio_name=audio_name,
+            camera_motion=camera_motion,
+            motion_speed=motion_speed,
+            duration=duration,
+            aspect_ratio=aspect_ratio,
+            width=width,
+            height=height,
+            denoise=denoise,
+            seed=seed,
+            steps=steps,
+            grade=norm_grade if non_neutral else None,
+            lut=lut,
+            scale_factor=scale_factor,
+        )
+
+        exec_res = self.execute_workflow(
+            envelope,
+            graph=graph,
+            expected_mode=expected_mode,
+            timeout=timeout or 300.0,
+        )
+
+        out_bytes = exec_res.get("bytes")
+        out_mime = exec_res.get("mime_type") or "video/mp4"
+
+        # If a ComfyUI server returned upscaled PNG frame bytes for video_upscaler, encode back to MP4
+        if variant_key in ("video_upscale", "video_upscaler") and out_bytes and out_mime.startswith("image/"):
+            with tempfile.TemporaryDirectory(prefix="ks_vup_out_") as tmpdir:
+                tmp_root = Path(tmpdir)
+                out_mp4 = tmp_root / "upscaled.mp4"
+                frame_seq: List[bytes] = [out_bytes]
+                if len(extracted_frames) > 1:
+                    # Upscale remaining frames sequentially through neural ESRGAN
+                    for extra_frame in extracted_frames[1:]:
+                        graded_f = (
+                            apply_grade(
+                                extra_frame,
+                                exposure=norm_grade["exposure"],
+                                contrast=norm_grade["contrast"],
+                                saturation=norm_grade["saturation"],
+                                warmth=norm_grade["warmth"],
+                            )
+                            if non_neutral
+                            else extra_frame
+                        )
+                        up_res = upscale_image(graded_f, scale_factor=scale_factor)
+                        frame_seq.append(up_res["bytes"])
+                encode_frames_to_video(frame_seq, out_mp4, fps=source_fps)
+                out_bytes = out_mp4.read_bytes()
+                out_mime = "video/mp4"
+
+        if not out_bytes:
+            raise ComfyUIError(f"COMFY_NO_VIDEO: {variant} workflow produced no video output")
+
+        exec_res["bytes"] = out_bytes
+        exec_res["mime_type"] = out_mime
+        exec_res["grade_applied"] = non_neutral
+        return exec_res
 
     def generate_image(self, prompt: str, **kwargs: Any) -> Dict[str, Any]:
         return generate_image(prompt, **kwargs)
@@ -1024,12 +1689,14 @@ async def h3_generate(
 ) -> Tuple[bytes, str, Dict[str, Any]]:
     import asyncio
     ref_images = [item[2] for item in (references or []) if len(item) >= 3]
+    ref_name = references[0][0] if references and len(references[0]) >= 1 else None
     res = await asyncio.to_thread(
         generate_minimax_h3_video,
         prompt=prompt,
-        reference_images=ref_images,
+        ref_image_bytes=ref_images[0] if ref_images else None,
+        ref_image_filename=ref_name,
     )
-    return res["video_bytes"], res.get("mime_type", "video/mp4"), res
+    return res["bytes"], res.get("mime_type", "video/mp4"), res
 
 
 # ---------------------------------------------------------------------------

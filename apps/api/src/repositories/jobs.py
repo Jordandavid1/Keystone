@@ -11,6 +11,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.src.db.models import Job
+from apps.api.src.jobs.state_machine import TERMINAL_STATES
 from apps.api.src.repositories.base import BaseRepository
 
 
@@ -18,26 +19,37 @@ class JobRepository(BaseRepository[Job]):
     async def create_job(
         self,
         id: str | uuid.UUID,
-        request_id: str | uuid.UUID,
-        authority_decision_id: str | uuid.UUID,
-        capability_id: str,
-        provider_id: str,
-        workflow_id: str,
-        workflow_version: str,
+        request_id: Optional[str | uuid.UUID] = None,
+        authority_decision_id: Optional[str | uuid.UUID] = None,
+        capability_id: str = "image_gen",
+        provider_id: str = "kaggle_comfyui",
+        workflow_id: str = "wf_default",
+        workflow_version: str = "1.0.0",
         state: str = "CREATED",
-        priority: int = 100
+        priority: int = 100,
+        project_id: Optional[str | uuid.UUID] = None,
+        content_mode: Optional[str] = None,
+        envelope_id: Optional[str | uuid.UUID] = None,
+        envelope: Optional[Dict[str, Any]] = None,
+        persona_id: Optional[str | uuid.UUID] = None,
     ) -> Job:
+        now = datetime.now(timezone.utc)
         job = Job(
             id=str(id),
-            request_id=str(request_id),
-            authority_decision_id=str(authority_decision_id),
+            request_id=str(request_id) if request_id else None,
             user_id=self.tenant_id,
+            project_id=str(project_id) if project_id else None,
             capability_id=capability_id,
             provider_id=provider_id,
             workflow_id=workflow_id,
             workflow_version=workflow_version,
-            state=state,
-            priority=priority
+            status=state,
+            priority=priority,
+            content_mode=content_mode,
+            envelope_id=str(envelope_id) if envelope_id else None,
+            envelope=envelope,
+            persona_id=str(persona_id) if persona_id else None,
+            queued_at=now if state == "QUEUED" else None,
         )
         self.session.add(job)
         await self.session.flush()
@@ -68,14 +80,20 @@ class JobRepository(BaseRepository[Job]):
         error_code: Optional[str] = None,
         error_detail: Optional[Dict[str, Any]] = None
     ) -> bool:
+        now = datetime.now(timezone.utc)
         values: Dict[str, Any] = {
-            "state": next_state,
-            "updated_at": datetime.now(timezone.utc)
+            "status": next_state,
+            "updated_at": now,
         }
+        if next_state == "QUEUED":
+            values["queued_at"] = now
+        elif next_state == "RUNNING":
+            values["started_at"] = now
+        elif next_state in TERMINAL_STATES:
+            values["completed_at"] = now
+
         if error_code is not None:
-            values["error_code"] = error_code
-        if error_detail is not None:
-            values["error_detail"] = error_detail
+            values["failure_code"] = error_code
 
         stmt = (
             update(Job)

@@ -251,7 +251,7 @@ def test_zencreator_unwired_tool_returns_explicit_503_no_placeholder():
     from apps.api.src.server import app
 
     client = TestClient(app)
-    res = client.post("/v1/zencreator/generate", json={"tool": "text_to_video", "input": {"prompt": "test"}})
+    res = client.post("/v1/zencreator/generate", json={"tool": "lipsync", "input": {"prompt": "test"}})
     assert res.status_code == 503
     assert "NO_ENGINE_CONFIGURED" in res.text
 

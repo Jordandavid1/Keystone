@@ -63,6 +63,7 @@ ALLOWED_TRANSITIONS: Dict[str, List[str]] = {
         JobState.RUNNING.value,
         JobState.CANCELLED.value,
         JobState.FAILED.value,
+        JobState.REJECTED.value,
     ],
     JobState.RUNNING.value: [
         JobState.VALIDATING_OUTPUT.value,

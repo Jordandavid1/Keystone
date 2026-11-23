@@ -1,28 +1,27 @@
 """
 KEYSTONE Job Lifecycle Router (/v1/jobs)
-Job creation, deterministic state machine transitions, and event tracking.
+Job creation, deterministic state machine transitions, and durable DB event tracking.
 """
 
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.src.auth.dependencies import get_current_tenant_id
 from apps.api.src.db.models import (
+    AuditEvent,
     AuthorityDecision as AuthorityDecisionRecord,
     CreditAccount,
     Request,
 )
 from apps.api.src.db.session import get_db
 from apps.api.src.jobs.state_machine import (
-    STATES,
-    JobStateMachine,
     normalize_state,
     transition,
 )
@@ -32,8 +31,43 @@ from services.authority.src.engine import authority_engine
 
 router = APIRouter(prefix="/v1/jobs", tags=["Jobs"])
 
-# Global in-memory job event history for tracking lifecycle transitions
-_JOB_EVENTS: Dict[str, List[Dict[str, Any]]] = {}
+
+async def _record_job_event(
+    db: AsyncSession,
+    *,
+    tenant_id: str,
+    job_id: str,
+    state: str,
+    reason: str,
+    previous_state: Optional[str] = None,
+    error_code: Optional[str] = None,
+    error_detail: Optional[Dict[str, Any]] = None,
+    timestamp: Optional[str] = None,
+) -> AuditEvent:
+    """Persist a job lifecycle transition event durably in audit_events."""
+    payload: Dict[str, Any] = {
+        "job_id": job_id,
+        "state": state,
+        "reason": reason,
+        "timestamp": timestamp or datetime.now(timezone.utc).isoformat(),
+    }
+    if previous_state is not None:
+        payload["previous_state"] = previous_state
+    if error_code is not None:
+        payload["error_code"] = error_code
+    if error_detail is not None:
+        payload["error_detail"] = error_detail
+
+    evt = AuditEvent(
+        id=str(uuid.uuid4()),
+        user_id=tenant_id,
+        job_id=job_id,
+        event_type="job.state_transition",
+        payload=payload,
+    )
+    db.add(evt)
+    await db.flush()
+    return evt
 
 
 class CreateJobRequest(BaseModel):
@@ -69,6 +103,7 @@ async def create_job(
     authority_decision = None
     authorized_arguments = None
     state = normalize_state(req.initial_state or "CREATED")
+    decision_record: Optional[AuthorityDecisionRecord] = None
 
     # The live creative path submits the compiled action here. Persist its
     # request and authority decision using the authenticated tenant and actual
@@ -97,12 +132,8 @@ async def create_job(
         request_record = Request(
             id=req_id,
             user_id=tenant_id,
-            request_text=req.request_text or str(req.action.parameters.get("prompt", "")),
-            preferences={
-                "action_type": req.action.action_type,
-                "capability_id": req.action.capability,
-            },
-            state="created",
+            intent_hint=req.action.action_type,
+            status="created",
         )
         db.add(request_record)
         await db.flush()
@@ -110,7 +141,6 @@ async def create_job(
         account_result = await db.execute(
             select(CreditAccount)
             .where(CreditAccount.user_id == tenant_id)
-            .where(CreditAccount.status == "active")
         )
         credit_account = account_result.scalar_one_or_none()
         if credit_account is None:
@@ -118,9 +148,6 @@ async def create_job(
                 id=str(uuid.uuid4()),
                 user_id=tenant_id,
                 balance=0,
-                held_balance=0,
-                currency="credits",
-                status="active",
             )
             db.add(credit_account)
             await db.flush()
@@ -129,13 +156,12 @@ async def create_job(
             action=req.action,
             user_id=tenant_id,
             credit_balance=credit_account.balance,
-            held_balance=credit_account.held_balance,
+            held_balance=0,
             request_id=req_id,
         )
         auth_dec_id = str(uuid.uuid4())
         if authority_decision.decision not in ("ALLOW", "approve"):
-            request_record.state = "rejected"
-            auth_dec_id = str(uuid.uuid4())
+            request_record.status = "rejected"
             decision_record = AuthorityDecisionRecord(
                 id=auth_dec_id,
                 request_id=req_id,
@@ -161,12 +187,15 @@ async def create_job(
                 state="REJECTED",
                 priority=req.priority or 100,
             )
-            _JOB_EVENTS[job.id] = [{
-                "job_id": job.id,
-                "state": job.state,
-                "reason": "Authority denied generation",
-                "timestamp": job.created_at.isoformat() if job.created_at else None,
-            }]
+            decision_record.job_id = job.id
+            await _record_job_event(
+                db,
+                tenant_id=tenant_id,
+                job_id=job.id,
+                state=job.status,
+                reason="Authority denied generation",
+                timestamp=job.created_at.isoformat() if job.created_at else None,
+            )
             return {
                 "status": "rejected",
                 "id": job.id,
@@ -175,7 +204,7 @@ async def create_job(
                 "user_id": job.user_id,
                 "capability_id": job.capability_id,
                 "provider_id": job.provider_id,
-                "state": job.state,
+                "state": job.status,
                 "authority_decision": {
                     **authority_decision.model_dump(mode="json"),
                     "decision_id": auth_dec_id,
@@ -205,12 +234,8 @@ async def create_job(
         request_record = Request(
             id=req_id,
             user_id=tenant_id,
-            request_text=req.request_text or f"Job creation request for {req.capability_id or 'generation'}",
-            preferences={
-                "action_type": "generate",
-                "capability_id": req.capability_id or "image.generation",
-            },
-            state="created",
+            intent_hint=req.capability_id or "generate",
+            status="created",
         )
         db.add(request_record)
         await db.flush()
@@ -244,7 +269,8 @@ async def create_job(
             .where(AuthorityDecisionRecord.request_id == req_id)
             .where(AuthorityDecisionRecord.decision == "approve")
         )
-        if request_record is None or decision_result.scalar_one_or_none() is None:
+        decision_record = decision_result.scalar_one_or_none()
+        if request_record is None or decision_record is None:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="A persisted request and matching approved authority decision are required.",
@@ -261,25 +287,27 @@ async def create_job(
         state=state,
         priority=req.priority or 100
     )
+    if decision_record is not None:
+        decision_record.job_id = job.id
 
-    _JOB_EVENTS[job.id] = [
-        {
-            "job_id": job.id,
-            "state": job.state,
-            "reason": "Job created",
-            "timestamp": job.created_at.isoformat() if job.created_at else None
-        }
-    ]
+    await _record_job_event(
+        db,
+        tenant_id=tenant_id,
+        job_id=job.id,
+        state=job.status,
+        reason="Job created",
+        timestamp=job.created_at.isoformat() if job.created_at else None,
+    )
 
     return {
         "status": "ok",
         "id": job.id,
         "request_id": job.request_id,
-        "authority_decision_id": job.authority_decision_id,
+        "authority_decision_id": auth_dec_id,
         "user_id": job.user_id,
         "capability_id": job.capability_id,
         "provider_id": job.provider_id,
-        "state": job.state,
+        "state": job.status,
         "priority": job.priority,
         "created_at": job.created_at.isoformat() if job.created_at else None,
         "authority_decision": (
@@ -308,7 +336,7 @@ async def list_jobs(
                 "request_id": j.request_id,
                 "capability_id": j.capability_id,
                 "provider_id": j.provider_id,
-                "state": j.state,
+                "state": j.status,
                 "priority": j.priority,
                 "created_at": j.created_at.isoformat() if j.created_at else None,
                 "updated_at": j.updated_at.isoformat() if j.updated_at else None
@@ -338,10 +366,10 @@ async def get_job(
         "provider_id": job.provider_id,
         "workflow_id": job.workflow_id,
         "workflow_version": job.workflow_version,
-        "state": job.state,
+        "state": job.status,
         "priority": job.priority,
-        "error_code": job.error_code,
-        "error_detail": job.error_detail,
+        "error_code": job.failure_code,
+        "error_detail": None,
         "created_at": job.created_at.isoformat() if job.created_at else None,
         "updated_at": job.updated_at.isoformat() if job.updated_at else None
     }
@@ -362,9 +390,10 @@ async def transition_job(
             detail="Job not found or forbidden"
         )
 
+    previous_state = job.status
     target_state = normalize_state(req.next_state)
     try:
-        new_state = transition(job.state, target_state)
+        new_state = transition(previous_state, target_state)
     except ValueError as err:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -378,20 +407,21 @@ async def transition_job(
         error_detail=req.error_detail
     )
 
-    if job.id not in _JOB_EVENTS:
-        _JOB_EVENTS[job.id] = []
-    _JOB_EVENTS[job.id].append({
-        "job_id": job.id,
-        "previous_state": job.state,
-        "state": new_state,
-        "reason": req.reason or "Transition executed",
-        "error_code": req.error_code
-    })
+    await _record_job_event(
+        db,
+        tenant_id=tenant_id,
+        job_id=job.id,
+        previous_state=previous_state,
+        state=new_state,
+        reason=req.reason or "Transition executed",
+        error_code=req.error_code,
+        error_detail=req.error_detail,
+    )
 
     return {
         "status": "ok",
         "id": job.id,
-        "previous_state": job.state,
+        "previous_state": previous_state,
         "current_state": new_state
     }
 
@@ -410,15 +440,31 @@ async def get_job_events(
             detail="Job not found or forbidden"
         )
 
-    events = _JOB_EVENTS.get(job.id, [
-        {
-            "job_id": job.id,
-            "state": job.state,
-            "reason": "Current state snapshot"
-        }
-    ])
+    audit_res = await db.execute(
+        select(AuditEvent)
+        .where(AuditEvent.job_id == job.id)
+        .order_by(AuditEvent.created_at.asc())
+    )
+    events: List[Dict[str, Any]] = []
+    for evt in audit_res.scalars().all():
+        payload = dict(evt.payload or {})
+        if "state" in payload or evt.event_type.startswith(("job.", "worker.")):
+            payload.setdefault("job_id", job.id)
+            payload.setdefault("event_type", evt.event_type)
+            if evt.created_at and "timestamp" not in payload:
+                payload["timestamp"] = evt.created_at.isoformat()
+            events.append(payload)
+
+    if not events:
+        events = [
+            {
+                "job_id": job.id,
+                "state": job.status,
+                "reason": "Current state snapshot"
+            }
+        ]
     return {
         "job_id": job.id,
-        "current_state": job.state,
+        "current_state": job.status,
         "events": events
     }

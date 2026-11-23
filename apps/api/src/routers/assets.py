@@ -5,10 +5,11 @@ Asset registration, storage keys, short-expiry signed URLs, and Lineage DAG trac
 
 from __future__ import annotations
 
+import os
 import re
 import uuid
-from typing import Any, Dict, List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status, File, UploadFile, Form
+from typing import Any, Dict, List, Optional, Tuple
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, status, File, UploadFile, Form
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -152,10 +153,10 @@ async def register_asset(
         "project_id": asset.project_id,
         "media_type": asset.asset_type,
         "mime_type": asset.mime_type,
-        "storage_provider": getattr(asset, "storage_provider", storage.provider.__class__.__name__),
+        "storage_provider": req.storage_provider or "local",
         "storage_key": asset.storage_key,
         "byte_size": asset.size_bytes,
-        "metadata": asset.metadata_ or {},
+        "metadata": getattr(asset, "metadata_", None) or {},
         "download_url": download_url,
         "created_at": asset.created_at.isoformat() if asset.created_at else None
     }
@@ -227,14 +228,14 @@ async def upload_asset_file(
     )
 
     download_url = content_url(asset)
-    asset_meta = asset.metadata_ or {}
+    asset_meta = getattr(asset, "metadata_", None) or {}
     return {
         "status": "ok",
         "id": asset.id,
         "filename": asset_meta.get("filename", asset.storage_key.split("/")[-1]),
-        "media_type": asset.media_type,
+        "media_type": asset.asset_type,
         "mime_type": asset.mime_type,
-        "byte_size": asset.byte_size,
+        "byte_size": asset.size_bytes,
         "storage_key": asset.storage_key,
         "download_url": download_url,
         "metadata": asset_meta,
@@ -732,16 +733,65 @@ async def get_asset(
 
     return {
         "id": asset.id,
-        "owner_id": asset.owner_id,
+        "owner_id": asset.user_id,
         "project_id": asset.project_id,
-        "media_type": asset.media_type,
+        "media_type": asset.asset_type,
         "mime_type": asset.mime_type,
         "storage_key": asset.storage_key,
-        "byte_size": asset.byte_size,
-        "metadata": asset.metadata_ or {},
+        "byte_size": asset.size_bytes,
+        "metadata": getattr(asset, "metadata_", None) or {},
         "download_url": content_url(asset),
         "created_at": asset.created_at.isoformat() if asset.created_at else None
     }
+
+
+def _parse_byte_range(range_header: str, total_size: int) -> Optional[Tuple[int, int]]:
+    """
+    Parse an HTTP Range header (`bytes=start-end`, `bytes=start-`, `bytes=-suffix`)
+    per RFC 9110 §14.1.2. Returns None for non-bytes units and raises ValueError
+    when a `bytes=` range is malformed or unsatisfiable.
+    """
+    raw = (range_header or "").strip()
+    if not raw or "=" not in raw:
+        raise ValueError("RANGE_NOT_SATISFIABLE")
+    unit, _, spec_str = raw.partition("=")
+    if unit.strip().lower() != "bytes":
+        return None
+    spec = spec_str.strip()
+    if not spec or "," in spec or "-" not in spec:
+        raise ValueError("RANGE_NOT_SATISFIABLE")
+    if total_size <= 0:
+        raise ValueError("RANGE_NOT_SATISFIABLE")
+
+    start_s, end_s = spec.split("-", 1)
+    start_s = start_s.strip()
+    end_s = end_s.strip()
+
+    if not start_s and not end_s:
+        raise ValueError("RANGE_NOT_SATISFIABLE")
+
+    try:
+        if not start_s:
+            suffix_len = int(end_s)
+            if suffix_len <= 0:
+                raise ValueError("RANGE_NOT_SATISFIABLE")
+            start = max(0, total_size - suffix_len)
+            end = total_size - 1
+        elif not end_s:
+            start = int(start_s)
+            if start < 0 or start >= total_size:
+                raise ValueError("RANGE_NOT_SATISFIABLE")
+            end = total_size - 1
+        else:
+            start = int(start_s)
+            end = int(end_s)
+            if start < 0 or start >= total_size or end < start:
+                raise ValueError("RANGE_NOT_SATISFIABLE")
+            end = min(end, total_size - 1)
+    except ValueError as exc:
+        raise ValueError("RANGE_NOT_SATISFIABLE") from exc
+
+    return start, end
 
 
 @router.get("/{asset_id}/content", summary="Serve asset bytes for a signed URL")
@@ -749,10 +799,12 @@ async def get_asset_content(
     asset_id: str,
     expires: int = Query(..., description="Signed URL expiry (unix seconds)"),
     signature: str = Query(..., description="HMAC-SHA256 signature"),
+    range_header: Optional[str] = Header(None, alias="Range"),
     db: AsyncSession = Depends(get_db)
 ) -> Response:
-    """Streams the stored bytes. Authorised by the HMAC signature rather than a
-    bearer token, so <img src> works without exposing credentials to markup."""
+    """Streams the stored bytes with HTTP Range support (206 Partial Content).
+    Authorised by the HMAC signature rather than a bearer token, so <img src>
+    and <video src> timeline seeking work without exposing credentials."""
     result = await db.execute(select(Asset).where(Asset.id == str(asset_id)))
     asset = result.scalar_one_or_none()
     if asset is None or asset.deleted_at is not None:
@@ -773,15 +825,49 @@ async def get_asset_content(
             detail="ASSET_BYTES_UNAVAILABLE: this asset has no stored file",
         )
 
-    mime_clean = (asset.mime_type or "application/octet-stream").split(";")[0].strip().lower()
+    total_size = len(payload)
+    media_type = asset.mime_type or "application/octet-stream"
+    mime_clean = media_type.split(";")[0].strip().lower()
     disposition = "inline" if mime_clean in ALLOWED_UPLOAD_MIMES else "attachment"
+    base_headers = {
+        "Accept-Ranges": "bytes",
+        "Cache-Control": "private, max-age=300",
+        "X-Content-Type-Options": "nosniff",
+        "Content-Disposition": f'{disposition}; filename="{asset_id}"',
+    }
+
+    if range_header is not None:
+        try:
+            byte_range = _parse_byte_range(range_header, total_size)
+        except ValueError:
+            return Response(
+                status_code=status.HTTP_416_RANGE_NOT_SATISFIABLE,
+                headers={
+                    "Accept-Ranges": "bytes",
+                    "Content-Range": f"bytes */{total_size}",
+                },
+            )
+        if byte_range is not None:
+            start, end = byte_range
+            chunk = payload[start : end + 1]
+            return Response(
+                content=chunk,
+                status_code=status.HTTP_206_PARTIAL_CONTENT,
+                media_type=media_type,
+                headers={
+                    **base_headers,
+                    "Content-Range": f"bytes {start}-{end}/{total_size}",
+                    "Content-Length": str(len(chunk)),
+                },
+            )
+
     return Response(
         content=payload,
-        media_type=asset.mime_type,
+        status_code=status.HTTP_200_OK,
+        media_type=media_type,
         headers={
-            "Cache-Control": "private, max-age=300",
-            "X-Content-Type-Options": "nosniff",
-            "Content-Disposition": f'{disposition}; filename="{asset_id}"',
+            **base_headers,
+            "Content-Length": str(total_size),
         },
     )
 
