@@ -1,9 +1,9 @@
-# Generated from live apps.api.src.server:app (O17 / ADR-004 / ADR-005)
 openapi: 3.1.0
 info:
   title: KEYSTONE API
-  description: 'KEYSTONE is the proprietary prompt-intelligence engine, prompting authority, cognition controller, workflow
-    orchestrator, and quality authority for multimodal creative AI.
+  description: 'KEYSTONE is the proprietary prompt-intelligence engine, prompting
+    authority, cognition controller, workflow orchestrator, and quality authority
+    for multimodal creative AI.
 
 
     Canonical spec: KEYSTONE Bible v2 (ADR-004 / ADR-005; v1 archived at git tag bible-v1-final).'
@@ -46,7 +46,8 @@ paths:
       tags:
       - Intelligence
       summary: Get Capabilities
-      description: Returns the OpenAPI-compliant PublicCapability manifest for the Keystone Intelligence Harvester.
+      description: Returns the OpenAPI-compliant PublicCapability manifest for the
+        Keystone Intelligence Harvester.
       operationId: get_capabilities_v1_intelligence_capabilities_get
       responses:
         '200':
@@ -60,9 +61,11 @@ paths:
       tags:
       - Intelligence
       summary: Extract Benchmark
-      description: 'Deconstructs benchmark application UX component trees, design tokens, and workflows.
+      description: 'Deconstructs benchmark application UX component trees, design
+        tokens, and workflows.
 
-        Applies edge PII scrubbing, AES-256-GCM vault boundary encryption, SHA-256 deduplication,
+        Applies edge PII scrubbing, AES-256-GCM vault boundary encryption, SHA-256
+        deduplication,
 
         and Aikido structural quarantine.'
       operationId: extract_benchmark_v1_intelligence_extract_post
@@ -90,7 +93,8 @@ paths:
       tags:
       - Intelligence
       summary: Sanitize Content
-      description: 'Sanitizes untrusted input markup, escapes closing containment tags,
+      description: 'Sanitizes untrusted input markup, escapes closing containment
+        tags,
 
         evaluates prompt injection threat severity, and tokenizes PII references.'
       operationId: sanitize_content_v1_intelligence_sanitize_post
@@ -753,6 +757,16 @@ paths:
           - type: string
           - type: 'null'
           title: Project Id
+      - name: content_mode
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 'Resolved content mode: sfw or unrestricted'
+          title: Content Mode
+        description: 'Resolved content mode: sfw or unrestricted'
       - name: Authorization
         in: header
         required: false
@@ -833,7 +847,8 @@ paths:
       tags:
       - Assets
       summary: Generate an image on ComfyUI and persist the returned bytes
-      description: 'Runs a real text-to-image workflow against the configured ComfyUI runtime,
+      description: 'Runs a real text-to-image workflow against the configured ComfyUI
+        runtime,
 
         stores the PNG, registers the asset, and links it into the lineage DAG.'
       operationId: generate_asset_v1_assets_generate_post
@@ -1056,14 +1071,62 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /v1/assets/{asset_id}/credentials:
+    get:
+      tags:
+      - Assets
+      summary: "Get C2PA Content Credentials for Asset (Bible v2 \xA725)"
+      operationId: get_asset_credentials_v1_assets__asset_id__credentials_get
+      parameters:
+      - name: asset_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Asset Id
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - name: X-API-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Api-Key
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Get Asset Credentials V1 Assets  Asset Id  Credentials
+                  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /v1/assets/{asset_id}/content:
     get:
       tags:
       - Assets
       summary: Serve asset bytes for a signed URL
-      description: 'Streams the stored bytes. Authorised by the HMAC signature rather than a
+      description: 'Streams the stored bytes with HTTP Range support (206 Partial
+        Content).
 
-        bearer token, so <img src> works without exposing credentials to markup.'
+        Authorised by the HMAC signature rather than a bearer token, so <img src>
+
+        and <video src> timeline seeking work without exposing credentials.'
       operationId: get_asset_content_v1_assets__asset_id__content_get
       parameters:
       - name: asset_id
@@ -1088,6 +1151,14 @@ paths:
           description: HMAC-SHA256 signature
           title: Signature
         description: HMAC-SHA256 signature
+      - name: Range
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Range
       responses:
         '200':
           description: Successful Response
@@ -1143,7 +1214,8 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
-                title: Response Add Lineage Relationship V1 Assets  Asset Id  Relationships Post
+                title: Response Add Lineage Relationship V1 Assets  Asset Id  Relationships
+                  Post
         '422':
           description: Validation Error
           content:
@@ -1418,23 +1490,40 @@ paths:
       tags:
       - Planning
       summary: Generate Execution Plan (plan.v1)
-      description: Transforms a high-level goal into a deterministic, finishable 6-step path conforming to plan.v1 plus the
-        digested KEYSTONE compiled prompt.
+      description: Transforms a high-level goal into a deterministic, finishable 6-step
+        path conforming to plan.v1 plus the digested KEYSTONE compiled prompt.
       operationId: plan_goal_v1_planning_plan_post
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - name: X-API-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Api-Key
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/PlanRequestModel'
-        required: true
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                additionalProperties: true
                 type: object
+                additionalProperties: true
                 title: Response Plan Goal V1 Planning Plan Post
         '422':
           description: Validation Error
@@ -1447,7 +1536,8 @@ paths:
       tags:
       - Planning
       summary: Compile PromptIntent
-      description: Compiles PromptIntent into PromptAnatomy, computes deterministic SHA-256 hash, and attaches provenance.
+      description: Compiles PromptIntent into PromptAnatomy, computes deterministic
+        SHA-256 hash, and attaches provenance.
       operationId: compile_prompt_intent_v1_planning_compile_post
       requestBody:
         content:
@@ -1475,8 +1565,9 @@ paths:
       tags:
       - Planning
       summary: List All 16 Domain Playbooks with Preloaded Use-Case Context & Skills
-      description: Returns all 16 canonical domain playbooks preserved in KEYSTONE with preloaded domain_context, use_cases,
-        skills, criticalSlots, and 6-step paths.
+      description: Returns all 16 canonical domain playbooks preserved in KEYSTONE
+        with preloaded domain_context, use_cases, skills, criticalSlots, and 6-step
+        paths.
       operationId: list_playbooks_v1_planning_playbooks_get
       responses:
         '200':
@@ -1492,8 +1583,8 @@ paths:
       tags:
       - Planning
       summary: Get Domain Playbook Context, Use Cases & Skills
-      description: Returns a single domain playbook by ID with its preloaded use-case context, bound skills, critical slots,
-        and 6-step execution path.
+      description: Returns a single domain playbook by ID with its preloaded use-case
+        context, bound skills, critical slots, and 6-step execution path.
       operationId: get_playbook_detail_v1_planning_playbooks__playbook_id__get
       parameters:
       - name: playbook_id
@@ -1510,7 +1601,8 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
-                title: Response Get Playbook Detail V1 Planning Playbooks  Playbook Id  Get
+                title: Response Get Playbook Detail V1 Planning Playbooks  Playbook
+                  Id  Get
         '422':
           description: Validation Error
           content:
@@ -1522,14 +1614,32 @@ paths:
       tags:
       - Authority
       summary: Evaluate Proposed Action
-      description: Evaluates a ProposedAction against safety policies, parameter boundaries, and credit balance.
+      description: Evaluates a ProposedAction against safety policies, parameter boundaries,
+        and credit balance.
       operationId: evaluate_action_v1_authority_evaluate_post
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - name: X-API-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Api-Key
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/AuthorityEvaluateRequest'
-        required: true
       responses:
         '200':
           description: Successful Response
@@ -1564,14 +1674,40 @@ paths:
       tags:
       - Authority
       summary: Issue Signed Execution Envelope
-      description: Cryptographically signs and issues an ExecutionEnvelope for an approved AuthorityDecision.
+      description: Cryptographically signs and issues an ExecutionEnvelope for an
+        approved AuthorityDecision.
       operationId: issue_envelope_v1_authority_envelope_issue_post
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - name: X-API-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Api-Key
+      - name: X-Service-Token
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Service-Token
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/EnvelopeIssueRequest'
-        required: true
       responses:
         '200':
           description: Successful Response
@@ -1590,22 +1726,40 @@ paths:
       tags:
       - Authority
       summary: Verify Execution Envelope
-      description: Verifies HMAC-SHA256 signature, expiration, clock skew, and single-use nonce.
+      description: Verifies HMAC-SHA256 signature, expiration, clock skew, and single-use
+        nonce.
       operationId: verify_envelope_v1_authority_envelope_verify_post
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - name: X-API-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Api-Key
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/EnvelopeVerifyRequest'
-        required: true
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                additionalProperties: true
                 type: object
+                additionalProperties: true
                 title: Response Verify Envelope V1 Authority Envelope Verify Post
         '422':
           description: Validation Error
@@ -1620,20 +1774,29 @@ paths:
       summary: Register Ephemeral Worker
       description: Registers an ephemeral worker with dynamic tunnel URL and capabilities.
       operationId: register_worker_internal_workers_register_post
+      parameters:
+      - name: X-Service-Token
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Service-Token
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/WorkerRegisterRequest'
-        required: true
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                additionalProperties: true
                 type: object
+                additionalProperties: true
                 title: Response Register Worker Internal Workers Register Post
         '422':
           description: Validation Error
@@ -1648,20 +1811,29 @@ paths:
       summary: Worker Heartbeat
       description: Updates worker last heartbeat timestamp and telemetry.
       operationId: heartbeat_internal_workers_heartbeat_post
+      parameters:
+      - name: X-Service-Token
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Service-Token
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/WorkerHeartbeatRequest'
-        required: true
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                additionalProperties: true
                 type: object
+                additionalProperties: true
                 title: Response Heartbeat Internal Workers Heartbeat Post
         '422':
           description: Validation Error
@@ -1684,6 +1856,14 @@ paths:
           type: boolean
           default: false
           title: Active Only
+      - name: X-Service-Token
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Service-Token
       responses:
         '200':
           description: Successful Response
@@ -1706,20 +1886,29 @@ paths:
       summary: Drain Worker
       description: Marks worker as DRAINING before session shutdown.
       operationId: drain_worker_internal_workers_drain_post
+      parameters:
+      - name: X-Service-Token
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Service-Token
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/WorkerDrainRequest'
-        required: true
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                additionalProperties: true
                 type: object
+                additionalProperties: true
                 title: Response Drain Worker Internal Workers Drain Post
         '422':
           description: Validation Error
@@ -1732,7 +1921,8 @@ paths:
       tags:
       - Creative Tool Fabric
       summary: List Creative Tool Capabilities
-      description: Returns all registered creative capability manifests per Bible §8.
+      description: "Returns all registered creative capability manifests per Bible\
+        \ \xA78."
       operationId: get_creative_capabilities_v1_creative_capabilities_get
       responses:
         '200':
@@ -1743,28 +1933,47 @@ paths:
                 items:
                   $ref: '#/components/schemas/CapabilityManifest'
                 type: array
-                title: Response Get Creative Capabilities V1 Creative Capabilities Get
+                title: Response Get Creative Capabilities V1 Creative Capabilities
+                  Get
   /v1/creative/execute:
     post:
       tags:
       - Creative Tool Fabric
       summary: Execute Creative Adapter Request
-      description: Validates parameters, enforces execution envelope integrity if provided, builds workflow graph.
+      description: Validates parameters, enforces execution envelope integrity, builds
+        workflow graph.
       operationId: execute_creative_job_v1_creative_execute_post
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - name: X-API-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Api-Key
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/CreativeExecuteRequest'
-        required: true
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                additionalProperties: true
                 type: object
+                additionalProperties: true
                 title: Response Execute Creative Job V1 Creative Execute Post
         '422':
           description: Validation Error
@@ -1803,7 +2012,8 @@ paths:
       tags:
       - Creative Tool Fabric
       summary: Evaluate Bounded Retry Policy
-      description: Checks if an attempt should be retried, replanned, or aborted based on budgets.
+      description: Checks if an attempt should be retried, replanned, or aborted based
+        on budgets.
       operationId: evaluate_retry_decision_v1_creative_retry_evaluate_post
       requestBody:
         content:
@@ -1819,7 +2029,8 @@ paths:
               schema:
                 additionalProperties: true
                 type: object
-                title: Response Evaluate Retry Decision V1 Creative Retry Evaluate Post
+                title: Response Evaluate Retry Decision V1 Creative Retry Evaluate
+                  Post
         '422':
           description: Validation Error
           content:
@@ -1831,8 +2042,8 @@ paths:
       tags:
       - Creative Tool Fabric
       summary: ComfyUI & MiniMax H3 Live Runtime Status
-      description: Returns live ComfyUI wiring status, workflow graph readiness, H3 health check, and registered creative
-        adapters.
+      description: Returns live ComfyUI wiring status, workflow graph readiness, H3
+        health check, and registered creative adapters.
       operationId: get_comfy_runtime_status_v1_creative_comfy_status_get
       responses:
         '200':
@@ -1842,29 +2053,49 @@ paths:
               schema:
                 additionalProperties: true
                 type: object
-                title: Response Get Comfy Runtime Status V1 Creative Comfy Status Get
+                title: Response Get Comfy Runtime Status V1 Creative Comfy Status
+                  Get
   /v1/creative/comfy/configure:
     post:
       tags:
       - Creative Tool Fabric
       summary: Dynamically Configure ComfyUI & Cognition Tunnel URLs
-      description: Updates COMFY_BASE_URL / KEYSTONE_COMFY_URL and OPENAI_BASE_URL in memory, .env, and WorkerBridge.
+      description: Updates COMFY_BASE_URL / KEYSTONE_COMFY_URL and OPENAI_BASE_URL
+        in memory, .env, and WorkerBridge.
       operationId: configure_comfy_runtime_v1_creative_comfy_configure_post
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - name: X-API-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Api-Key
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/ComfyConfigUpdateRequest'
-        required: true
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                additionalProperties: true
                 type: object
-                title: Response Configure Comfy Runtime V1 Creative Comfy Configure Post
+                additionalProperties: true
+                title: Response Configure Comfy Runtime V1 Creative Comfy Configure
+                  Post
         '422':
           description: Validation Error
           content:
@@ -1876,7 +2107,8 @@ paths:
       tags:
       - Billing & Credits
       summary: Stripe Webhook Handler
-      description: Idempotently processes signed Stripe billing events with HMAC-SHA256 verification.
+      description: Idempotently processes signed Stripe billing events with HMAC-SHA256
+        verification.
       operationId: handle_stripe_webhook_v1_billing_webhook_post
       parameters:
       - name: Stripe-Signature
@@ -1907,7 +2139,8 @@ paths:
       tags:
       - Billing & Credits
       summary: Create Stripe Checkout Session
-      description: Initializes a test-mode Stripe checkout session for purchasing credits.
+      description: Initializes a test-mode Stripe checkout session for purchasing
+        credits.
       operationId: create_checkout_session_v1_billing_checkout_session_post
       requestBody:
         content:
@@ -1923,7 +2156,8 @@ paths:
               schema:
                 additionalProperties: true
                 type: object
-                title: Response Create Checkout Session V1 Billing Checkout Session Post
+                title: Response Create Checkout Session V1 Billing Checkout Session
+                  Post
         '422':
           description: Validation Error
           content:
@@ -1935,7 +2169,8 @@ paths:
       tags:
       - Billing & Credits
       summary: Get Account Credits Balance
-      description: Returns available balance, held balance, and ledger entries for user.
+      description: Returns available balance, held balance, and ledger entries for
+        user.
       operationId: get_account_balance_v1_billing_balance__account_id__get
       parameters:
       - name: account_id
@@ -1944,6 +2179,22 @@ paths:
         schema:
           type: string
           title: Account Id
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - name: X-API-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Api-Key
       responses:
         '200':
           description: Successful Response
@@ -1973,6 +2224,22 @@ paths:
         schema:
           type: string
           title: Account Id
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - name: X-API-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Api-Key
       responses:
         '200':
           description: Successful Response
@@ -1983,7 +2250,8 @@ paths:
                 items:
                   type: object
                   additionalProperties: true
-                title: Response Get Account Transactions V1 Billing Transactions  Account Id  Get
+                title: Response Get Account Transactions V1 Billing Transactions  Account
+                  Id  Get
         '422':
           description: Validation Error
           content:
@@ -2063,7 +2331,8 @@ paths:
                 items:
                   type: object
                   additionalProperties: true
-                title: Response Get Current User Transactions V1 Billing Transactions Get
+                title: Response Get Current User Transactions V1 Billing Transactions
+                  Get
         '422':
           description: Validation Error
           content:
@@ -2115,13 +2384,61 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /v1/billing/webhooks/adult-processor:
+    post:
+      tags:
+      - Billing & Credits
+      summary: Adult Processor Webhook (Stage-2 Age Verification)
+      description: Receives card confirmation from adult processor (CCBill/etc), marking
+        Stage-2 age verification.
+      operationId: handle_adult_processor_webhook_v1_billing_webhooks_adult_processor_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdultProcessorWebhookRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Handle Adult Processor Webhook V1 Billing Webhooks
+                  Adult Processor Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /v1/admin/telemetry:
     get:
       tags:
       - Operator Admin Console
       summary: Get System & Worker Telemetry
-      description: Returns aggregate real-time hardware telemetry and worker pool metrics per Bible §26.
+      description: "Returns aggregate real-time hardware telemetry and worker pool\
+        \ metrics per Bible \xA726."
       operationId: get_system_telemetry_v1_admin_telemetry_get
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - name: X-API-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Api-Key
       responses:
         '200':
           description: Successful Response
@@ -2129,12 +2446,19 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SystemTelemetry'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /v1/admin/audit/logs:
     get:
       tags:
       - Operator Admin Console
       summary: List Operational Audit Logs
-      description: Returns immutable system event, authority decision, and ledger audit trails.
+      description: Returns immutable system event and authority decision audit trails
+        from the database.
       operationId: get_audit_logs_v1_admin_audit_logs_get
       parameters:
       - name: limit
@@ -2146,6 +2470,22 @@ paths:
           minimum: 1
           default: 50
           title: Limit
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - name: X-API-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Api-Key
       responses:
         '200':
           description: Successful Response
@@ -2168,22 +2508,40 @@ paths:
       tags:
       - Operator Admin Console
       summary: Grant Studio Credits to Tenant Account
-      description: Adds credits to both the append-only CreditsLedgerEngine and SQLite CreditAccount.
+      description: Adds credits to both the append-only CreditsLedgerEngine and SQLite
+        CreditAccount.
       operationId: admin_topup_credits_v1_admin_credits_topup_post
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - name: X-API-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Api-Key
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/AdminCreditTopupRequest'
-        required: true
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                additionalProperties: true
                 type: object
+                additionalProperties: true
                 title: Response Admin Topup Credits V1 Admin Credits Topup Post
         '422':
           description: Validation Error
@@ -2196,17 +2554,41 @@ paths:
       tags:
       - Operator Admin Console
       summary: Force Immediate Live Probe of Configured Worker Tunnels
-      description: Triggers KaggleWorkerDaemon to register and probe live Cognition and ComfyUI tunnels.
+      description: Triggers KaggleWorkerDaemon to register and probe live Cognition
+        and ComfyUI tunnels.
       operationId: admin_probe_workers_v1_admin_workers_probe_post
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - name: X-API-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Api-Key
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                additionalProperties: true
                 type: object
+                additionalProperties: true
                 title: Response Admin Probe Workers V1 Admin Workers Probe Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /v1/admin/legal/policies:
     get:
       tags:
@@ -2214,15 +2596,38 @@ paths:
       summary: List Legal Documentation Policies
       description: Returns the inventory of 10 commercial legal policies.
       operationId: list_legal_policies_v1_admin_legal_policies_get
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - name: X-API-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Api-Key
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                additionalProperties: true
                 type: object
+                additionalProperties: true
                 title: Response List Legal Policies V1 Admin Legal Policies Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /v1/personas:
     get:
       tags:
@@ -2238,6 +2643,24 @@ paths:
           - type: string
           - type: 'null'
           title: Project Id
+      - name: session_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Session Id
+      - name: content_mode
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 'Optional resolved mode filter: sfw or unrestricted'
+          title: Content Mode
+        description: 'Optional resolved mode filter: sfw or unrestricted'
       - name: Authorization
         in: header
         required: false
@@ -2325,6 +2748,43 @@ paths:
         schema:
           type: string
           title: Persona Id
+      - name: version
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: integer
+            minimum: 1
+          - type: 'null'
+          description: Optional immutable persona version
+          title: Version
+        description: Optional immutable persona version
+      - name: project_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Project Id
+      - name: session_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Session Id
+      - name: content_mode
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 'Optional resolved mode filter: sfw or unrestricted'
+          title: Content Mode
+        description: 'Optional resolved mode filter: sfw or unrestricted'
       - name: Authorization
         in: header
         required: false
@@ -2356,10 +2816,59 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+    patch:
+      tags:
+      - Personas
+      summary: Create a new immutable version of a persona
+      operationId: patch_persona_v1_personas__persona_id__patch
+      parameters:
+      - name: persona_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Persona Id
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - name: X-API-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Api-Key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePersonaRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Patch Persona V1 Personas  Persona Id  Patch
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
     put:
       tags:
       - Personas
-      summary: Update an existing persona
+      summary: Update persona (creates a new immutable version)
       operationId: update_persona_v1_personas__persona_id__put
       parameters:
       - name: persona_id
@@ -2408,7 +2917,7 @@ paths:
     delete:
       tags:
       - Personas
-      summary: Delete a persona
+      summary: Soft-delete a persona (preserves historical depicts lineage)
       operationId: delete_persona_v1_personas__persona_id__delete
       parameters:
       - name: persona_id
@@ -2448,11 +2957,80 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /v1/personas/{persona_id}/versions:
+    get:
+      tags:
+      - Personas
+      summary: List immutable versions for a persona
+      operationId: list_persona_versions_v1_personas__persona_id__versions_get
+      parameters:
+      - name: persona_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Persona Id
+      - name: project_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Project Id
+      - name: session_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Session Id
+      - name: content_mode
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Content Mode
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - name: X-API-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Api-Key
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response List Persona Versions V1 Personas  Persona Id  Versions
+                  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /v1/personas/{persona_id}/speak:
     post:
       tags:
       - Personas
-      summary: Synthesize speech audio for persona using ElevenLabs
+      summary: Synthesize speech audio for persona through the Gate
       operationId: persona_speak_v1_personas__persona_id__speak_post
       parameters:
       - name: persona_id
@@ -2503,7 +3081,8 @@ paths:
       tags:
       - Audio
       summary: Get ElevenLabs TTS integration configuration
-      description: Returns the live audio and ElevenLabs/Windows SAPI TTS configuration status.
+      description: Returns the live audio and ElevenLabs/Windows SAPI TTS configuration
+        status.
       operationId: get_audio_config_v1_audio_config_get
       responses:
         '200':
@@ -2520,20 +3099,37 @@ paths:
       - Audio
       summary: Configure ElevenLabs API Key at runtime
       operationId: configure_audio_provider_v1_audio_configure_post
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - name: X-API-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Api-Key
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/AudioConfigUpdateRequest'
-        required: true
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                additionalProperties: true
                 type: object
+                additionalProperties: true
                 title: Response Configure Audio Provider V1 Audio Configure Post
         '422':
           description: Validation Error
@@ -2546,7 +3142,8 @@ paths:
       tags:
       - Audio
       summary: List available live ElevenLabs or local SAPI voices
-      description: Retrieves live ElevenLabs voices when configured, or live installed Windows SAPI voices.
+      description: Retrieves live ElevenLabs voices when configured, or live installed
+        Windows SAPI voices.
       operationId: list_voices_v1_audio_voices_get
       responses:
         '200':
@@ -2562,7 +3159,8 @@ paths:
       tags:
       - Audio
       summary: Synthesize speech from text
-      description: Synthesizes text into real spoken audio after KEYSTONE prompt compilation.
+      description: Synthesizes text into real spoken audio after Gate authorization
+        & KEYSTONE prompt compilation.
       operationId: synthesize_speech_v1_audio_speech_post
       parameters:
       - name: Authorization
@@ -2605,7 +3203,8 @@ paths:
       tags:
       - Cognition Agent & LLM Chat
       summary: Get Cognition Model & Agent Status
-      description: Returns real-time status of the pinned cognition checkpoint and active ComfyUI worker connection.
+      description: Returns real-time status of the pinned cognition checkpoint and
+        active ComfyUI worker connection.
       operationId: get_cognition_status_v1_cognition_status_get
       responses:
         '200':
@@ -2621,7 +3220,8 @@ paths:
       tags:
       - Cognition Agent & LLM Chat
       summary: Dynamically Configure Live Cognition Endpoint
-      description: Updates OPENAI_BASE_URL, OPENAI_API_KEY, and OPENAI_MODEL in memory and .env, then probes live status.
+      description: Updates OPENAI_BASE_URL, OPENAI_API_KEY, and OPENAI_MODEL in memory
+        and .env, then probes live status.
       operationId: configure_cognition_endpoint_v1_cognition_configure_post
       requestBody:
         content:
@@ -2637,7 +3237,8 @@ paths:
               schema:
                 additionalProperties: true
                 type: object
-                title: Response Configure Cognition Endpoint V1 Cognition Configure Post
+                title: Response Configure Cognition Endpoint V1 Cognition Configure
+                  Post
         '422':
           description: Validation Error
           content:
@@ -2651,7 +3252,8 @@ paths:
       summary: Speak directly with loaded Qwen 27B LLM
       description: 'Interactive multi-turn conversation with OBLITERATUS/Qwen3.8-27B-OBLITERATED.
 
-        Routes to live vLLM/Modal/Kaggle worker or raises explicit error when unreachable.'
+        Routes through the Gate (with optional `as: persona_id` sheet injection) to
+        live vLLM/worker.'
       operationId: chat_with_cognition_v1_cognition_chat_post
       parameters:
       - name: Authorization
@@ -2696,15 +3298,8 @@ paths:
       tags:
       - Cognition Agent & LLM Chat
       summary: Instruct autonomous agent to perform web & workspace tasks
-      description: 'Autonomous multi-step agent task execution:
-
-        1. Interprets user prompt via KEYSTONE Prompt Engine & Domain Playbooks.
-
-        2. Performs real-time internet search or URL scraping if requested.
-
-        3. Triggers live ComfyUI image/video generation when requested and configured.
-
-        4. Synthesizes final report in real time via the live KEYSTONE Cognition runtime.'
+      description: 'Autonomous multi-step agent task execution routed through the
+        Gate with optional `as: persona_id`.'
       operationId: execute_agent_task_v1_cognition_agent_task_post
       parameters:
       - name: Authorization
@@ -2738,6 +3333,54 @@ paths:
                 type: object
                 additionalProperties: true
                 title: Response Execute Agent Task V1 Cognition Agent Task Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /v1/cognition/analyze:
+    post:
+      tags:
+      - Cognition Agent & LLM Chat
+      summary: Multimodal Qwen-VL asset inspection through the Gate
+      description: 'Inspects an image/video/audio asset (with optional `as: persona_id`
+        context)
+
+        through the Gate using live multimodal Qwen-VL completion.'
+      operationId: analyze_asset_v1_cognition_analyze_post
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - name: X-API-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Api-Key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalyzeRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Analyze Asset V1 Cognition Analyze Post
         '422':
           description: Validation Error
           content:
@@ -2920,13 +3563,521 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /v1/account:
+    get:
+      tags:
+      - account
+      summary: Get Account
+      operationId: get_account_v1_account_get
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - name: X-API-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Api-Key
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /v1/account/age-verification:
+    post:
+      tags:
+      - account
+      summary: Verify Age
+      operationId: verify_age_v1_account_age_verification_post
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - name: X-API-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Api-Key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgeVerificationRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /v1/account/content-mode:
+    patch:
+      tags:
+      - account
+      summary: Update Content Mode
+      operationId: update_content_mode_v1_account_content_mode_patch
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - name: X-API-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Api-Key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContentModeUpdateRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /v1/recipes:
+    get:
+      tags:
+      - recipes
+      summary: List Recipes
+      operationId: list_recipes_v1_recipes_get
+      parameters:
+      - name: project_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Project Id
+      - name: persona_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Persona Id
+      - name: promoted_only
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+          title: Promoted Only
+      - name: mode
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Mode
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - name: X-API-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Api-Key
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /v1/recipes/{recipe_id}:
+    get:
+      tags:
+      - recipes
+      summary: Get Recipe
+      operationId: get_recipe_v1_recipes__recipe_id__get
+      parameters:
+      - name: recipe_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Recipe Id
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - name: X-API-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Api-Key
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /v1/recipes/{recipe_id}/promote:
+    post:
+      tags:
+      - recipes
+      summary: Promote Recipe
+      operationId: promote_recipe_v1_recipes__recipe_id__promote_post
+      parameters:
+      - name: recipe_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Recipe Id
+      - name: operator_approved
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: true
+          title: Operator Approved
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - name: X-API-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Api-Key
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /v1/recipes/{recipe_id}/replay:
+    post:
+      tags:
+      - recipes
+      summary: Replay Recipe
+      operationId: replay_recipe_v1_recipes__recipe_id__replay_post
+      parameters:
+      - name: recipe_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Recipe Id
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - name: X-API-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Api-Key
+      requestBody:
+        content:
+          application/json:
+            schema:
+              anyOf:
+              - $ref: '#/components/schemas/ReplayRequest'
+              - type: 'null'
+              title: Replay Body
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /v1/projects/{project_id}/style-rules:
+    get:
+      tags:
+      - recipes
+      summary: List Style Rules
+      operationId: list_style_rules_v1_projects__project_id__style_rules_get
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - name: X-API-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Api-Key
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      tags:
+      - recipes
+      summary: Create Style Rule
+      operationId: create_style_rule_v1_projects__project_id__style_rules_post
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - name: X-API-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Api-Key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StyleRuleCreate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /v1/projects/{project_id}/style-rules/{rule_id}:
+    patch:
+      tags:
+      - recipes
+      summary: Update Style Rule
+      operationId: update_style_rule_v1_projects__project_id__style_rules__rule_id__patch
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      - name: rule_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Rule Id
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - name: X-API-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Api-Key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StyleRuleUpdate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - recipes
+      summary: Delete Style Rule
+      operationId: delete_style_rule_v1_projects__project_id__style_rules__rule_id__delete
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      - name: rule_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Rule Id
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - name: X-API-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Api-Key
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /v1/contracts:
     get:
       tags:
       - Contracts
       summary: Get Canonical Contracts & Schemas
-      description: Returns the frozen contract definitions, state machines, and complete JSON schemas for all Keystone Pydantic
-        v2 models per Bible §6–§16.
+      description: "Returns the frozen contract definitions, state machines, and complete\
+        \ JSON schemas for all Keystone Pydantic v2 models per Bible \xA76\u2013\xA7\
+        16."
       operationId: get_contracts_v1_contracts_get
       responses:
         '200':
@@ -2942,38 +4093,86 @@ paths:
       tags:
       - Configuration
       summary: Firebase Remote Config Template & Feature Flags
-      description: Returns the active remote config parameters, feature toggles, and in-app defaults.
+      description: Returns the active remote config parameters, feature toggles, and
+        in-app defaults.
       operationId: get_remote_config_v1_config_remote_get
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - name: X-API-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Api-Key
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                additionalProperties: true
                 type: object
+                additionalProperties: true
                 title: Response Get Remote Config V1 Config Remote Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
     post:
       tags:
       - Configuration
       summary: Update Firebase Remote Config Feature Flags
       description: Updates in-app defaults and feature toggles in remote_config.json.
       operationId: update_remote_config_v1_config_remote_post
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - name: X-API-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Api-Key
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                additionalProperties: true
                 type: object
+                additionalProperties: true
                 title: Response Update Remote Config V1 Config Remote Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /workspace:
     get:
       tags:
       - Workspace UX
       summary: Premium Creative Workspace UI
-      description: Serves the 5-Region KEYSTONE Premium Creative Workspace (Bible §25).
+      description: Redirects to Next.js Studio rather than exposing raw apps/web/
+        directory.
       operationId: serve_workspace_index_workspace_get
       responses:
         '200':
@@ -2986,7 +4185,7 @@ paths:
       tags:
       - Operator Admin Console
       summary: Operator Admin Console UI
-      description: Serves the KEYSTONE Operator Admin Console (Bible §26).
+      description: "Serves the KEYSTONE Operator Admin Console (Bible \xA726)."
       operationId: serve_admin_index_admin_get
       responses:
         '200':
@@ -3021,6 +4220,47 @@ components:
       - account_id
       - amount
       title: AdminCreditTopupRequest
+    AdultProcessorWebhookRequest:
+      properties:
+        user_id:
+          type: string
+          title: User Id
+        event_type:
+          type: string
+          title: Event Type
+          default: card_verified
+        card_last4:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Card Last4
+          default: '4242'
+        processor:
+          type: string
+          title: Processor
+          default: ccbill
+        credits:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Credits
+      type: object
+      required:
+      - user_id
+      title: AdultProcessorWebhookRequest
+    AgeVerificationRequest:
+      properties:
+        confirmed_adult_18_plus:
+          type: boolean
+          title: Confirmed Adult 18 Plus
+        method:
+          type: string
+          title: Method
+          default: attestation
+      type: object
+      required:
+      - confirmed_adult_18_plus
+      title: AgeVerificationRequest
     AgentTaskRequest:
       properties:
         task:
@@ -3038,6 +4278,23 @@ components:
           - type: string
           - type: 'null'
           title: Session Id
+        as:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: As
+          description: Optional persona ID
+        persona_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Persona Id
+          description: Optional persona ID (alias for `as`)
+        playbook_id:
+          anyOf:
+          - {}
+          - type: 'null'
+          title: Playbook Id
         allow_internet:
           anyOf:
           - type: boolean
@@ -3056,6 +4313,65 @@ components:
       required:
       - task
       title: AgentTaskRequest
+    AnalyzeRequest:
+      properties:
+        asset_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Asset Id
+          description: Asset ID to inspect with Qwen-VL
+        prompt:
+          type: string
+          minLength: 1
+          title: Prompt
+          description: Inspection prompt
+          default: Inspect and describe this asset in detail.
+        project_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Project Id
+        session_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Session Id
+        as:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: As
+          description: Optional persona ID
+        persona_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Persona Id
+          description: Optional persona ID (alias for `as`)
+        playbook_id:
+          anyOf:
+          - {}
+          - type: 'null'
+          title: Playbook Id
+        temperature:
+          anyOf:
+          - type: number
+            maximum: 2.0
+            minimum: 0.0
+          - type: 'null'
+          title: Temperature
+          default: 0.3
+        max_tokens:
+          anyOf:
+          - type: integer
+            maximum: 4096.0
+            minimum: 64.0
+          - type: 'null'
+          title: Max Tokens
+          default: 1024
+      type: object
+      title: AnalyzeRequest
     AudioConfigUpdateRequest:
       properties:
         elevenlabs_api_key:
@@ -3064,6 +4380,12 @@ components:
           - type: 'null'
           title: Elevenlabs Api Key
           description: Live ElevenLabs API key
+        base_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Base Url
+          description: Optional ElevenLabs base URL
       type: object
       title: AudioConfigUpdateRequest
     AuthorityDecision-Input:
@@ -3141,6 +4463,25 @@ components:
           title: Harness Bundle Version
           description: Active harness bundle version
           default: 1.0.0
+        content_mode:
+          type: string
+          enum:
+          - sfw
+          - unrestricted
+          title: Content Mode
+          default: sfw
+        age_verified:
+          type: boolean
+          title: Age Verified
+          default: false
+        floor_verdict:
+          type: string
+          enum:
+          - pass
+          - fail
+          - uncertain
+          title: Floor Verdict
+          default: pass
         created_at:
           anyOf:
           - type: string
@@ -3156,7 +4497,8 @@ components:
       - request_id
       - decision
       title: AuthorityDecision
-      description: Authoritative decision rendered by AuthorityEngine (Bible §12).
+      description: "Authoritative decision rendered by AuthorityEngine (Bible \xA7\
+        12)."
     AuthorityDecision-Output:
       properties:
         decision_id:
@@ -3232,6 +4574,25 @@ components:
           title: Harness Bundle Version
           description: Active harness bundle version
           default: 1.0.0
+        content_mode:
+          type: string
+          enum:
+          - sfw
+          - unrestricted
+          title: Content Mode
+          default: sfw
+        age_verified:
+          type: boolean
+          title: Age Verified
+          default: false
+        floor_verdict:
+          type: string
+          enum:
+          - pass
+          - fail
+          - uncertain
+          title: Floor Verdict
+          default: pass
         created_at:
           anyOf:
           - type: string
@@ -3255,9 +4616,13 @@ components:
       - policy_bundle_version
       - capability_registry_version
       - harness_bundle_version
+      - content_mode
+      - age_verified
+      - floor_verdict
       - created_at
       title: AuthorityDecision
-      description: Authoritative decision rendered by AuthorityEngine (Bible §12).
+      description: "Authoritative decision rendered by AuthorityEngine (Bible \xA7\
+        12)."
     AuthorityEvaluateRequest:
       properties:
         action:
@@ -3439,7 +4804,7 @@ components:
       - enabled
       - metadata
       title: CapabilityManifest
-      description: Provider capability declaration manifest (Bible §8).
+      description: "Provider capability declaration manifest (Bible \xA78)."
     ChatMessage:
       properties:
         role:
@@ -3479,6 +4844,23 @@ components:
           - type: string
           - type: 'null'
           title: Session Id
+        as:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: As
+          description: Optional persona ID
+        persona_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Persona Id
+          description: Optional persona ID (alias for `as`)
+        playbook_id:
+          anyOf:
+          - {}
+          - type: 'null'
+          title: Playbook Id
         temperature:
           anyOf:
           - type: number
@@ -3564,6 +4946,12 @@ components:
           - type: 'null'
           title: Comfy Base Url
           description: Live ComfyUI base or Cloudflare tunnel URL
+        base_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Base Url
+          description: Alias for comfy_base_url
         comfy_api_key:
           anyOf:
           - type: string
@@ -3617,6 +5005,28 @@ components:
       required:
       - intent
       title: CompileRequestModel
+    ContentModeUpdateRequest:
+      properties:
+        content_mode:
+          type: string
+          enum:
+          - sfw
+          - unrestricted
+          title: Content Mode
+        project_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Project Id
+        session_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Session Id
+      type: object
+      required:
+      - content_mode
+      title: ContentModeUpdateRequest
     CreateApiKeyRequest:
       properties:
         name:
@@ -3772,31 +5182,63 @@ components:
           - type: 'null'
           title: Description
           description: Persona bio, visual cues, and backstory
+        project_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Project Id
+          description: Project to scope this persona to
         avatar_asset_id:
           anyOf:
           - type: string
           - type: 'null'
           title: Avatar Asset Id
-          description: Anchor image asset for persona portrait
+          description: Optional asset ID for persona avatar image
+        reference_assets:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Reference Assets
+          description: Reference asset IDs for identity conditioning
+        identity_adapter:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Identity Adapter
+          description: 'Identity adapter: reference_set | ip'
+          default: reference_set
+        voice:
+          anyOf:
+          - $ref: '#/components/schemas/PersonaVoiceInput'
+          - type: 'null'
+          description: "Nested \xA741 voice binding"
+        voice_provider:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Voice Provider
+          description: Voice synthesis provider (e.g. elevenlabs)
         voice_id:
           anyOf:
           - type: string
           - type: 'null'
           title: Voice Id
-          description: Live ElevenLabs or local SAPI voice ID
+          description: ElevenLabs or local TTS voice ID
         voice_name:
           anyOf:
           - type: string
           - type: 'null'
           title: Voice Name
-          description: Display name for selected voice
+          description: Human readable voice label
         voice_settings:
           anyOf:
           - additionalProperties: true
             type: object
           - type: 'null'
           title: Voice Settings
-          description: Voice stability, similarity, style
+          description: Voice generation hyperparameters
         personality_traits:
           anyOf:
           - items:
@@ -3804,24 +5246,36 @@ components:
             type: array
           - type: 'null'
           title: Personality Traits
-          description: Descriptive traits, e.g. Cyberpunk, Narrator
+          description: List of personality trait keywords
+        traits:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Traits
+          description: Persona traits list or map
+        backstory:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Backstory
+          description: Persona backstory / system-prompt fragment
         system_prompt:
           anyOf:
           - type: string
           - type: 'null'
           title: System Prompt
-          description: System prompt instructions injected into cognition
-        project_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Project Id
+          description: Dedicated system prompt instructions for persona
         metadata:
           anyOf:
           - additionalProperties: true
             type: object
           - type: 'null'
           title: Metadata
+          description: Arbitrary persona attributes
       type: object
       required:
       - name
@@ -3878,7 +5332,8 @@ components:
         adapter:
           type: string
           title: Adapter
-          description: Target adapter (comfyui, image_gen, image_edit, wan_i2v, wan_t2v, facefusion, upscale)
+          description: Target adapter (comfyui, image_gen, image_edit, wan_i2v, wan_t2v,
+            facefusion, upscale)
         parameters:
           additionalProperties: true
           type: object
@@ -3959,6 +5414,11 @@ components:
       title: EnvelopeVerifyRequest
     ExecutionEnvelope:
       properties:
+        envelope_version:
+          type: string
+          const: '2.0'
+          title: Envelope Version
+          default: '2.0'
         envelope_id:
           type: string
           title: Envelope Id
@@ -3995,6 +5455,34 @@ components:
           type: string
           title: Compiled Prompt Id
           description: Hash or UUID of compiled prompt
+        intent:
+          type: string
+          title: Intent
+          default: generate
+        playbook:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Playbook
+        content_mode:
+          type: string
+          enum:
+          - sfw
+          - unrestricted
+          title: Content Mode
+          default: sfw
+        age_verified:
+          type: boolean
+          title: Age Verified
+          default: false
+        floor_verdict:
+          type: string
+          enum:
+          - pass
+          - fail
+          - uncertain
+          title: Floor Verdict
+          default: pass
         arguments:
           additionalProperties: true
           type: object
@@ -4033,6 +5521,7 @@ components:
           description: HMAC-SHA256 signature generated by KEYSTONE master authority
       type: object
       required:
+      - envelope_version
       - envelope_id
       - decision_id
       - job_id
@@ -4042,6 +5531,11 @@ components:
       - workflow_id
       - workflow_version
       - compiled_prompt_id
+      - intent
+      - playbook
+      - content_mode
+      - age_verified
+      - floor_verdict
       - arguments
       - input_asset_ids
       - issued_at
@@ -4049,7 +5543,8 @@ components:
       - nonce
       - signature
       title: ExecutionEnvelope
-      description: Cryptographically signed, short-expiry execution token delivered to workers (Bible §12).
+      description: "Cryptographically signed, short-expiry execution token delivered\
+        \ to workers (Bible \xA712)."
     ExtractRequest:
       properties:
         url:
@@ -4207,6 +5702,11 @@ components:
           - type: string
           - type: 'null'
           title: Project Id
+        session_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Session Id
         parent_asset_id:
           anyOf:
           - type: string
@@ -4241,6 +5741,30 @@ components:
           title: Mode
           description: text2image, img2img, upscale, i2v, minimax_h3
           default: text2image
+        intent:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Intent
+          description: 'Intent hint: create, edit, vary, animate'
+        playbook_id:
+          anyOf:
+          - {}
+          - type: 'null'
+          title: Playbook Id
+          description: Optional domain playbook ID
+        as:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: As
+          description: Optional persona ID
+        persona_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Persona Id
+          description: Optional persona ID (alias for `as`)
         scale_factor:
           anyOf:
           - type: integer
@@ -4311,6 +5835,24 @@ components:
           - type: 'null'
           title: Project Id
           description: Optional project ID for asset association
+        session_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Session Id
+          description: Optional session ID for content mode resolution
+        as:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: As
+          description: Optional persona ID
+        persona_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Persona Id
+          description: Optional persona ID (alias for `as`)
         save_asset:
           type: boolean
           title: Save Asset
@@ -4394,7 +5936,7 @@ components:
       - evidence
       - runtime_ms
       title: HarnessResult
-      description: KHF evaluation and validation verdict (Bible §13).
+      description: "KHF evaluation and validation verdict (Bible \xA713)."
     LoginRequest:
       properties:
         email:
@@ -4413,7 +5955,8 @@ components:
         type:
           type: string
           title: Type
-          description: Parameter data type (string, number, integer, boolean, array, object)
+          description: Parameter data type (string, number, integer, boolean, array,
+            object)
         required:
           type: boolean
           title: Required
@@ -4460,7 +6003,8 @@ components:
       - enum
       - description
       title: ParameterSpec
-      description: Detailed specification for a capability parameter (Bible §8).
+      description: "Detailed specification for a capability parameter (Bible \xA7\
+        8)."
     PersonaSpeakRequest:
       properties:
         text:
@@ -4481,10 +6025,49 @@ components:
             type: object
           - type: 'null'
           title: Voice Settings
+          description: Optional override of voice settings
+        project_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Project Id
+          description: Optional project ID for mode resolution
+        session_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Session Id
+          description: Optional session ID for mode resolution
       type: object
       required:
       - text
       title: PersonaSpeakRequest
+    PersonaVoiceInput:
+      properties:
+        provider:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Provider
+          default: elevenlabs
+        voice_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Voice Id
+        voice_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Voice Name
+        settings:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Settings
+      type: object
+      title: PersonaVoiceInput
     PlanRequest:
       properties:
         goal:
@@ -4524,6 +6107,28 @@ components:
           type: object
           title: Options
           description: Compiler and heuristic options
+        project_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Project Id
+        session_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Session Id
+        as:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: As
+          description: Optional persona ID
+        persona_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Persona Id
+          description: Optional persona ID (alias for `as`)
       type: object
       required:
       - goal
@@ -4561,7 +6166,8 @@ components:
       - action_type
       - capability
       title: ProposedAction
-      description: Structured action proposed by Qwen cognition (Bible §10, §12).
+      description: "Structured action proposed by Qwen cognition (Bible \xA710, \xA7\
+        12)."
     PublicCapabilitySchema:
       properties:
         id:
@@ -4660,6 +6266,21 @@ components:
       - email
       - password
       title: RegisterRequest
+    ReplayRequest:
+      properties:
+        override_seed:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Override Seed
+        override_params:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Override Params
+      type: object
+      title: ReplayRequest
     RetryEvaluateRequest:
       properties:
         policy:
@@ -4710,7 +6331,8 @@ components:
           default: 10.0
       type: object
       title: RetryPolicy
-      description: Bounded retry policy to prevent runaway execution (Bible §14).
+      description: "Bounded retry policy to prevent runaway execution (Bible \xA7\
+        14)."
     SanitizeRequest:
       properties:
         content:
@@ -4772,6 +6394,46 @@ components:
       - pii_redacted
       - tokens_generated
       title: SanitizeResponse
+    StyleRuleCreate:
+      properties:
+        rule_text:
+          type: string
+          maxLength: 1000
+          minLength: 1
+          title: Rule Text
+        weight:
+          type: number
+          maximum: 5.0
+          minimum: 0.0
+          title: Weight
+          default: 1.0
+        active:
+          type: boolean
+          title: Active
+          default: true
+      type: object
+      required:
+      - rule_text
+      title: StyleRuleCreate
+    StyleRuleUpdate:
+      properties:
+        rule_text:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Rule Text
+        weight:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Weight
+        active:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Active
+      type: object
+      title: StyleRuleUpdate
     SystemTelemetry:
       properties:
         timestamp:
@@ -4823,7 +6485,7 @@ components:
         tool:
           type: string
           title: Tool
-          description: Tool name from the 17-tool catalog
+          description: Tool name from the generative pipeline catalog
         input:
           additionalProperties: true
           type: object
@@ -4839,8 +6501,8 @@ components:
           - type: string
           - type: 'null'
           title: Job Id
-          description: Optional client-chosen UUID. Poll GET /v1/zencreator/jobs/{job_id} for live progress while this request
-            runs.
+          description: Optional client-chosen UUID. Poll GET /v1/zencreator/jobs/{job_id}
+            for live progress while this request runs.
       type: object
       required:
       - tool
@@ -4902,11 +6564,37 @@ components:
           - type: string
           - type: 'null'
           title: Description
+        project_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Project Id
         avatar_asset_id:
           anyOf:
           - type: string
           - type: 'null'
           title: Avatar Asset Id
+        reference_assets:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Reference Assets
+        identity_adapter:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Identity Adapter
+        voice:
+          anyOf:
+          - $ref: '#/components/schemas/PersonaVoiceInput'
+          - type: 'null'
+        voice_provider:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Voice Provider
         voice_id:
           anyOf:
           - type: string
@@ -4930,6 +6618,20 @@ components:
             type: array
           - type: 'null'
           title: Personality Traits
+        traits:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Traits
+        backstory:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Backstory
         system_prompt:
           anyOf:
           - type: string
@@ -4980,6 +6682,14 @@ components:
           title: Scale Factor
           description: Resolution scale multiplier (2 for 2x, 4 for 4x)
           default: 2
+        scale:
+          anyOf:
+          - type: integer
+            maximum: 4.0
+            minimum: 2.0
+          - type: 'null'
+          title: Scale
+          description: Alias for scale_factor
         prompt:
           anyOf:
           - type: string
@@ -4991,6 +6701,23 @@ components:
           - type: string
           - type: 'null'
           title: Project Id
+        session_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Session Id
+        as:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: As
+          description: Optional persona ID
+        persona_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Persona Id
+          description: Optional persona ID (alias for `as`)
       type: object
       title: UpscaleAssetRequest
     ValidationError:
@@ -5099,7 +6826,8 @@ tags:
 - name: Contracts
   description: Frozen canonical contracts, schemas, and state invariants (F02)
 - name: Intelligence
-  description: Firecrawl benchmark application extraction, PII Vault, and Aikido prompt defense
+  description: Firecrawl benchmark application extraction, PII Vault, and Aikido prompt
+    defense
 - name: Capabilities
   description: Provider-agnostic capability discovery and registry
 - name: Authentication
@@ -5109,16 +6837,23 @@ tags:
 - name: Sessions
   description: Multi-turn multimodal creative sessions and messages (F05)
 - name: Assets
-  description: Asset registration, storage keys, signed URLs, and Lineage DAG tracking (F07, F08)
+  description: Asset registration, storage keys, signed URLs, and Lineage DAG tracking
+    (F07, F08)
 - name: Jobs
-  description: Job lifecycle orchestration and 13-state deterministic state machine (F09)
+  description: Job lifecycle orchestration and 13-state deterministic state machine
+    (F09)
 - name: Planning
-  description: Deterministic plan.v1 generation and PromptCompiler execution across 16 playbooks (F10)
+  description: Deterministic plan.v1 generation and PromptCompiler execution across
+    16 playbooks (F10)
 - name: Authority
-  description: Authority Decision Engine, policy enforcement, and execution envelopes (F15, F18)
+  description: Authority Decision Engine, policy enforcement, and execution envelopes
+    (F15, F18)
 - name: Workers
-  description: Kaggle Worker Bridge, dynamic tunnel registration, and heartbeat monitoring (F17)
+  description: Kaggle Worker Bridge, dynamic tunnel registration, and heartbeat monitoring
+    (F17)
 - name: Personas
-  description: Character identities, avatar reference anchoring, personality traits, and ElevenLabs voice assignment
+  description: Character identities, avatar reference anchoring, personality traits,
+    and ElevenLabs voice assignment
 - name: Audio
-  description: Live ElevenLabs cloud voices and native Windows SAPI speech synthesis (zero mock fallbacks)
+  description: Live ElevenLabs cloud voices and native Windows SAPI speech synthesis
+    (zero mock fallbacks)
