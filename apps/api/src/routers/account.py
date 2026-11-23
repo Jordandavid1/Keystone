@@ -1,22 +1,30 @@
 """
-Account, Stage-1 Age Verification, and Content Mode Router (PR3b).
+Account, Stage-1 Age Verification, and Content Mode Router (PR3b / PR10 async DB compatibility).
 """
 
 from __future__ import annotations
 
+import inspect
 import uuid
 from datetime import datetime, timezone
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy.orm import Session as DBSession
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.src.auth.dependencies import get_current_user
 from apps.api.src.db.models import AuditEvent, Project, Session as ChatSession, User
 from apps.api.src.db.session import get_db
 
 router = APIRouter(prefix="/v1/account", tags=["account"])
+
+
+async def _maybe_await(val: Any) -> Any:
+    if inspect.isawaitable(val):
+        return await val
+    return val
 
 
 class AgeVerificationRequest(BaseModel):
@@ -45,10 +53,10 @@ def get_account(current_user: User = Depends(get_current_user)):
 
 
 @router.post("/age-verification")
-def verify_age(
+async def verify_age(
     payload: AgeVerificationRequest,
     current_user: User = Depends(get_current_user),
-    db: DBSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     if payload.confirmed_adult_18_plus is not True:
         raise HTTPException(
@@ -74,7 +82,7 @@ def verify_age(
         },
     )
     db.add(audit)
-    db.commit()
+    await _maybe_await(db.commit())
 
     return {
         "age_verified": True,
@@ -84,10 +92,10 @@ def verify_age(
 
 
 @router.patch("/content-mode")
-def update_content_mode(
+async def update_content_mode(
     payload: ContentModeUpdateRequest,
     current_user: User = Depends(get_current_user),
-    db: DBSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     if payload.content_mode == "unrestricted" and not getattr(current_user, "age_verified", False):
         raise HTTPException(
@@ -102,22 +110,26 @@ def update_content_mode(
     target_id = current_user.id
 
     if payload.session_id:
-        sess = (
-            db.query(ChatSession)
-            .filter(ChatSession.id == payload.session_id, ChatSession.user_id == current_user.id)
-            .first()
+        res = await db.execute(
+            select(ChatSession).where(
+                ChatSession.id == payload.session_id,
+                ChatSession.user_id == current_user.id,
+            )
         )
+        sess = res.scalar_one_or_none()
         if not sess:
             raise HTTPException(status_code=404, detail="Session not found")
         sess.content_mode = payload.content_mode
         target_type = "session"
         target_id = sess.id
     elif payload.project_id:
-        proj = (
-            db.query(Project)
-            .filter(Project.id == payload.project_id, Project.user_id == current_user.id)
-            .first()
+        res = await db.execute(
+            select(Project).where(
+                Project.id == payload.project_id,
+                Project.user_id == current_user.id,
+            )
         )
+        proj = res.scalar_one_or_none()
         if not proj:
             raise HTTPException(status_code=404, detail="Project not found")
         proj.content_mode = payload.content_mode
@@ -137,7 +149,7 @@ def update_content_mode(
         },
     )
     db.add(audit)
-    db.commit()
+    await _maybe_await(db.commit())
 
     return {
         "target_type": target_type,

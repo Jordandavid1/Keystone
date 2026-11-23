@@ -5,6 +5,7 @@ Asset registration, storage keys, short-expiry signed URLs, and Lineage DAG trac
 
 from __future__ import annotations
 
+import inspect
 import os
 import re
 import uuid
@@ -608,6 +609,10 @@ async def generate_asset(
             storage_provider=storage.provider.__class__.__name__,
             metadata=metadata,
             mature=effective_mature,
+            asset_bytes=payload,
+            content_mode="unrestricted" if effective_mature else "sfw",
+            fabric="comfyui",
+            job_id=req.job_id,
         )
     except ValueError as err:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(err))
@@ -734,8 +739,13 @@ async def upscale_asset(
         media_type="image",
         storage_provider=storage.provider.__class__.__name__,
         mature=effective_mature,
+        asset_bytes=out_bytes,
+        content_mode=receipt.content_mode,
+        fabric="comfyui",
+        job_id=receipt.job_id,
         metadata={
             "kind": "keystone_upscale",
+            "job_id": receipt.job_id,
             "source_asset_id": source_asset.id,
             "scale_factor": effective_scale,
             "width": upscale_res.get("width"),
@@ -918,7 +928,7 @@ async def get_asset(
     }
 
 
-@router.get("/{asset_id}/credentials", summary="Get C2PA Content Credentials for Asset (Bible v2 §25)")
+@router.get("/{asset_id}/credentials", summary="Get C2PA Content Credentials for Asset (Bible v2 §43)")
 async def get_asset_credentials(
     asset_id: str,
     tenant_id: str = Depends(get_current_tenant_id),
@@ -932,13 +942,29 @@ async def get_asset_credentials(
             detail="Asset not found or forbidden"
         )
 
+    existing_manifest = getattr(asset, "c2pa_manifest", None)
+    if isinstance(existing_manifest, dict) and existing_manifest.get("signature"):
+        return existing_manifest
+
     from apps.api.src.services.c2pa_credentials import sign_c2pa_manifest
+
+    meta = getattr(asset, "metadata_", None) or {}
+    job_id = str(meta.get("job_id") or asset.id)
+    content_mode = "unrestricted" if getattr(asset, "mature", False) else "sfw"
     manifest = sign_c2pa_manifest(
         asset_id=asset.id,
-        job_id=asset.job_id or asset.id,
+        job_id=job_id,
         user_id=asset.user_id,
-        title=f"Keystone Asset {asset.id}",
+        asset_sha256=getattr(asset, "checksum", None),
+        fabric=str(meta.get("fabric") or "comfyui"),
+        recipe_id=meta.get("recipe_id"),
+        content_mode=content_mode,
+        title=getattr(asset, "filename", None) or f"Keystone Asset {asset.id}",
     )
+    asset.c2pa_manifest = manifest
+    commit_res = db.commit()
+    if inspect.isawaitable(commit_res):
+        await commit_res
     return manifest
 
 

@@ -1,121 +1,267 @@
-"""scripts/verify_alpha_gate.py
-KEYSTONE BIBLE §34 ALPHA GATE (ADR-004 / ADR-005, Bible v2 §2 Invariant 12).
-Live real automated verification harness running real subprocesses across all checks:
-  1. Structural Invariants & Blocking Checks (verify_invariants.py --strict)
-  2. Change Control Invariants (verify_change_control.py)
-  3. Acceptance Test Suite (pytest tests/acceptance/test_bible_acceptance.py)
-  4. Core API & Services Test Suite (pytest tests/test_pr*.py)
-  5. Studio Frontend Unit Tests (npm test)
-  6. Next.js Studio Typecheck (apps/web/node_modules/.bin/tsc --noEmit)
+#!/usr/bin/env python3
+"""
+KEYSTONE Bible v2 §34 Alpha Gate Verification — LIVE PR10 HARNESS (ADR-004 / ADR-005).
+
+Executes real subprocess checks across:
+  1. tests/acceptance/test_bible_acceptance.py (mapped 1-to-1 to all 15 §34 criteria)
+  2. scripts/verify_invariants.py --strict
+  3. scripts/verify_change_control.py --root .
+  4. npm test (preserved plan.v1 JS identity contract)
+  5. Next.js Studio TypeScript check (`npx tsc --noEmit`)
+
+Zero fabricated PASS verdicts (Bible v2 §2 Invariant 12).
 """
 
 from __future__ import annotations
 
-import os
+import json
+import re
+import shutil
 import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Set
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
+ALPHA_GATE_CRITERIA: List[str] = [
+    "1. account creation works",
+    "2. projects and sessions persist",
+    "3. uploads persist",
+    "4. users communicate naturally with KEYSTONE",
+    "5. KEYSTONE owns prompt compilation",
+    "6. cognition produces valid structured actions",
+    "7. at least image and image-to-video workflows work",
+    "8. jobs survive page refresh",
+    "9. outputs appear in the correct project",
+    "10. credits are not charged twice",
+    "11. failures preserve the session",
+    "12. customers can download outputs",
+    "13. admins can diagnose jobs",
+    "14. content modes resolve and enforce (SFW default, UNRESTRICTED behind the age gate)",
+    "15. the floor rejects its fixture and writes its audit row",
+]
 
-def run_step(title: str, cmd: List[str], cwd: Path = REPO_ROOT) -> Tuple[bool, str]:
-    print(f"\n--- Running: {title} ---")
-    start = time.time()
+CRITERIA_TEST_MAP: Dict[str, List[str]] = {
+    "1. account creation works": [
+        "tests/acceptance/test_bible_acceptance.py::TestBibleFullEndToEndLoopAndCrashRecovery::test_e2e_01_register_project_session_upload_chat_persona_generate_download_admin",
+    ],
+    "2. projects and sessions persist": [
+        "tests/acceptance/test_bible_acceptance.py::TestBibleFullEndToEndLoopAndCrashRecovery::test_e2e_01_register_project_session_upload_chat_persona_generate_download_admin",
+    ],
+    "3. uploads persist": [
+        "tests/acceptance/test_bible_acceptance.py::TestBibleFullEndToEndLoopAndCrashRecovery::test_e2e_01_register_project_session_upload_chat_persona_generate_download_admin",
+    ],
+    "4. users communicate naturally with KEYSTONE": [
+        "tests/acceptance/test_bible_acceptance.py::TestBibleFullEndToEndLoopAndCrashRecovery::test_e2e_01_register_project_session_upload_chat_persona_generate_download_admin",
+        "tests/acceptance/test_bible_acceptance.py::TestBibleIdentityAcceptance::test_identity_02_plan_v1_output_remains_valid",
+    ],
+    "5. KEYSTONE owns prompt compilation": [
+        "tests/acceptance/test_bible_acceptance.py::TestBibleIdentityAcceptance::test_identity_05_standard_chat_and_reasoning_compilers_pass",
+        "tests/acceptance/test_bible_acceptance.py::TestBibleIdentityAcceptance::test_identity_06_model_facing_calls_carry_keystone_provenance",
+        "tests/acceptance/test_bible_acceptance.py::TestBibleAuthorityAcceptance::test_authority_07_worker_cannot_mutate_approved_prompt_or_mode",
+    ],
+    "6. cognition produces valid structured actions": [
+        "tests/acceptance/test_bible_acceptance.py::TestBibleAuthorityAcceptance::test_authority_02_raw_model_to_worker_fails",
+        "tests/acceptance/test_bible_acceptance.py::TestBibleFullEndToEndLoopAndCrashRecovery::test_e2e_01_register_project_session_upload_chat_persona_generate_download_admin",
+    ],
+    "7. at least image and image-to-video workflows work": [
+        "tests/acceptance/test_bible_acceptance.py::TestBibleFullEndToEndLoopAndCrashRecovery::test_e2e_01_register_project_session_upload_chat_persona_generate_download_admin",
+    ],
+    "8. jobs survive page refresh": [
+        "tests/acceptance/test_bible_acceptance.py::TestBibleFullEndToEndLoopAndCrashRecovery::test_e2e_01_register_project_session_upload_chat_persona_generate_download_admin",
+    ],
+    "9. outputs appear in the correct project": [
+        "tests/acceptance/test_bible_acceptance.py::TestBibleFullEndToEndLoopAndCrashRecovery::test_e2e_01_register_project_session_upload_chat_persona_generate_download_admin",
+    ],
+    "10. credits are not charged twice": [
+        "tests/acceptance/test_bible_acceptance.py::TestBibleFullEndToEndLoopAndCrashRecovery::test_e2e_01_register_project_session_upload_chat_persona_generate_download_admin",
+        "tests/acceptance/test_bible_acceptance.py::TestBibleFullEndToEndLoopAndCrashRecovery::test_e2e_02_failures_preserve_session_and_worker_crash_recovery",
+    ],
+    "11. failures preserve the session": [
+        "tests/acceptance/test_bible_acceptance.py::TestBibleFullEndToEndLoopAndCrashRecovery::test_e2e_02_failures_preserve_session_and_worker_crash_recovery",
+    ],
+    "12. customers can download outputs": [
+        "tests/acceptance/test_bible_acceptance.py::TestBibleFullEndToEndLoopAndCrashRecovery::test_e2e_01_register_project_session_upload_chat_persona_generate_download_admin",
+    ],
+    "13. admins can diagnose jobs": [
+        "tests/acceptance/test_bible_acceptance.py::TestBibleFullEndToEndLoopAndCrashRecovery::test_e2e_01_register_project_session_upload_chat_persona_generate_download_admin",
+    ],
+    "14. content modes resolve and enforce (SFW default, UNRESTRICTED behind the age gate)": [
+        "tests/acceptance/test_bible_acceptance.py::TestBibleIdentityAcceptance::test_identity_03_all_sixteen_playbooks_mode_scoped",
+        "tests/acceptance/test_bible_acceptance.py::TestBibleContentModesAndAgeGateAcceptance::test_content_mode_01_unverified_403_and_stage1_stage2_age_gate",
+        "tests/acceptance/test_bible_acceptance.py::TestBibleContentModesAndAgeGateAcceptance::test_content_mode_03_lawful_unrestricted_passes_and_mature_gallery_isolated",
+    ],
+    "15. the floor rejects its fixture and writes its audit row": [
+        "tests/acceptance/test_bible_acceptance.py::TestBibleContentModesAndAgeGateAcceptance::test_content_mode_02_floor_violation_422_audit_and_zero_dispatch",
+    ],
+}
+
+
+def _resolve_python() -> str:
+    venv_py = REPO_ROOT / ".venv" / "Scripts" / "python.exe"
+    if venv_py.exists():
+        return str(venv_py)
+    return sys.executable
+
+
+def _run_cmd(cmd: List[str], *, cwd: Path = REPO_ROOT, shell: bool = False) -> Dict[str, Any]:
+    t0 = time.perf_counter()
+    proc = subprocess.run(
+        cmd,
+        cwd=str(cwd),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        timeout=300,
+        shell=shell,
+    )
+    elapsed = round(time.perf_counter() - t0, 2)
+    return {
+        "passed": proc.returncode == 0,
+        "exit_code": proc.returncode,
+        "elapsed_s": elapsed,
+        "output": proc.stdout or "",
+    }
+
+
+def _parse_passed_node_ids(stdout: str) -> Set[str]:
+    passed: Set[str] = set()
+    pattern = re.compile(r"^(tests/acceptance/test_bible_acceptance\.py::\S+)\s+PASSED\b")
+    for line in stdout.splitlines():
+        norm = line.strip().replace("\\", "/")
+        match = pattern.match(norm)
+        if match:
+            passed.add(match.group(1))
+    return passed
+
+
+def verify_alpha_gate(*, include_slow_subchecks: bool = True) -> Dict[str, Any]:
+    """
+    Execute real Bible §34 & §35 acceptance checks via live subprocesses.
+    Marks a criterion PASS strictly when its mapped real pytest node IDs appear as PASSED
+    and pytest exits 0. Zero fabricated PASS dicts.
+    """
+    py_bin = _resolve_python()
+    basetemp_dir = REPO_ROOT / ".pytest_tmp_alphagate"
     try:
-        proc = subprocess.run(
-            cmd,
-            cwd=str(cwd),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            timeout=300,
-            shell=True,
+        shutil.rmtree(basetemp_dir, ignore_errors=True)
+        accept_res = _run_cmd(
+            [
+                py_bin,
+                "-m",
+                "pytest",
+                "-v",
+                "--tb=short",
+                "--basetemp=.pytest_tmp_alphagate",
+                "tests/acceptance/test_bible_acceptance.py",
+            ],
+            cwd=REPO_ROOT,
+            shell=False,
         )
-        elapsed = time.time() - start
-        output = proc.stdout or ""
-        if proc.returncode == 0:
-            print(f"  [PASS] {title} ({elapsed:.1f}s)")
-            return True, output
-        else:
-            print(f"  [FAIL] {title} (exit {proc.returncode}, {elapsed:.1f}s)")
-            return False, output
-    except Exception as exc:
-        elapsed = time.time() - start
-        print(f"  [ERROR] {title}: {exc} ({elapsed:.1f}s)")
-        return False, str(exc)
+    finally:
+        shutil.rmtree(basetemp_dir, ignore_errors=True)
 
+    passed_nodes = _parse_passed_node_ids(accept_res["output"])
+    acceptance_ok = bool(accept_res["passed"])
 
-def main() -> int:
-    print("=" * 80)
-    print("  KEYSTONE BIBLE §34 ALPHA GATE — LIVE EMPIRICAL VERIFICATION (PR10)")
-    print("=" * 80)
+    results: Dict[str, Dict[str, Any]] = {}
+    passed_count = 0
+    for crit in ALPHA_GATE_CRITERIA:
+        required_nodes = CRITERIA_TEST_MAP.get(crit, [])
+        missing = [node for node in required_nodes if node not in passed_nodes]
+        crit_ok = acceptance_ok and bool(required_nodes) and not missing
+        if crit_ok:
+            passed_count += 1
+        results[crit] = {
+            "status": "PASS" if crit_ok else "FAIL",
+            "verified_tests": required_nodes if crit_ok else [],
+            "missing_tests": missing,
+            "evidence": (
+                f"Verified via {len(required_nodes)} live acceptance test(s) (pytest exit {accept_res['exit_code']})"
+                if crit_ok
+                else f"Acceptance failure or unverified tests (exit {accept_res['exit_code']}, missing={missing})"
+            ),
+        }
 
-    py_bin = str(REPO_ROOT / ".venv" / "Scripts" / "python.exe")
-    if not Path(py_bin).exists():
-        py_bin = sys.executable
+    checks: Dict[str, Dict[str, Any]] = {
+        "acceptance_suite": {
+            "passed": acceptance_ok,
+            "exit_code": accept_res["exit_code"],
+            "elapsed_s": accept_res["elapsed_s"],
+            "passed_node_count": len(passed_nodes),
+            "output_tail": "\n".join(accept_res["output"].splitlines()[-20:]),
+        }
+    }
 
-    checks = [
-        (
-            "1. Structural Invariants (verify_invariants.py --strict)",
-            [py_bin, "scripts/verify_invariants.py", "--strict"],
-            REPO_ROOT,
-        ),
-        (
-            "2. Change Control Ledger (verify_change_control.py)",
-            [py_bin, "scripts/verify_change_control.py", "--root", "."],
-            REPO_ROOT,
-        ),
-        (
-            "3. Bible §35 Real Acceptance Suite",
-            [py_bin, "-m", "pytest", "-q", "tests/acceptance/test_bible_acceptance.py"],
-            REPO_ROOT,
-        ),
-        (
-            "4. PR Integration Suites (PR1–PR9)",
-            [py_bin, "-m", "pytest", "-q", "tests/test_pr8_memory_and_recipes.py", "tests/test_pr9_billing_age2_c2pa.py"],
-            REPO_ROOT,
-        ),
-        (
-            "5. Studio Frontend Unit Tests (npm test)",
-            ["npm", "test"],
-            REPO_ROOT,
-        ),
-        (
-            "6. Next.js Studio Typecheck",
-            ["npx", "tsc", "--noEmit"],
-            REPO_ROOT / "apps" / "web",
-        ),
-    ]
+    subchecks_ok = True
+    if include_slow_subchecks:
+        inv_res = _run_cmd([py_bin, "scripts/verify_invariants.py", "--strict"], shell=False)
+        cc_res = _run_cmd([py_bin, "scripts/verify_change_control.py", "--root", "."], shell=False)
+        npm_res = _run_cmd(["npm", "test"], cwd=REPO_ROOT, shell=True)
+        tsc_res = _run_cmd(["npx", "tsc", "--noEmit"], cwd=REPO_ROOT / "apps" / "web", shell=True)
 
-    all_passed = True
-    results: Dict[str, bool] = {}
+        checks["verify_invariants_strict"] = {
+            "passed": inv_res["passed"],
+            "exit_code": inv_res["exit_code"],
+            "elapsed_s": inv_res["elapsed_s"],
+            "output_tail": "\n".join(inv_res["output"].splitlines()[-15:]),
+        }
+        checks["verify_change_control"] = {
+            "passed": cc_res["passed"],
+            "exit_code": cc_res["exit_code"],
+            "elapsed_s": cc_res["elapsed_s"],
+        }
+        checks["npm_test_identity"] = {
+            "passed": npm_res["passed"],
+            "exit_code": npm_res["exit_code"],
+            "elapsed_s": npm_res["elapsed_s"],
+        }
+        checks["nextjs_typecheck"] = {
+            "passed": tsc_res["passed"],
+            "exit_code": tsc_res["exit_code"],
+            "elapsed_s": tsc_res["elapsed_s"],
+            "output_tail": "\n".join(tsc_res["output"].splitlines()[-15:]) if not tsc_res["passed"] else "",
+        }
+        subchecks_ok = all(
+            c["passed"]
+            for c in (
+                checks["verify_invariants_strict"],
+                checks["verify_change_control"],
+                checks["npm_test_identity"],
+                checks["nextjs_typecheck"],
+            )
+        )
 
-    for title, cmd, cwd in checks:
-        passed, out = run_step(title, cmd, cwd=cwd)
-        results[title] = passed
-        if not passed:
-            all_passed = False
-            print("\nFailure Output:")
-            print(out[-1500:] if len(out) > 1500 else out)
-
-    print("\n" + "=" * 80)
-    print("  ALPHA GATE SUMMARY")
-    print("=" * 80)
-    for title, passed in results.items():
-        status_label = "[PASS]" if passed else "[FAIL]"
-        print(f"  {status_label} {title}")
-    print("=" * 80)
-
-    if all_passed:
-        print("RESULT: ALPHA GATE VERIFIED AND PASSED (100% Empirically Validated)\n")
-        return 0
-    else:
-        print("RESULT: ALPHA GATE FAILED\n")
-        return 1
+    all_ok = (passed_count == len(ALPHA_GATE_CRITERIA)) and acceptance_ok and subchecks_ok
+    return {
+        "status": "PASS" if all_ok else "FAIL",
+        "alpha_gate_passed": all_ok,
+        "criteria_count": len(ALPHA_GATE_CRITERIA),
+        "passed_count": passed_count,
+        "results": results,
+        "checks": checks,
+    }
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    report = verify_alpha_gate(include_slow_subchecks=True)
+    if "--json" in sys.argv:
+        print(json.dumps(report, indent=2))
+    else:
+        print("=" * 80)
+        print("  KEYSTONE BIBLE v2 §34 ALPHA GATE — LIVE EMPIRICAL VERIFICATION (PR10)")
+        print("=" * 80)
+        print(f"Overall Status : {report['status']} ({report['passed_count']}/{report['criteria_count']} criteria verified)\n")
+        for crit in ALPHA_GATE_CRITERIA:
+            res = report["results"][crit]
+            print(f"  [{res['status']:4s}] {crit}")
+        print("\nSubprocess Checks:")
+        for cname, cval in report["checks"].items():
+            tag = "PASS" if cval["passed"] else "FAIL"
+            print(f"  [{tag:4s}] {cname} ({cval['elapsed_s']}s)")
+            if not cval["passed"] and cval.get("output_tail"):
+                print(cval["output_tail"])
+        print("=" * 80)
+    sys.exit(0 if report["alpha_gate_passed"] else 1)

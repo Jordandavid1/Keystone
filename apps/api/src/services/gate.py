@@ -76,6 +76,7 @@ class GateReceipt:
     persona_descriptors: Optional[str] = None
     persona_reference_assets: List[str] = field(default_factory=list)
     persona_summary: Optional[Dict[str, Any]] = None
+    advisory_memory: Optional[Dict[str, Any]] = None
     warnings: List[str] = field(default_factory=list)
 
 
@@ -206,20 +207,36 @@ def _compile_prompt(
     content_mode: ContentMode,
     intent: str,
     persona: Optional[Persona] = None,
+    advisory_memory: Optional[Dict[str, Any]] = None,
 ) -> str:
     mode_label = "UNRESTRICTED" if content_mode == "unrestricted" else "SFW"
+    advisory_block = ""
+    if intent != "speak" and advisory_memory:
+        try:
+            from apps.api.src.services.memory import format_advisory_context
+            formatted = format_advisory_context(advisory_memory)
+            if formatted:
+                advisory_block = f"\n\n[MEMORY ADVISORY]\n{formatted}"
+        except Exception:
+            advisory_block = ""
+
     if intent in ("chat", "plan", "agent_task", "cognition", "analyze"):
         system_block = MODE_AWARE_SYSTEM_PROMPT_TEMPLATE.format(MODE=mode_label)
         if persona is not None:
             system_block = f"{system_block}\n\n[PERSONA SHEET]\n{format_persona_sheet(persona)}"
+        if advisory_block:
+            system_block = f"{system_block}{advisory_block}"
         return f"{system_block}\n\n{prompt_text}"
     if intent == "speak":
         return prompt_text
+    compiled = prompt_text
     if persona is not None:
         descriptors = format_persona_descriptors(persona)
-        if descriptors and descriptors not in prompt_text:
-            return f"{prompt_text}\n\n[Persona: {descriptors}]" if prompt_text else f"[Persona: {descriptors}]"
-    return prompt_text
+        if descriptors and descriptors not in compiled:
+            compiled = f"{compiled}\n\n[Persona: {descriptors}]" if compiled else f"[Persona: {descriptors}]"
+    if advisory_block:
+        compiled = f"{compiled}{advisory_block}" if compiled else advisory_block.lstrip()
+    return compiled
 
 
 class GateService:
@@ -368,7 +385,13 @@ class GateService:
                 advisory_memory = None
 
         # 5. Compile prompt
-        compiled_text = _compile_prompt(prompt_text, content_mode, intent, persona=persona)
+        compiled_text = _compile_prompt(
+            prompt_text,
+            content_mode,
+            intent,
+            persona=persona,
+            advisory_memory=advisory_memory,
+        )
         req_id = str(uuid.uuid4())
         cp_id = str(uuid.uuid4())
         job_id = str(uuid.uuid4())
@@ -457,6 +480,12 @@ class GateService:
                     "identity_adapter": getattr(persona, "identity_adapter", "reference_set"),
                 }
             )
+        if advisory_memory:
+            cp_provenance["advisory_memory"] = {
+                "count": advisory_memory.get("count", 0),
+                "recipe_ids": [r.get("id") for r in advisory_memory.get("recipes", []) if r.get("id")],
+                "style_rule_ids": [s.get("id") for s in advisory_memory.get("style_rules", []) if s.get("id")],
+            }
         if warnings:
             cp_provenance["warnings"] = list(warnings)
 
@@ -552,6 +581,7 @@ class GateService:
             persona_descriptors=persona_descriptors,
             persona_reference_assets=persona_ref_assets,
             persona_summary=persona_summary,
+            advisory_memory=advisory_memory,
             warnings=warnings,
         )
 
@@ -635,8 +665,8 @@ class GateService:
         input_asset_ids: Optional[List[str]] = None,
         playbook: Optional[Any] = None,
     ) -> GateReceipt:
-        return await db.run_sync(
-            lambda sync_db: cls.authorize_for_ids(
+        def _run_auth(sync_db: DBSession) -> GateReceipt:
+            return cls.authorize_for_ids(
                 sync_db,
                 user_id=user_id,
                 intent=intent,
@@ -650,7 +680,10 @@ class GateService:
                 input_asset_ids=input_asset_ids,
                 playbook=playbook,
             )
-        )
+
+        if hasattr(db, "run_sync"):
+            return await db.run_sync(_run_auth)
+        return _run_auth(getattr(db, "_s", db))
 
 
 def _as_uuid_or_none(value: Optional[str]) -> Optional[str]:

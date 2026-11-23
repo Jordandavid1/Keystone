@@ -3,10 +3,11 @@ from __future__ import annotations
 import asyncio
 import sqlite3
 import unittest
-from apps.api.src.creative import h3, h3_manifest
+from apps.api.src.creative import h3_manifest
 from apps.api.src.keystone import cognition
 from packages.prompt_engine import compiler as prompting
 from apps.api.src.keystone.models import PromptCompilationRequest, PromptIntent
+from services.comfy.src.client import build_minimax_h3_prompt_graph, h3_workflow_path
 
 
 def compile_text(text: str, references: int, hint: str = "animate"):
@@ -155,12 +156,12 @@ class CompileTests(unittest.TestCase):
         self.assertEqual(digested.provenance["cognition"]["status"], "used")
 
     def test_h3_workflow_compiles_from_manifest(self):
-        import json
-        wf_path = h3.workflow_path()
+        wf_path = h3_workflow_path()
         self.assertIsNotNone(wf_path)
-        template = json.loads(wf_path.read_text(encoding="utf-8"))
-        prepared = h3._prepare(template, "<Picture 1> walks forward in neon rain", ["anchor.png"])
-        api_graph = h3._to_api_prompt(prepared)
+        api_graph = build_minimax_h3_prompt_graph(
+            "<Picture 1> walks forward in neon rain",
+            reference_filenames=["anchor.png"],
+        )
         self.assertIn("138", api_graph)
         self.assertIn("148", api_graph)
 

@@ -30,6 +30,10 @@ spec:
           env:
             - name: PORT
               value: "8000"
+            - name: KEYSTONE_ENV
+              value: "production"
+            - name: WEB_CONCURRENCY
+              value: "1"
             - name: KEYSTONE_COGNITION_CHECKPOINT
               value: "OBLITERATUS/Qwen3.8-27B-OBLITERATED"
             - name: KEYSTONE_ENVELOPE_SECRET
@@ -37,10 +41,30 @@ spec:
                 secretKeyRef:
                   name: keystone-envelope-secret
                   key: latest
+            - name: KEYSTONE_C2PA_SIGNING_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: keystone-c2pa-signing-key
+                  key: latest
+            - name: KEYSTONE_INTERNAL_SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: keystone-internal-service-token
+                  key: latest
             - name: STRIPE_WEBHOOK_SECRET
               valueFrom:
                 secretKeyRef:
                   name: keystone-stripe-secret
+                  key: latest
+            - name: ADULT_PROCESSOR_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: keystone-adult-processor-secret
+                  key: latest
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: keystone-redis-url
                   key: latest
             - name: DATABASE_URL
               valueFrom:

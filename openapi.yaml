@@ -1075,7 +1075,7 @@ paths:
     get:
       tags:
       - Assets
-      summary: "Get C2PA Content Credentials for Asset (Bible v2 \xA725)"
+      summary: "Get C2PA Content Credentials for Asset (Bible v2 \xA743)"
       operationId: get_asset_credentials_v1_assets__asset_id__credentials_get
       parameters:
       - name: asset_id
@@ -2107,8 +2107,8 @@ paths:
       tags:
       - Billing & Credits
       summary: Stripe Webhook Handler
-      description: Idempotently processes signed Stripe billing events with HMAC-SHA256
-        verification.
+      description: Idempotently processes signed Stripe SFW-only billing events with
+        HMAC-SHA256 verification.
       operationId: handle_stripe_webhook_v1_billing_webhook_post
       parameters:
       - name: Stripe-Signature
@@ -2140,22 +2140,39 @@ paths:
       - Billing & Credits
       summary: Create Stripe Checkout Session
       description: Initializes a test-mode Stripe checkout session for purchasing
-        credits.
+        SFW credits.
       operationId: create_checkout_session_v1_billing_checkout_session_post
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - name: X-API-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Api-Key
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/CheckoutSessionRequest'
-        required: true
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                additionalProperties: true
                 type: object
+                additionalProperties: true
                 title: Response Create Checkout Session V1 Billing Checkout Session
                   Post
         '422':
@@ -2344,7 +2361,7 @@ paths:
       tags:
       - Billing & Credits
       summary: Top-up Account Credits
-      description: Instant top-up for creative studio testing.
+      description: Dev/admin credit top-up (disabled for non-admin users in production).
       operationId: topup_current_user_credits_v1_billing_topup_post
       parameters:
       - name: Authorization
@@ -2389,23 +2406,26 @@ paths:
       tags:
       - Billing & Credits
       summary: Adult Processor Webhook (Stage-2 Age Verification)
-      description: Receives card confirmation from adult processor (CCBill/etc), marking
-        Stage-2 age verification.
+      description: HMAC-SHA256 verified webhook confirming card/adult-processor Stage-2
+        age verification and unrestricted deposits.
       operationId: handle_adult_processor_webhook_v1_billing_webhooks_adult_processor_post
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AdultProcessorWebhookRequest'
-        required: true
+      parameters:
+      - name: X-Adult-Processor-Signature
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Adult-Processor-Signature
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                additionalProperties: true
                 type: object
+                additionalProperties: true
                 title: Response Handle Adult Processor Webhook V1 Billing Webhooks
                   Adult Processor Post
         '422':
@@ -3710,6 +3730,14 @@ paths:
           type: boolean
           default: false
           title: Promoted Only
+      - name: content_mode
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Content Mode
       - name: mode
         in: query
         required: false
@@ -3739,7 +3767,10 @@ paths:
           description: Successful Response
           content:
             application/json:
-              schema: {}
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response List Recipes V1 Recipes Get
         '422':
           description: Validation Error
           content:
@@ -3780,7 +3811,10 @@ paths:
           description: Successful Response
           content:
             application/json:
-              schema: {}
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Get Recipe V1 Recipes  Recipe Id  Get
         '422':
           description: Validation Error
           content:
@@ -3828,7 +3862,10 @@ paths:
           description: Successful Response
           content:
             application/json:
-              schema: {}
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Promote Recipe V1 Recipes  Recipe Id  Promote Post
         '422':
           description: Validation Error
           content:
@@ -3877,7 +3914,10 @@ paths:
           description: Successful Response
           content:
             application/json:
-              schema: {}
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Replay Recipe V1 Recipes  Recipe Id  Replay Post
         '422':
           description: Validation Error
           content:
@@ -3918,7 +3958,11 @@ paths:
           description: Successful Response
           content:
             application/json:
-              schema: {}
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response List Style Rules V1 Projects  Project Id  Style Rules
+                  Get
         '422':
           description: Validation Error
           content:
@@ -3964,7 +4008,11 @@ paths:
           description: Successful Response
           content:
             application/json:
-              schema: {}
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Create Style Rule V1 Projects  Project Id  Style Rules
+                  Post
         '422':
           description: Validation Error
           content:
@@ -4017,7 +4065,11 @@ paths:
           description: Successful Response
           content:
             application/json:
-              schema: {}
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Update Style Rule V1 Projects  Project Id  Style Rules  Rule
+                  Id  Patch
         '422':
           description: Validation Error
           content:
@@ -4063,7 +4115,11 @@ paths:
           description: Successful Response
           content:
             application/json:
-              schema: {}
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Delete Style Rule V1 Projects  Project Id  Style Rules  Rule
+                  Id  Delete
         '422':
           description: Validation Error
           content:
@@ -4220,34 +4276,6 @@ components:
       - account_id
       - amount
       title: AdminCreditTopupRequest
-    AdultProcessorWebhookRequest:
-      properties:
-        user_id:
-          type: string
-          title: User Id
-        event_type:
-          type: string
-          title: Event Type
-          default: card_verified
-        card_last4:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Card Last4
-          default: '4242'
-        processor:
-          type: string
-          title: Processor
-          default: ccbill
-        credits:
-          anyOf:
-          - type: integer
-          - type: 'null'
-          title: Credits
-      type: object
-      required:
-      - user_id
-      title: AdultProcessorWebhookRequest
     AgeVerificationRequest:
       properties:
         confirmed_adult_18_plus:
@@ -4912,6 +4940,11 @@ components:
           - type: 'null'
           title: Credits
           description: Explicit credit quantity override
+        content_mode:
+          type: string
+          title: Content Mode
+          description: Billing mode scope ('sfw' or 'unrestricted')
+          default: sfw
       type: object
       required:
       - user_id
@@ -6397,10 +6430,17 @@ components:
     StyleRuleCreate:
       properties:
         rule_text:
-          type: string
-          maxLength: 1000
-          minLength: 1
+          anyOf:
+          - type: string
+            maxLength: 1000
+          - type: 'null'
           title: Rule Text
+        text:
+          anyOf:
+          - type: string
+            maxLength: 1000
+          - type: 'null'
+          title: Text
         weight:
           type: number
           maximum: 5.0
@@ -6412,8 +6452,6 @@ components:
           title: Active
           default: true
       type: object
-      required:
-      - rule_text
       title: StyleRuleCreate
     StyleRuleUpdate:
       properties:
@@ -6422,9 +6460,16 @@ components:
           - type: string
           - type: 'null'
           title: Rule Text
+        text:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Text
         weight:
           anyOf:
           - type: number
+            maximum: 5.0
+            minimum: 0.0
           - type: 'null'
           title: Weight
         active:

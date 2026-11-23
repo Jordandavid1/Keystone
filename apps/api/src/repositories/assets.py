@@ -4,6 +4,7 @@ KEYSTONE Asset Repository (Tenant Scoped with Soft-Deletion)
 
 from __future__ import annotations
 
+import hashlib
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -27,11 +28,38 @@ class AssetRepository(BaseRepository[Asset]):
         storage_provider: str = "local",
         metadata: Optional[Dict[str, Any]] = None,
         mature: bool = False,
+        c2pa_manifest: Optional[Dict[str, Any]] = None,
+        asset_bytes: Optional[bytes] = None,
+        content_mode: Optional[str] = None,
+        fabric: str = "comfyui",
+        recipe_id: Optional[str] = None,
+        job_id: Optional[str] = None,
+        stamp_c2pa: bool = False,
     ) -> Asset:
         if not mime_type or byte_size <= 0 or not storage_key:
             raise ValueError("INVALID_ASSET_PARAMS")
         if ".." in storage_key or "\\" in storage_key:
             raise ValueError(f"ILLEGAL_STORAGE_KEY: Key traversal attempted: {storage_key}")
+
+        checksum_val = hashlib.sha256(asset_bytes).hexdigest() if asset_bytes is not None else None
+        resolved_c2pa = c2pa_manifest
+        if resolved_c2pa is None and (asset_bytes is not None or stamp_c2pa):
+            from apps.api.src.services.c2pa_credentials import sign_c2pa_manifest
+
+            eff_meta = dict(metadata) if metadata else {}
+            eff_job_id = str(job_id or eff_meta.get("job_id") or id)
+            eff_mode = content_mode or ("unrestricted" if mature else "sfw")
+            resolved_c2pa = sign_c2pa_manifest(
+                asset_id=str(id),
+                job_id=eff_job_id,
+                user_id=str(self.tenant_id),
+                asset_bytes=asset_bytes,
+                asset_sha256=checksum_val,
+                fabric=fabric,
+                recipe_id=recipe_id or eff_meta.get("recipe_id"),
+                content_mode=eff_mode,
+                title=filename or f"Keystone Asset {id}",
+            )
 
         asset = Asset(
             id=str(id),
@@ -42,8 +70,10 @@ class AssetRepository(BaseRepository[Asset]):
             mime_type=mime_type,
             storage_key=storage_key,
             size_bytes=byte_size,
+            checksum=checksum_val,
             metadata_=dict(metadata) if metadata else {},
             mature=bool(mature),
+            c2pa_manifest=resolved_c2pa,
             deleted_at=None,
         )
         self.session.add(asset)

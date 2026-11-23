@@ -1,17 +1,19 @@
-# KEYSTONE Canonical Deliverables & Manifest Notice (Bible v2 §38 / ADR-004 O17)
+# KEYSTONE Canonical Deliverables & Manifest Notice (Bible v2 §38 / ADR-004 / ADR-005 PR10)
 #
 # NOTE: The v1 21-file / 69-file SHA-256 byte-freeze was permanently retired under
 # ADR-004 (D14) and O0.5. Bible v1 is archived intact at git tag `bible-v1-final`.
-# Enforcement now runs via scripts/verify_invariants.py (v2 structural lint +
-# root/docs Bible sync check + proprietary license check + real integration tests).
+# Enforcement runs via scripts/verify_invariants.py --strict (7 blocking checks:
+# bible_sync, license_policy, no_duplicate_engines, manifest_accounting,
+# banned_strings, change_control, npm_test_identity) and scripts/verify_alpha_gate.py.
 #
-# Core canonical deliverables (Bible v2 §38):
+# Core canonical deliverables & PR1-PR10 implementation surface:
 ./KEYSTONE_BIBLE.md
 ./docs/KEYSTONE_BIBLE.md
 ./docs/IDENTITY_PRESERVATION.md
 ./docs/change_control/ADR_004_BIBLE_V2_CONTENT_MODES_PERSONAS_MEMORY_CREDENTIALS.md
 ./docs/change_control/ADR_005_EXECUTION_ARCHITECTURE_GATE_ENVELOPE_V2_EVALUATORS_MEMORY.md
 ./docs/bible-v2/APPLICATION_PROTOCOL.md
+./docs/bible-v2/EXECUTION_RUNBOOK_PR1_TO_PR10.md
 ./docs/runbooks/kaggle.md
 ./specs/SPEC_GATE.md
 ./specs/SPEC_EVALUATORS.md
@@ -21,7 +23,12 @@
 ./LICENSE
 ./openapi.yaml
 ./README.md
+./TEST_READY.md
 ./package.json
+./requirements.txt
+./alembic.ini
+./infrastructure/cloudrun/Dockerfile
+./infrastructure/cloudrun/service.yaml
 ./packages/contracts/src/models.py
 ./packages/prompt-engine/src/engine.js
 ./packages/prompt-engine/src/playbooks.js
@@ -29,9 +36,39 @@
 ./packages/prompt_engine/engine.py
 ./packages/prompt_engine/playbooks.py
 ./packages/prompt_engine/compiler.py
+./packages/security/gdpr_erasure.py
 ./apps/api/src/server.py
+./apps/api/src/db/models.py
+./apps/api/src/db/session.py
+./apps/api/src/routers/account.py
+./apps/api/src/routers/assets.py
+./apps/api/src/routers/billing.py
+./apps/api/src/routers/personas.py
+./apps/api/src/routers/recipes.py
+./apps/api/src/routers/zencreator.py
+./apps/api/src/services/gate.py
+./apps/api/src/services/floor_watchdog.py
+./apps/api/src/services/memory.py
+./apps/api/src/services/credits.py
+./apps/api/src/services/c2pa_credentials.py
+./services/cognition/src/client.py
+./services/cognition/src/embeddings.py
+./services/comfy/src/client.py
+./services/comfy/src/grade.py
+./services/comfy/src/video_ops.py
+./services/harness/src/envelope.py
+./services/harness/src/khf_quality.py
+./services/harness/src/retry_loop.py
+./services/harness/src/evaluators/deterministic.py
+./services/harness/src/evaluators/ocr.py
+./services/harness/src/evaluators/vlm_critique.py
+./services/harness/src/evaluators/temporal.py
+./services/harness/src/evaluators/identity.py
+./services/workers/src/worker.py
 ./apps/web/app/page.tsx
 ./apps/admin/index.html
 ./scripts/verify_invariants.py
 ./scripts/verify_change_control.py
+./scripts/verify_alpha_gate.py
 ./tests/identity.test.js
+./tests/acceptance/test_bible_acceptance.py

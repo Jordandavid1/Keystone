@@ -1120,6 +1120,51 @@ class KeystoneWorker:
                     job.envelope_id = parsed_env_uuid
                 job.content_mode = verified.get("content_mode")
 
+            job_t0 = time.perf_counter()
+            total_eval_ms = 0
+            raw_credit_cost = payload.get("credit_cost") or payload.get("hold_credits")
+            credit_held_amount = 0
+            if raw_credit_cost and int(raw_credit_cost) > 0 and job is not None and user_id:
+                from apps.api.src.services.credits import hold_for_job_async
+
+                try:
+                    await hold_for_job_async(
+                        session,
+                        user_id=user_id,
+                        job_id=job.id,
+                        amount=int(raw_credit_cost),
+                        content_mode=verified.get("content_mode") or "sfw",
+                        idempotency_key=f"hold:{job.id}",
+                    )
+                    credit_held_amount = int(raw_credit_cost)
+                except ValueError as cred_exc:
+                    fail_code = _extract_failure_code(cred_exc, default="INSUFFICIENT_CREDITS")
+                    fail_reason = str(cred_exc)
+                    audit_id = await self._advance_job(
+                        session,
+                        job=job,
+                        raw_job_id=job_id,
+                        raw_user_id=user_id,
+                        target_state="FAILED",
+                        reason=fail_reason,
+                        event_type="worker.credit_hold_failed",
+                        failure_code=fail_code,
+                        extra_payload={"envelope_id": verified.get("envelope_id")},
+                        recorded_events=recorded_events,
+                    )
+                    await _maybe_await(session.commit())
+                    return WorkerResult(
+                        job_id=job.id,
+                        status="FAILED",
+                        accepted=False,
+                        reason_code=fail_code,
+                        reason=fail_reason,
+                        envelope_id=verified.get("envelope_id"),
+                        content_mode=verified.get("content_mode"),
+                        audit_event_id=audit_id,
+                        events=recorded_events,
+                    )
+
             await self._advance_job(
                 session,
                 job=job,
@@ -1196,6 +1241,15 @@ class KeystoneWorker:
                 except Exception as exec_exc:
                     fail_code = _extract_failure_code(exec_exc, default="WORKER_EXECUTION_FAILED")
                     fail_reason = f"{type(exec_exc).__name__}: {exec_exc}"
+                    if credit_held_amount > 0 and job is not None and user_id:
+                        from apps.api.src.services.credits import release_hold_async
+
+                        await release_hold_async(
+                            session,
+                            user_id=user_id,
+                            job_id=job.id,
+                            reason=fail_code,
+                        )
                     audit_id = await self._advance_job(
                         session,
                         job=job,
@@ -1295,6 +1349,7 @@ class KeystoneWorker:
                 )
 
                 # Run KHF post-execution evaluation and persist HarnessRun row in DB
+                eval_t0 = time.perf_counter()
                 latest_harness_result = await self._evaluate_attempt_output(
                     session,
                     job=job,
@@ -1306,6 +1361,7 @@ class KeystoneWorker:
                     attempt_number=attempt_idx,
                     attempt_id=attempt_id,
                 )
+                total_eval_ms += max(1, int((time.perf_counter() - eval_t0) * 1000))
                 collected_harness_dicts.append(latest_harness_result.model_dump())
 
                 attempt_passed = (
@@ -1489,6 +1545,45 @@ class KeystoneWorker:
                 create_if_missing=False,
             )
             primary_pass_asset_id = str(passing_assets[0].id) if passing_assets else None
+
+            if passing_assets:
+                from apps.api.src.services.c2pa_credentials import sign_c2pa_manifest
+
+                raw_out_bytes = (
+                    exec_output.get("bytes") or exec_output.get("data")
+                    if isinstance(exec_output, dict)
+                    else None
+                )
+                for asset_row in passing_assets:
+                    if getattr(asset_row, "c2pa_manifest", None) is None:
+                        if isinstance(raw_out_bytes, (bytes, bytearray)) and not getattr(asset_row, "checksum", None):
+                            asset_row.checksum = hashlib.sha256(bytes(raw_out_bytes)).hexdigest()
+                        asset_row.c2pa_manifest = sign_c2pa_manifest(
+                            asset_id=str(asset_row.id),
+                            job_id=str(job.id if job is not None else verified.get("job_id") or asset_row.id),
+                            user_id=str(asset_row.user_id),
+                            asset_bytes=bytes(raw_out_bytes) if isinstance(raw_out_bytes, (bytes, bytearray)) else None,
+                            asset_sha256=getattr(asset_row, "checksum", None),
+                            fabric=str((job.provider_id if job is not None else None) or "comfyui"),
+                            content_mode=str(verified.get("content_mode") or "sfw"),
+                            title=getattr(asset_row, "filename", None) or f"Keystone Asset {asset_row.id}",
+                        )
+
+            total_runtime_s = max(0.001, time.perf_counter() - job_t0)
+            if credit_held_amount > 0 and job is not None and user_id:
+                from apps.api.src.services.credits import settle_hold_async
+
+                actual_cost = int(payload.get("actual_credit_cost") or credit_held_amount)
+                await settle_hold_async(
+                    session,
+                    user_id=user_id,
+                    job_id=job.id,
+                    actual_amount=actual_cost,
+                    capability_id=(job.capability_id if job is not None else None) or "image.generation",
+                    vram_minutes=round(total_runtime_s / 60.0, 4),
+                    gpu_seconds=round(total_runtime_s, 3),
+                    evaluator_ms=max(1, total_eval_ms),
+                )
 
             if job is not None and isinstance(exec_output, dict):
                 outputs_list = exec_output.get("outputs")

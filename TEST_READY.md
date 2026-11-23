@@ -1,11 +1,12 @@
 # KEYSTONE E2E Test Suite Readiness Report (TEST_READY.md)
 
-> **ARCHIVED / SUPERSEDED NOTICE (2026-11-22 — ADR-004 / ADR-005 / O0.5 / O17):**  
-> This v1 report recorded results from the `e2e_v2` JavaScript mock-oracle suite (`keystone_oracle.js`), which tested standalone in-memory mocks rather than live FastAPI endpoints or database boundaries. Per **KEYSTONE Bible v2 §2 Invariant 12 (Real Tests Only)**, **ADR-004**, and **ADR-005**:
-> - The v1 `e2e_v2` JS mock-oracle suite was archived to `archive/v1_verification/e2e_v2_oracle/` in `O0.5`.
-> - The v1 `scripts/verify_alpha_gate.py` fabricated PASS-dict stub was retired fail-closed in `O0.5`.
-> - The v1 Bible SHA-256 content freeze (`1D31D909...` / `1DA5FFE9...`) and 69-file byte freeze were permanently retired in `O0.5` (`bible-v1-final` preserves v1).
-> - Real HTTP/DB acceptance tests satisfying Bible v2 §34–§35 & ADR-005 are scheduled for **PR10**.
+> **PR10 / PHASE D LIVE VERIFIED (2026-11-23 — ADR-004 / ADR-005 / PR1–PR10 Complete):**  
+> Live Bible v2 §34 & §35 acceptance testing and strict invariant verification are now active across real FastAPI HTTP routes, SQLAlchemy DB persistence, Envelope v2 verification, 5-family KHF evaluators, pgvector/Qwen memory + replay, dual-rail billing ledger, Stage-1/Stage-2 age gates, and C2PA Content Credentials:
+> - **Bible v2 §34 Alpha Gate (`scripts/verify_alpha_gate.py`)**: Executes live `tests/acceptance/test_bible_acceptance.py` mapped 1-to-1 across all 15 Alpha Gate criteria plus `--strict` invariants, change-control audit, `npm test`, and Next.js `tsc --noEmit`.
+> - **Structural Invariants (`scripts/verify_invariants.py --strict`)**: All 7 checks (`bible_sync`, `no_duplicate_engines`, `manifest_accounting`, `license_policy`, `banned_strings`, `change_control`, `npm_test_identity`) active in BLOCKING mode.
+> - **PR1–PR10 Real Integration Suites (`tests/test_pr*.py` & `tests/acceptance/test_bible_acceptance.py`)**: Real FastAPI, ORM/DB, Gate, Worker, Evaluator, Memory, Billing, and C2PA boundaries — zero fabricated PASS dicts (`Invariant 12`).
+>
+> *(Historical Notice: The v1 `e2e_v2` JS mock-oracle suite was archived to `archive/v1_verification/e2e_v2_oracle/` in `O0.5`, and v1 Bible freeze checksums are preserved at git tag `bible-v1-final`.)*
 
 ---
 

@@ -197,6 +197,11 @@ async def _persist_bytes(
         media_type=media_type,
         storage_provider=storage.provider.__class__.__name__,
         metadata=metadata or {},
+        mature=bool(mature),
+        asset_bytes=payload,
+        content_mode="unrestricted" if mature else "sfw",
+        fabric="comfyui",
+        job_id=(metadata or {}).get("job_id"),
     )
     asset.filename = filename
     if width is not None:
