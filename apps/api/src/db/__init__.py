@@ -1,6 +1,5 @@
 """
-KEYSTONE Database Layer
-SQLAlchemy 2.0 ORM models and session management for all 23 database tables.
+Database models and helpers package (Bible v2 §21; ADR-005 PR1).
 """
 
 from apps.api.src.db.models import (
@@ -12,28 +11,26 @@ from apps.api.src.db.models import (
     Session,
     Message,
     Asset,
+    AssetRelationship,
     Request,
     RequestAsset,
-    CognitiveRun,
-    AuthorityDecision,
     Job,
     GenerationAttempt,
-    CompiledPrompt,
     AttemptAsset,
+    CognitiveRun,
+    CompiledPrompt,
+    AuthorityDecision,
+    AuditEvent,
     HarnessRun,
     UserFeedback,
     CreditAccount,
     CreditLedger,
     UsageRecord,
-    AuditEvent,
     ConfigurationBundle,
-    AssetRelationship,
-)
-from apps.api.src.db.session import (
-    engine,
-    async_session_factory,
-    get_db,
-    init_db,
+    Persona,
+    Recipe,
+    RecipeEmbedding,
+    StyleRule,
 )
 
 __all__ = [
@@ -45,24 +42,24 @@ __all__ = [
     "Session",
     "Message",
     "Asset",
+    "AssetRelationship",
     "Request",
     "RequestAsset",
-    "CognitiveRun",
-    "AuthorityDecision",
     "Job",
     "GenerationAttempt",
-    "CompiledPrompt",
     "AttemptAsset",
+    "CognitiveRun",
+    "CompiledPrompt",
+    "AuthorityDecision",
+    "AuditEvent",
     "HarnessRun",
     "UserFeedback",
     "CreditAccount",
     "CreditLedger",
     "UsageRecord",
-    "AuditEvent",
     "ConfigurationBundle",
-    "AssetRelationship",
-    "engine",
-    "async_session_factory",
-    "get_db",
-    "init_db",
+    "Persona",
+    "Recipe",
+    "RecipeEmbedding",
+    "StyleRule",
 ]

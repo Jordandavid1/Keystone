@@ -26,8 +26,8 @@ from pathlib import Path
 import pytest
 
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent
-MIGRATION_0001 = ROOT_DIR / "infrastructure" / "migrations" / "versions" / "0001_core.sql"
-MIGRATION_0002 = ROOT_DIR / "infrastructure" / "migrations" / "versions" / "0002_keystone_full_schema.sql"
+MIGRATION_0001 = ROOT_DIR / "infrastructure" / "migrations" / "_v1_archive" / "0001_core.sql"
+MIGRATION_0002 = ROOT_DIR / "infrastructure" / "migrations" / "_v1_archive" / "0002_keystone_full_schema.sql"
 VERIFY_SCRIPT = ROOT_DIR / "scripts" / "verify_invariants.py"
 
 # Add scripts directory to path for direct module testing

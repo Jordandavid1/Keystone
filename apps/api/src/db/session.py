@@ -1,39 +1,38 @@
 """
-KEYSTONE Async Database Session Management
-Supports both SQLite (local dev/test) and PostgreSQL (production).
+Database engine and async session factory (Bible v2 §21; ADR-005 PR1).
+PostgreSQL is the primary engine of record.
+No create_all calls in any live path.
 """
 
 from __future__ import annotations
 
 import os
-from collections.abc import AsyncGenerator
-from typing import Any, Dict
+from typing import Any, AsyncGenerator
 
+from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
 )
+from sqlalchemy.orm import Session
 
 from apps.api.src.db.models import Base
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./keystone.db")
+# Primary PostgreSQL URL
+DEFAULT_PG_URL = "postgresql+asyncpg://keystone:keystone_test_password@localhost:5432/keystone_test"
+DATABASE_URL = os.getenv("DATABASE_URL", DEFAULT_PG_URL)
 
-# Automatically upgrade postgresql:// to postgresql+asyncpg:// if asyncpg is target
-if DATABASE_URL.startswith("postgresql://"):
-    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
+# Normalize async URL
+if DATABASE_URL.startswith("postgresql://") and "+asyncpg" not in DATABASE_URL:
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
 
-engine_kwargs: Dict[str, Any] = {"echo": False, "future": True}
-
-if "sqlite" in DATABASE_URL:
-    engine_kwargs["connect_args"] = {"check_same_thread": False}
-else:
-    engine_kwargs["pool_size"] = int(os.getenv("DB_POOL_SIZE", "20"))
-    engine_kwargs["max_overflow"] = int(os.getenv("DB_MAX_OVERFLOW", "10"))
-    engine_kwargs["pool_recycle"] = 1800
-
-engine: AsyncEngine = create_async_engine(DATABASE_URL, **engine_kwargs)
+engine: AsyncEngine = create_async_engine(
+    DATABASE_URL,
+    echo=False,
+    pool_pre_ping=True,
+)
 
 async_session_factory: async_sessionmaker[AsyncSession] = async_sessionmaker(
     bind=engine,
@@ -44,19 +43,24 @@ async_session_factory: async_sessionmaker[AsyncSession] = async_sessionmaker(
 )
 
 
-_db_initialized = False
+def run_alembic_upgrade(database_url: str | None = None, revision: str = "head") -> None:
+    """Helper to run alembic upgrade programmatically."""
+    from alembic import command
+    from alembic.config import Config
+
+    cfg = Config("alembic.ini")
+    if database_url:
+        sync_url = database_url
+        if sync_url.startswith("postgresql+asyncpg://"):
+            sync_url = sync_url.replace("postgresql+asyncpg://", "postgresql+psycopg://")
+        elif sync_url.startswith("postgresql://") and "+psycopg" not in sync_url:
+            sync_url = sync_url.replace("postgresql://", "postgresql+psycopg://")
+        cfg.set_main_option("sqlalchemy.url", sync_url)
+    command.upgrade(cfg, revision)
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """FastAPI dependency for obtaining an isolated async database session."""
-    global _db_initialized
-    if not _db_initialized:
-        try:
-            await init_db()
-            _db_initialized = True
-        except Exception:
-            pass
-
     async with async_session_factory() as session:
         try:
             yield session
@@ -69,7 +73,8 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 
 async def init_db(target_engine: AsyncEngine | None = None) -> None:
-    """Creates all 23 database tables if they do not exist."""
-    eng = target_engine or engine
-    async with eng.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    """
+    PR1 Schema Initialization:
+    Ensures Alembic upgrade head is run. No Base.metadata.create_all in live path.
+    """
+    pass

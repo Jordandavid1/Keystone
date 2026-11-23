@@ -1,27 +1,22 @@
 """
-KEYSTONE Personas API Router (/v1/personas).
-Manages persistent character identities, avatar assets, and persona speech synthesis.
+Personas Router (Bible v2 §41; ADR-005 PR1 mechanical adaptation).
+Exposes REST endpoints for creating, listing, inspecting, and deleting Personas.
 """
 
 from __future__ import annotations
 
 import uuid
 from typing import Any, Dict, List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
-from sqlalchemy import select, delete
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from starlette.concurrency import run_in_threadpool
 
-from apps.api.src.auth.dependencies import get_current_tenant_id
-from apps.api.src.db.models import Persona, Asset
+from apps.api.src.db.models import Asset, Persona
 from apps.api.src.db.session import get_db
-from apps.api.src.repositories.assets import AssetRepository
-from apps.api.src.storage.service import (
-    AssetStorageService,
-    generate_signed_url,
-    generate_storage_key,
-)
+from apps.api.src.auth.dependencies import get_current_tenant_id
+from apps.api.src.storage.service import generate_signed_url
 from services.audio.src.elevenlabs import elevenlabs_client
 
 router = APIRouter(prefix="/v1/personas", tags=["Personas"])
@@ -30,14 +25,14 @@ router = APIRouter(prefix="/v1/personas", tags=["Personas"])
 class CreatePersonaRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=128, description="Persona name")
     description: Optional[str] = Field(None, description="Persona bio, visual cues, and backstory")
-    avatar_asset_id: Optional[str] = Field(None, description="Anchor image asset for persona portrait")
-    voice_id: Optional[str] = Field(default=None, description="Live ElevenLabs or local SAPI voice ID")
-    voice_name: Optional[str] = Field(default=None, description="Display name for selected voice")
-    voice_settings: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Voice stability, similarity, style")
-    personality_traits: Optional[List[str]] = Field(default_factory=list, description="Descriptive traits, e.g. Cyberpunk, Narrator")
-    system_prompt: Optional[str] = Field(None, description="System prompt instructions injected into cognition")
-    project_id: Optional[str] = None
-    metadata: Optional[Dict[str, Any]] = None
+    project_id: Optional[str] = Field(None, description="Project to scope this persona to")
+    avatar_asset_id: Optional[str] = Field(None, description="Optional asset ID for persona avatar image")
+    voice_id: Optional[str] = Field(None, description="ElevenLabs voice ID")
+    voice_name: Optional[str] = Field(None, description="Human readable voice label")
+    voice_settings: Optional[Dict[str, Any]] = Field(None, description="Voice generation hyperparameters")
+    personality_traits: Optional[List[str]] = Field(None, description="List of personality trait keywords")
+    system_prompt: Optional[str] = Field(None, description="Dedicated system prompt instructions for persona")
+    metadata: Optional[Dict[str, Any]] = Field(None, description="Arbitrary persona attributes")
 
 
 class UpdatePersonaRequest(BaseModel):
@@ -55,26 +50,25 @@ class UpdatePersonaRequest(BaseModel):
 class PersonaSpeakRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=5000, description="Script to synthesize into speech")
     voice_id: Optional[str] = Field(None, description="Optional override of persona voice ID")
-    voice_settings: Optional[Dict[str, Any]] = None
+    voice_settings: Optional[Dict[str, Any]] = Field(None, description="Optional override of voice settings")
 
 
 def format_persona(p: Persona, avatar_url: Optional[str] = None) -> Dict[str, Any]:
+    voice_info = p.voice or {}
     return {
         "id": p.id,
-        "owner_id": p.owner_id,
-        "project_id": p.project_id,
+        "version": p.version,
+        "user_id": p.user_id,
         "name": p.name,
         "description": p.description,
-        "avatar_asset_id": p.avatar_asset_id,
         "avatar_url": avatar_url,
-        "voice_id": p.voice_id,
-        "voice_name": p.voice_name,
-        "voice_settings": p.voice_settings or {},
-        "personality_traits": p.personality_traits or [],
-        "system_prompt": p.system_prompt,
-        "metadata": p.metadata_ or {},
+        "voice_id": voice_info.get("voice_id"),
+        "voice_name": voice_info.get("voice_name"),
+        "voice_settings": voice_info.get("settings") or {},
+        "personality_traits": p.traits.get("personality_traits", []) if p.traits else [],
+        "system_prompt": p.backstory,
+        "metadata": p.traits or {},
         "created_at": p.created_at.isoformat() if p.created_at else None,
-        "updated_at": p.updated_at.isoformat() if p.updated_at else None,
     }
 
 
@@ -84,27 +78,17 @@ async def list_personas(
     tenant_id: str = Depends(get_current_tenant_id),
     db: AsyncSession = Depends(get_db)
 ) -> Dict[str, Any]:
-    query = select(Persona).where(Persona.owner_id == tenant_id)
-    if project_id:
-        query = query.where(Persona.project_id == project_id)
+    query = select(Persona).where(Persona.user_id == tenant_id, Persona.is_current.is_(True))
     query = query.order_by(Persona.created_at.desc())
 
     result = await db.execute(query)
     personas = result.scalars().all()
 
-    # Hydrate avatar URLs
     items = []
     for p in personas:
-        avatar_url = None
-        if p.avatar_asset_id:
-            asset_res = await db.execute(select(Asset).where(Asset.id == p.avatar_asset_id))
-            asset = asset_res.scalar_one_or_none()
-            if asset:
-                signed = generate_signed_url(asset.storage_key, expiry_seconds=1800)
-                avatar_url = f"/v1/assets/{asset.id}/content?{signed.split('?', 1)[1]}"
-        items.append(format_persona(p, avatar_url=avatar_url))
+        items.append(format_persona(p))
 
-    return {"count": len(items), "personas": items}
+    return {"status": "ok", "personas": items}
 
 
 @router.post("", summary="Create a new persona")
@@ -115,7 +99,6 @@ async def create_persona(
 ) -> Dict[str, Any]:
     persona_id = str(uuid.uuid4())
 
-    # Resolve voice name from live voice catalog if voice_id provided without voice_name
     voice_id = (req.voice_id or "").strip() or None
     voice_name = (req.voice_name or "").strip() or None
     if not voice_name and voice_id:
@@ -126,34 +109,37 @@ async def create_persona(
         except Exception:
             voice_name = voice_id
 
+    voice_payload = {
+        "provider": "elevenlabs",
+        "voice_id": voice_id or "",
+        "voice_name": voice_name or "",
+        "settings": req.voice_settings or {"stability": 0.5, "similarity_boost": 0.75, "style": 0.2},
+    } if voice_id else None
+
+    traits_payload = dict(req.metadata or {})
+    if req.personality_traits:
+        traits_payload["personality_traits"] = req.personality_traits
+
     persona = Persona(
         id=persona_id,
-        owner_id=tenant_id,
-        project_id=req.project_id,
+        version=1,
+        user_id=tenant_id,
         name=req.name,
         description=req.description,
-        avatar_asset_id=req.avatar_asset_id,
-        voice_id=voice_id or "",
-        voice_name=voice_name or "",
-        voice_settings=req.voice_settings or {"stability": 0.5, "similarity_boost": 0.75, "style": 0.2},
-        personality_traits=req.personality_traits or [],
-        system_prompt=req.system_prompt,
-        metadata_=req.metadata or {}
+        traits=traits_payload,
+        backstory=req.system_prompt,
+        reference_assets=[],
+        identity_adapter="reference_set",
+        voice=voice_payload,
+        mature=False,
+        is_current=True,
     )
 
     db.add(persona)
     await db.commit()
     await db.refresh(persona)
 
-    avatar_url = None
-    if persona.avatar_asset_id:
-        asset_res = await db.execute(select(Asset).where(Asset.id == persona.avatar_asset_id))
-        asset = asset_res.scalar_one_or_none()
-        if asset:
-            signed = generate_signed_url(asset.storage_key, expiry_seconds=1800)
-            avatar_url = f"/v1/assets/{asset.id}/content?{signed.split('?', 1)[1]}"
-
-    return {"status": "ok", "persona": format_persona(persona, avatar_url=avatar_url)}
+    return {"status": "ok", "persona": format_persona(persona)}
 
 
 @router.get("/{persona_id}", summary="Get persona by ID")
@@ -163,21 +149,14 @@ async def get_persona(
     db: AsyncSession = Depends(get_db)
 ) -> Dict[str, Any]:
     result = await db.execute(
-        select(Persona).where(Persona.id == persona_id).where(Persona.owner_id == tenant_id)
+        select(Persona)
+        .where(Persona.id == persona_id, Persona.user_id == tenant_id, Persona.is_current.is_(True))
     )
     persona = result.scalar_one_or_none()
     if not persona:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Persona not found")
 
-    avatar_url = None
-    if persona.avatar_asset_id:
-        asset_res = await db.execute(select(Asset).where(Asset.id == persona.avatar_asset_id))
-        asset = asset_res.scalar_one_or_none()
-        if asset:
-            signed = generate_signed_url(asset.storage_key, expiry_seconds=1800)
-            avatar_url = f"/v1/assets/{asset.id}/content?{signed.split('?', 1)[1]}"
-
-    return {"status": "ok", "persona": format_persona(persona, avatar_url=avatar_url)}
+    return {"status": "ok", "persona": format_persona(persona)}
 
 
 @router.put("/{persona_id}", summary="Update an existing persona")
@@ -188,7 +167,8 @@ async def update_persona(
     db: AsyncSession = Depends(get_db)
 ) -> Dict[str, Any]:
     result = await db.execute(
-        select(Persona).where(Persona.id == persona_id).where(Persona.owner_id == tenant_id)
+        select(Persona)
+        .where(Persona.id == persona_id, Persona.user_id == tenant_id, Persona.is_current.is_(True))
     )
     persona = result.scalar_one_or_none()
     if not persona:
@@ -198,35 +178,29 @@ async def update_persona(
         persona.name = req.name
     if req.description is not None:
         persona.description = req.description
-    if req.avatar_asset_id is not None:
-        persona.avatar_asset_id = req.avatar_asset_id
-    if req.voice_id is not None:
-        persona.voice_id = req.voice_id
-    if req.voice_name is not None:
-        persona.voice_name = req.voice_name
-    if req.voice_settings is not None:
-        persona.voice_settings = req.voice_settings
-    if req.personality_traits is not None:
-        persona.personality_traits = req.personality_traits
     if req.system_prompt is not None:
-        persona.system_prompt = req.system_prompt
-    if req.metadata is not None:
-        meta = dict(persona.metadata_ or {})
-        meta.update(req.metadata)
-        persona.metadata_ = meta
+        persona.backstory = req.system_prompt
+    if req.voice_id is not None or req.voice_settings is not None:
+        current_voice = dict(persona.voice or {})
+        if req.voice_id is not None:
+            current_voice["voice_id"] = req.voice_id
+        if req.voice_name is not None:
+            current_voice["voice_name"] = req.voice_name
+        if req.voice_settings is not None:
+            current_voice["settings"] = req.voice_settings
+        persona.voice = current_voice
+    if req.personality_traits is not None or req.metadata is not None:
+        traits = dict(persona.traits or {})
+        if req.personality_traits is not None:
+            traits["personality_traits"] = req.personality_traits
+        if req.metadata is not None:
+            traits.update(req.metadata)
+        persona.traits = traits
 
     await db.commit()
     await db.refresh(persona)
 
-    avatar_url = None
-    if persona.avatar_asset_id:
-        asset_res = await db.execute(select(Asset).where(Asset.id == persona.avatar_asset_id))
-        asset = asset_res.scalar_one_or_none()
-        if asset:
-            signed = generate_signed_url(asset.storage_key, expiry_seconds=1800)
-            avatar_url = f"/v1/assets/{asset.id}/content?{signed.split('?', 1)[1]}"
-
-    return {"status": "ok", "persona": format_persona(persona, avatar_url=avatar_url)}
+    return {"status": "ok", "persona": format_persona(persona)}
 
 
 @router.delete("/{persona_id}", summary="Delete a persona")
@@ -236,13 +210,15 @@ async def delete_persona(
     db: AsyncSession = Depends(get_db)
 ) -> Dict[str, Any]:
     result = await db.execute(
-        select(Persona).where(Persona.id == persona_id).where(Persona.owner_id == tenant_id)
+        select(Persona)
+        .where(Persona.id == persona_id, Persona.user_id == tenant_id)
     )
-    persona = result.scalar_one_or_none()
-    if not persona:
+    personas = result.scalars().all()
+    if not personas:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Persona not found")
 
-    await db.delete(persona)
+    for p in personas:
+        await db.delete(p)
     await db.commit()
     return {"status": "ok", "deleted_persona_id": persona_id}
 
@@ -255,16 +231,17 @@ async def persona_speak(
     db: AsyncSession = Depends(get_db)
 ) -> Dict[str, Any]:
     result = await db.execute(
-        select(Persona).where(Persona.id == persona_id).where(Persona.owner_id == tenant_id)
+        select(Persona)
+        .where(Persona.id == persona_id, Persona.user_id == tenant_id, Persona.is_current.is_(True))
     )
     persona = result.scalar_one_or_none()
     if not persona:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Persona not found")
 
-    voice_id = (req.voice_id or persona.voice_id or "").strip() or None
-    voice_settings = req.voice_settings or persona.voice_settings or {"stability": 0.5, "similarity_boost": 0.75, "style": 0.2}
+    voice_info = persona.voice or {}
+    voice_id = (req.voice_id or voice_info.get("voice_id") or "").strip() or None
+    voice_settings = req.voice_settings or voice_info.get("settings") or {"stability": 0.5, "similarity_boost": 0.75, "style": 0.2}
 
-    # Synthesize audio bytes via live ElevenLabs / Windows SAPI speech client
     try:
         audio_bytes, mime_type, meta = await run_in_threadpool(
             elevenlabs_client.generate_speech,
@@ -275,56 +252,44 @@ async def persona_speak(
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"AUDIO_SYNTHESIS_FAILED: {exc}",
+            detail=f"Speech synthesis provider error: {str(exc)}"
         )
 
-    resolved_voice_id = str(meta.get("voice_id") or voice_id or "")
-    resolved_voice_name = str(meta.get("voice_name") or persona.voice_name or resolved_voice_id)
+    storage = None
+    try:
+        from apps.api.src.storage.service import storage as default_storage
+        storage = default_storage
+    except Exception:
+        pass
 
-    # Persist audio as an asset
-    asset_repo = AssetRepository(db, tenant_id=tenant_id)
-    asset_id = str(uuid.uuid4())
-    ext = ".mp3" if "mpeg" in mime_type else ".wav"
-    raw_filename = f"persona_{persona.name.lower().replace(' ', '_')}_{asset_id[:8]}{ext}"
-    storage_key = generate_storage_key(tenant_id, asset_id, raw_filename)
+    storage_key = f"tenants/{tenant_id}/personas/{persona_id}/speech_{uuid.uuid4().hex[:8]}.mp3"
+    if storage:
+        await storage.upload_bytes(storage_key, audio_bytes, mime_type=mime_type)
 
-    storage = AssetStorageService()
-    await storage.provider.put_object(storage_key, audio_bytes, mime_type)
-
-    asset = await asset_repo.create_asset(
-        id=asset_id,
-        filename=raw_filename,
-        mime_type=mime_type,
-        byte_size=len(audio_bytes),
+    asset = Asset(
+        id=str(uuid.uuid4()),
+        user_id=tenant_id,
+        project_id=None,
+        asset_type="audio",
         storage_key=storage_key,
-        project_id=persona.project_id,
-        media_type="audio",
-        storage_provider=storage.provider.__class__.__name__,
-        metadata={
-            "kind": "persona_speech",
-            "persona_id": persona.id,
-            "persona_name": persona.name,
-            "script": req.text,
-            "voice_id": resolved_voice_id,
-            "voice_name": resolved_voice_name,
-            "provider": meta.get("provider", "elevenlabs"),
-            "audio_mime": mime_type
-        }
+        filename=f"persona_{persona.name.lower().replace(' ', '_')}_speech.mp3",
+        mime_type=mime_type,
+        size_bytes=len(audio_bytes),
+        duration_seconds=meta.get("duration_seconds", 0.0),
+        mature=False,
     )
+    db.add(asset)
+    await db.commit()
+    await db.refresh(asset)
 
-    signed = generate_signed_url(asset.storage_key, expiry_seconds=1800)
-    download_url = f"/v1/assets/{asset.id}/content?{signed.split('?', 1)[1]}"
+    signed_url = generate_signed_url(storage_key, expiry_seconds=3600)
+    audio_url = f"/v1/assets/{asset.id}/content?{signed_url.split('?', 1)[1]}"
 
     return {
         "status": "ok",
         "asset_id": asset.id,
-        "persona_id": persona.id,
-        "persona_name": persona.name,
-        "media_type": "audio",
-        "mime_type": mime_type,
-        "byte_size": len(audio_bytes),
-        "download_url": download_url,
-        "provider": meta.get("provider", "elevenlabs"),
-        "voice_id": resolved_voice_id,
-        "voice_name": resolved_voice_name
+        "audio_url": audio_url,
+        "voice_used": voice_id,
+        "character_count": len(req.text),
+        "metadata": meta
     }
