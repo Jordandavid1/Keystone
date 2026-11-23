@@ -20,10 +20,7 @@ from services.authority.src.credits_ledger import credits_ledger
 
 router = APIRouter(prefix="/v1/billing", tags=["Billing & Credits"])
 
-DEFAULT_STRIPE_WEBHOOK_SECRET = os.getenv(
-    "STRIPE_WEBHOOK_SECRET",
-    "whsec_test_keystone_stripe_webhook_secret_key"
-)
+DEFAULT_STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
 
 
 class CheckoutSessionRequest(BaseModel):
@@ -50,11 +47,12 @@ class BillingManager:
         self.processed_events: set[str] = set()
 
     def verify_signature(self, raw_payload: bytes, signature_header: str) -> bool:
-        if not signature_header:
+        secret = self.secret or os.getenv("STRIPE_WEBHOOK_SECRET", "")
+        if not secret or not signature_header:
             return False
         # Supports standard hex signature or t=...,v1=... format
         expected_sig = hmac.new(
-            self.secret.encode("utf-8"),
+            secret.encode("utf-8"),
             raw_payload,
             hashlib.sha256
         ).hexdigest()

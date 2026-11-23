@@ -21,7 +21,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from apps.api.src.server import app
-from apps.api.src.routers.billing import billing_manager, DEFAULT_STRIPE_WEBHOOK_SECRET
+from apps.api.src.routers.billing import billing_manager
 from services.authority.src.credits_ledger import credits_ledger, CreditsLedgerEngine
 from packages.security.secret_scanner import ProprietaryPolicyService, COPYRIGHT_STATEMENT
 
@@ -111,9 +111,10 @@ class TestStripeBilling:
         billing_manager.clear()
         credits_ledger.clear()
 
-    def _sign_payload(self, payload_dict: dict, secret: str = DEFAULT_STRIPE_WEBHOOK_SECRET) -> str:
+    def _sign_payload(self, payload_dict: dict, secret: str | None = None) -> str:
+        resolved_secret = secret if secret is not None else os.environ.get("STRIPE_WEBHOOK_SECRET", "whsec_test_stripe_webhook_secret")
         payload_bytes = json.dumps(payload_dict).encode("utf-8")
-        return hmac.new(secret.encode("utf-8"), payload_bytes, hashlib.sha256).hexdigest()
+        return hmac.new(resolved_secret.encode("utf-8"), payload_bytes, hashlib.sha256).hexdigest()
 
     def test_valid_webhook_adds_credits(self, client: TestClient):
         event_id = f"evt_{uuid.uuid4().hex[:12]}"
@@ -129,7 +130,8 @@ class TestStripeBilling:
             }
         }
         raw_bytes = json.dumps(payload).encode("utf-8")
-        sig = hmac.new(DEFAULT_STRIPE_WEBHOOK_SECRET.encode("utf-8"), raw_bytes, hashlib.sha256).hexdigest()
+        webhook_secret = os.environ.get("STRIPE_WEBHOOK_SECRET", "whsec_test_stripe_webhook_secret")
+        sig = hmac.new(webhook_secret.encode("utf-8"), raw_bytes, hashlib.sha256).hexdigest()
 
         res = client.post(
             "/v1/billing/webhook",
@@ -157,7 +159,8 @@ class TestStripeBilling:
             }
         }
         raw_bytes = json.dumps(payload).encode("utf-8")
-        sig = hmac.new(DEFAULT_STRIPE_WEBHOOK_SECRET.encode("utf-8"), raw_bytes, hashlib.sha256).hexdigest()
+        webhook_secret = os.environ.get("STRIPE_WEBHOOK_SECRET", "whsec_test_stripe_webhook_secret")
+        sig = hmac.new(webhook_secret.encode("utf-8"), raw_bytes, hashlib.sha256).hexdigest()
 
         # First request
         res1 = client.post(

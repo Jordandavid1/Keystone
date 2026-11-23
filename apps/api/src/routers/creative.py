@@ -172,7 +172,7 @@ def get_comfy_runtime_status() -> Dict[str, Any]:
     if cognition_endpoint:
         try:
             models_url = f"{cognition_endpoint}/models" if cognition_endpoint.endswith("/v1") else f"{cognition_endpoint}/v1/models"
-            api_key = os.getenv("OPENAI_API_KEY", "keystone-live-key")
+            api_key = os.getenv("OPENAI_API_KEY", "")
             req = urllib.request.Request(
                 models_url,
                 headers={"Authorization": f"Bearer {api_key}", "User-Agent": "KEYSTONE-RuntimeProbe/2.0"},

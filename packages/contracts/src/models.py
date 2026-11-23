@@ -162,6 +162,7 @@ class GenerationAttempt(KeystoneContractModel):
     success: bool = Field(False)
     output_asset_ids: List[str] = Field(default_factory=list)
     metrics: Dict[str, float] = Field(default_factory=dict)
+    resource_cost: Dict[str, float] = Field(default_factory=dict)
     failure_code: Optional[str] = Field(None)
 
 
@@ -254,6 +255,9 @@ class AuthorityDecision(KeystoneContractModel):
     policy_bundle_version: str = Field("1.0.0", description="Active policy bundle version")
     capability_registry_version: str = Field("1.0.0", description="Active capability registry version")
     harness_bundle_version: str = Field("1.0.0", description="Active harness bundle version")
+    content_mode: Literal["sfw", "unrestricted"] = "sfw"
+    age_verified: bool = False
+    floor_verdict: Literal["pass", "fail", "uncertain"] = "pass"
     created_at: Optional[Union[datetime, int, float, str]] = Field(
         default_factory=lambda: datetime.now(timezone.utc)
     )
@@ -263,6 +267,7 @@ class ExecutionEnvelope(KeystoneContractModel):
     """
     Cryptographically signed, short-expiry execution token delivered to workers (Bible §12).
     """
+    envelope_version: Literal["2.0"] = "2.0"
     envelope_id: str = Field(..., description="Unique envelope UUID")
     decision_id: str = Field(..., description="Authorizing decision UUID")
     job_id: str = Field(..., description="Job UUID")
@@ -272,6 +277,11 @@ class ExecutionEnvelope(KeystoneContractModel):
     workflow_id: str = Field(..., description="Workflow graph identifier")
     workflow_version: str = Field(..., description="Workflow template version")
     compiled_prompt_id: str = Field(..., description="Hash or UUID of compiled prompt")
+    intent: str = "generate"
+    playbook: Optional[str] = None
+    content_mode: Literal["sfw", "unrestricted"] = "sfw"
+    age_verified: bool = False
+    floor_verdict: Literal["pass", "fail", "uncertain"] = "pass"
     arguments: Dict[str, Any] = Field(default_factory=dict, description="Immutable execution arguments")
     input_asset_ids: List[str] = Field(default_factory=list, description="IDs of input assets in Cloud Storage")
     issued_at: Union[datetime, int, float, str] = Field(default_factory=lambda: datetime.now(timezone.utc))

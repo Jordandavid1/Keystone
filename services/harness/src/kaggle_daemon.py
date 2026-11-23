@@ -173,7 +173,7 @@ class KaggleWorkerDaemon:
                 try:
                     base = tunnel_url.rstrip("/")
                     models_url = f"{base}/models" if base.endswith("/v1") else f"{base}/v1/models"
-                    api_key = os.getenv("OPENAI_API_KEY", "keystone-live-key")
+                    api_key = os.getenv("OPENAI_API_KEY", "")
                     req = urllib.request.Request(
                         models_url,
                         headers={"Authorization": f"Bearer {api_key}", "User-Agent": "KEYSTONE-DaemonProbe/2.0"},

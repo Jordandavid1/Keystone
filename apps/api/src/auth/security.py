@@ -15,9 +15,17 @@ import secrets
 import time
 from typing import Any, Dict, Optional, Tuple
 
-JWT_SECRET_KEY = os.getenv("KEYSTONE_SECRET_KEY") or secrets.token_hex(32)
+def _resolve_jwt_secret() -> str:
+    env_secret = (os.getenv("KEYSTONE_SECRET_KEY") or "").strip()
+    if env_secret:
+        return env_secret
+    if os.getenv("KEYSTONE_ENV", "development").lower() == "production":
+        raise RuntimeError("KEYSTONE_SECRET_KEY must be set in production")
+    return secrets.token_hex(32)
+
+
+JWT_SECRET_KEY = _resolve_jwt_secret()
 PBKDF2_ITERATIONS = 600_000
-INTERNAL_SERVICE_TOKEN = "keystone-internal-worker-secret"
 
 
 # ============================================================================
@@ -147,8 +155,14 @@ def enforce_tenant_isolation(request_user_id: str, resource_owner_id: str) -> bo
     return True
 
 
+def get_service_token() -> Optional[str]:
+    """Returns the configured internal service token, or None if unset/empty."""
+    return (os.getenv("KEYSTONE_INTERNAL_SERVICE_TOKEN") or "").strip() or None
+
+
 def verify_service_token(token: Optional[str]) -> bool:
     """Verifies internal service token for /internal/* endpoints."""
-    if not token:
+    expected = get_service_token()
+    if not token or not expected:
         return False
-    return secrets.compare_digest(token, INTERNAL_SERVICE_TOKEN)
+    return secrets.compare_digest(token, expected)

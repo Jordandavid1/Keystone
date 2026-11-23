@@ -856,9 +856,10 @@ class TestStorageKeyAndSignedUrlSecurity:
 class TestServiceTokenBoundary:
     """Verifies internal service token protection."""
 
-    def test_service_token_verification_cases(self):
-        assert verify_service_token("keystone-internal-worker-secret") is True
+    def test_service_token_verification_cases(self, monkeypatch):
+        monkeypatch.setenv("KEYSTONE_INTERNAL_SERVICE_TOKEN", "test-internal-service-token")
+        assert verify_service_token("test-internal-service-token") is True
         assert verify_service_token("wrong-secret") is False
         assert verify_service_token("") is False
         assert verify_service_token(None) is False
-        assert verify_service_token("keystone-internal-worker-secret-extra") is False
+        assert verify_service_token("test-internal-service-token-extra") is False

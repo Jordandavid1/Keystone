@@ -274,9 +274,10 @@ def test_f06_tenant_isolation_guard():
         enforce_tenant_isolation("usr_alice", "usr_bob")
 
 
-def test_f06_service_token_verification():
+def test_f06_service_token_verification(monkeypatch):
     """Verify service token verification."""
-    assert verify_service_token("keystone-internal-worker-secret") is True
+    monkeypatch.setenv("KEYSTONE_INTERNAL_SERVICE_TOKEN", "test-internal-service-token")
+    assert verify_service_token("test-internal-service-token") is True
     assert verify_service_token("wrong-secret") is False
     assert verify_service_token(None) is False
 
