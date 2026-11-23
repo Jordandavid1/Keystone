@@ -31,7 +31,9 @@ _LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost"}
 
 
 def dev_bypass_enabled() -> bool:
-    """Local-development auth bypass. Off unless KEYSTONE_DEV_AUTH_BYPASS=1 is set."""
+    """Local-development auth bypass. Disabled unconditionally in production."""
+    if os.environ.get("KEYSTONE_ENV", "development").strip().lower() == "production":
+        return False
     return os.environ.get(DEV_BYPASS_ENV, "").strip().lower() in ("1", "true", "yes", "on")
 
 
@@ -45,11 +47,15 @@ def dev_bypass_applies(request: Optional[Request], authorization: Optional[str],
     if host not in _LOOPBACK_HOSTS:
         return False
     # Behind the Next.js /v1 proxy every request arrives from loopback, so also
-    # require the original client (X-Forwarded-For) to be loopback when present.
+    # require X-Forwarded-For to be present and loopback-only (or explicit trusted header).
     forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
+    if not forwarded:
+        # Reject if proxied without explicit X-Forwarded-For
+        if request.headers.get("x-forwarded-host") or request.headers.get("via") or request.headers.get("forwarded"):
+            return False
+    else:
         hops = [h.strip().lower().removeprefix("::ffff:") for h in forwarded.split(",") if h.strip()]
-        if any(h not in _LOOPBACK_HOSTS for h in hops):
+        if not hops or any(h not in _LOOPBACK_HOSTS for h in hops):
             return False
     return True
 
@@ -95,7 +101,7 @@ async def get_current_user(
                     detail="Unauthorized: Token missing subject claim"
                 )
             user = await user_repo.get_user_by_id(user_id)
-            if not user or user.status != "active":
+            if not user or getattr(user, "status", "active") != "active":
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Unauthorized: User account not found or inactive"
@@ -127,7 +133,7 @@ async def get_current_user(
             )
 
         user = await user_repo.get_user_by_id(api_key.user_id)
-        if not user or user.status != "active":
+        if not user or getattr(user, "status", "active") != "active":
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Unauthorized: User associated with API key not found"
@@ -176,3 +182,15 @@ def require_service_token(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Forbidden: Valid service token required"
         )
+
+
+async def require_admin(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """Dependency requiring an authenticated user with role == 'admin'."""
+    if getattr(current_user, "role", None) != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: Admin role required",
+        )
+    return current_user

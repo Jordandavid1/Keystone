@@ -12,10 +12,12 @@ import os
 import sys
 from pathlib import Path
 from typing import Any, Dict, List
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+
+from apps.api.src.auth.dependencies import require_admin
 
 try:
     from services.cognition.src.client import load_keystone_dotenv
@@ -195,6 +197,13 @@ app.include_router(cognition_router)
 # Mount ZenCreator Full Generative Pipeline Router (/v1/zencreator, all 17 generative tools)
 app.include_router(zencreator_router)
 
+# Mount Account & Age-Verification Router
+try:
+    from apps.api.src.routers.account import router as account_router
+    app.include_router(account_router)
+except ImportError:
+    pass
+
 
 # ============================================================================
 # Database Schema Initialization Hook
@@ -278,7 +287,9 @@ def get_contracts() -> Dict[str, Any]:
     summary="Firebase Remote Config Template & Feature Flags",
     description="Returns the active remote config parameters, feature toggles, and in-app defaults."
 )
-def get_remote_config() -> Dict[str, Any]:
+def get_remote_config(
+    _admin: Any = Depends(require_admin),
+) -> Dict[str, Any]:
     """Serves the Firebase Remote Config template for client feature activation."""
     import json
     config_file = _REPO_ROOT / "remote_config.json"
@@ -307,7 +318,10 @@ def get_remote_config() -> Dict[str, Any]:
     summary="Update Firebase Remote Config Feature Flags",
     description="Updates in-app defaults and feature toggles in remote_config.json."
 )
-async def update_remote_config(request: Request) -> Dict[str, Any]:
+async def update_remote_config(
+    request: Request,
+    _admin: Any = Depends(require_admin),
+) -> Dict[str, Any]:
     """Updates the active remote config template."""
     import json
     data = await request.json()
@@ -331,9 +345,18 @@ async def update_remote_config(request: Request) -> Dict[str, Any]:
 # CORS Middleware Configuration (Permissive for local development & Canvas)
 # ============================================================================
 
+_cors_origins = [
+    o.strip()
+    for o in os.getenv(
+        "KEYSTONE_CORS_ORIGINS",
+        "http://localhost:3000,http://127.0.0.1:3000,http://localhost:8000,http://127.0.0.1:8000",
+    ).split(",")
+    if o.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -364,9 +387,9 @@ _ADMIN_DIR = _REPO_ROOT / "apps" / "admin"
 
 
 @app.get("/workspace", tags=["Workspace UX"], summary="Premium Creative Workspace UI")
-def serve_workspace_index() -> FileResponse:
-    """Serves the 5-Region KEYSTONE Premium Creative Workspace (Bible §25)."""
-    return FileResponse(_WEB_DIR / "index.html")
+def serve_workspace_index() -> RedirectResponse:
+    """Redirects to Next.js Studio rather than exposing raw apps/web/ directory."""
+    return RedirectResponse(url=os.getenv("KEYSTONE_WEB_URL", "http://localhost:3000"))
 
 
 @app.get("/admin", tags=["Operator Admin Console"], summary="Operator Admin Console UI")
@@ -374,9 +397,6 @@ def serve_admin_index() -> FileResponse:
     """Serves the KEYSTONE Operator Admin Console (Bible §26)."""
     return FileResponse(_ADMIN_DIR / "index.html")
 
-
-if _WEB_DIR.exists():
-    app.mount("/workspace", StaticFiles(directory=str(_WEB_DIR), html=True), name="workspace_static")
 
 if _ADMIN_DIR.exists():
     app.mount("/admin", StaticFiles(directory=str(_ADMIN_DIR), html=True), name="admin_static")

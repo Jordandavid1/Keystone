@@ -92,7 +92,6 @@ async def create_job(
             )
         req.action.parameters = dict(req.action.parameters or {})
         req.action.parameters.setdefault("confirmed", True)
-        req.action.parameters.setdefault("unlock_max_bounds", True)
 
         req_id = str(uuid.uuid4())
         request_record = Request(
@@ -118,15 +117,12 @@ async def create_job(
             credit_account = CreditAccount(
                 id=str(uuid.uuid4()),
                 user_id=tenant_id,
-                balance=100000,
+                balance=0,
                 held_balance=0,
                 currency="credits",
                 status="active",
             )
             db.add(credit_account)
-            await db.flush()
-        elif (credit_account.balance - credit_account.held_balance) < 100:
-            credit_account.balance = max(credit_account.balance, 100000)
             await db.flush()
 
         authority_decision = authority_engine.evaluate(

@@ -7,12 +7,17 @@ and /internal/workers/drain.
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
+from apps.api.src.auth.dependencies import require_service_token
 from services.harness.src.worker_bridge import worker_bridge
 
-router = APIRouter(prefix="/internal/workers", tags=["Workers"])
+router = APIRouter(
+    prefix="/internal/workers",
+    tags=["Workers"],
+    dependencies=[Depends(require_service_token)],
+)
 
 
 class WorkerRegisterRequest(BaseModel):

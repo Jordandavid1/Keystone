@@ -108,10 +108,54 @@ def live_web_search(query: str, max_results: int = 5) -> List[Dict[str, str]]:
     return results
 
 
+def _is_ssrf_safe_url(target_url: str) -> Optional[str]:
+    """Validates URL scheme and blocks loopback, private, link-local, multicast, and reserved IPs."""
+    import ipaddress
+    import socket
+    from urllib.parse import urlparse
+
+    parsed = urlparse(target_url)
+    if parsed.scheme not in ("http", "https") or not parsed.hostname:
+        return "Invalid URL scheme or missing hostname"
+    host = parsed.hostname.lower()
+    if host in ("localhost", "169.254.169.254", "metadata.google.internal", "metadata"):
+        return "Target host is blocked"
+    try:
+        ips = [ipaddress.ip_address(host)]
+    except ValueError:
+        try:
+            infos = socket.getaddrinfo(host, None)
+            ips = [ipaddress.ip_address(info[4][0]) for info in infos]
+        except OSError:
+            return "Unable to resolve hostname"
+    if not ips:
+        return "Unable to resolve hostname"
+    for ip in ips:
+        if (
+            ip.is_loopback
+            or ip.is_private
+            or ip.is_link_local
+            or ip.is_multicast
+            or ip.is_reserved
+            or ip.is_unspecified
+        ):
+            return f"Blocked IP address range: {ip}"
+    return None
+
+
 def live_url_scrape(target_url: str) -> Dict[str, Any]:
     """
     Extracts text tokens, headlines, and meta description from a target web page.
     """
+    ssrf_err = _is_ssrf_safe_url(target_url)
+    if ssrf_err:
+        return {
+            "url": target_url,
+            "title": target_url,
+            "content_summary": "",
+            "error": f"SSRF_BLOCKED: {ssrf_err}",
+            "status": "failed"
+        }
     try:
         req = urllib.request.Request(
             target_url,
@@ -483,6 +527,19 @@ async def chat_with_cognition(
 
     session_persist_error: Optional[str] = None
     if req.session_id:
+        from sqlalchemy import select as _sa_select
+        from apps.api.src.db.models import Session as _DbSession
+        sess_res = await db.execute(
+            _sa_select(_DbSession).where(
+                _DbSession.id == req.session_id,
+                _DbSession.user_id == tenant_id,
+            )
+        )
+        if sess_res.scalar_one_or_none() is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Session not found",
+            )
         try:
             from apps.api.src.repositories.sessions import MessageRepository
             msg_repo = MessageRepository(db)

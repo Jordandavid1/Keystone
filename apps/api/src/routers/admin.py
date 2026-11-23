@@ -15,14 +15,18 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from apps.api.src.db.models import CreditAccount
+from apps.api.src.auth.dependencies import require_admin
+from apps.api.src.db.models import AuditEvent, AuthorityDecision, CreditAccount
 from apps.api.src.db.session import get_db
 from services.harness.src.worker_bridge import worker_bridge
 from services.authority.src.credits_ledger import credits_ledger
-from services.authority.src.engine import authority_engine
 from packages.security.secret_scanner import COPYRIGHT_STATEMENT
 
-router = APIRouter(prefix="/v1/admin", tags=["Operator Admin Console"])
+router = APIRouter(
+    prefix="/v1/admin",
+    tags=["Operator Admin Console"],
+    dependencies=[Depends(require_admin)],
+)
 
 
 def _get_real_host_memory_bytes() -> Tuple[int, int]:
@@ -129,32 +133,45 @@ def get_system_telemetry() -> SystemTelemetry:
 @router.get(
     "/audit/logs",
     summary="List Operational Audit Logs",
-    description="Returns immutable system event, authority decision, and ledger audit trails."
+    description="Returns immutable system event and authority decision audit trails from the database."
 )
-def get_audit_logs(limit: int = Query(50, ge=1, le=500)) -> List[Dict[str, Any]]:
+async def get_audit_logs(
+    limit: int = Query(50, ge=1, le=500),
+    db: AsyncSession = Depends(get_db),
+) -> List[Dict[str, Any]]:
     logs: List[Dict[str, Any]] = []
-    for e in credits_ledger.get_entries()[-limit:]:
+
+    audit_res = await db.execute(
+        select(AuditEvent).order_by(AuditEvent.created_at.desc()).limit(limit)
+    )
+    for evt in audit_res.scalars().all():
+        payload = evt.payload or {}
         logs.append({
-            "event_id": e.get("entry_id"),
-            "category": "LEDGER_TRANSACTION",
-            "action": e.get("entry_type"),
-            "actor": e.get("account_id"),
-            "amount": e.get("amount"),
-            "timestamp": e.get("created_at"),
-            "details": e.get("reason")
+            "event_id": evt.id,
+            "category": "AUDIT_EVENT",
+            "action": evt.event_type,
+            "actor": evt.user_id,
+            "amount": payload.get("amount", 0),
+            "timestamp": evt.created_at.isoformat() if evt.created_at else None,
+            "details": payload.get("reason") or payload.get("detail") or "",
         })
-    for a in authority_engine.audit_log[-limit:]:
-        data = a.get("data", {})
+
+    dec_res = await db.execute(
+        select(AuthorityDecision).order_by(AuthorityDecision.created_at.desc()).limit(limit)
+    )
+    for dec in dec_res.scalars().all():
         logs.append({
-            "event_id": a.get("id"),
+            "event_id": dec.id,
             "category": "AUTHORITY_DECISION",
-            "action": f"{data.get('decision', 'EVAL')} ({data.get('capability_id', '')})",
-            "actor": a.get("actor_id"),
-            "amount": data.get("required_credits", 0),
-            "timestamp": a.get("created_at"),
-            "details": ", ".join(data.get("reason_codes", []))
+            "action": f"{dec.decision} ({dec.capability_id or ''})",
+            "actor": dec.request_id or dec.job_id,
+            "amount": 0,
+            "timestamp": dec.created_at.isoformat() if dec.created_at else None,
+            "details": ", ".join(dec.reason_codes or []),
         })
-    return logs[-limit:]
+
+    logs.sort(key=lambda item: item.get("timestamp") or "", reverse=True)
+    return logs[:limit]
 
 
 @router.post(

@@ -52,7 +52,7 @@ class AssetRepository(BaseRepository[Asset]):
     async def get_assets(self, project_id: Optional[str | uuid.UUID] = None) -> List[Asset]:
         stmt = (
             select(Asset)
-            .where(Asset.owner_id == self.tenant_id)
+            .where(Asset.user_id == self.tenant_id)
             .where(Asset.deleted_at.is_(None))
         )
         if project_id:
@@ -65,7 +65,7 @@ class AssetRepository(BaseRepository[Asset]):
         stmt = (
             select(Asset)
             .where(Asset.id == str(asset_id))
-            .where(Asset.owner_id == self.tenant_id)
+            .where(Asset.user_id == self.tenant_id)
             .where(Asset.deleted_at.is_(None))
         )
         res = await self.session.execute(stmt)
@@ -75,7 +75,7 @@ class AssetRepository(BaseRepository[Asset]):
         stmt = (
             update(Asset)
             .where(Asset.id == str(asset_id))
-            .where(Asset.owner_id == self.tenant_id)
+            .where(Asset.user_id == self.tenant_id)
             .where(Asset.deleted_at.is_(None))
             .values(deleted_at=datetime.now(timezone.utc), status="deleted")
         )

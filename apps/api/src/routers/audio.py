@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from apps.api.src.auth.dependencies import get_current_tenant_id
+from apps.api.src.auth.dependencies import get_current_tenant_id, require_admin
 from apps.api.src.db.session import get_db
 from apps.api.src.repositories.assets import AssetRepository
 from apps.api.src.storage.service import (
@@ -38,6 +38,7 @@ class GenerateSpeechRequest(BaseModel):
 
 class AudioConfigUpdateRequest(BaseModel):
     elevenlabs_api_key: Optional[str] = Field(None, description="Live ElevenLabs API key")
+    base_url: Optional[str] = Field(None, description="Optional ElevenLabs base URL")
 
 
 @router.get("/config", summary="Get ElevenLabs TTS integration configuration")
@@ -61,10 +62,23 @@ async def get_audio_config() -> Dict[str, Any]:
 
 
 @router.post("/configure", summary="Configure ElevenLabs API Key at runtime")
-async def configure_audio_provider(req: AudioConfigUpdateRequest) -> Dict[str, Any]:
+async def configure_audio_provider(
+    req: AudioConfigUpdateRequest,
+    _admin: Any = Depends(require_admin),
+) -> Dict[str, Any]:
     import os
     from pathlib import Path
+    if req.base_url is not None and ("\r" in req.base_url or "\n" in req.base_url):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="INVALID_INPUT: Newline characters are not allowed in base_url",
+        )
     if req.elevenlabs_api_key is not None:
+        if "\r" in req.elevenlabs_api_key or "\n" in req.elevenlabs_api_key:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="INVALID_INPUT: Newline characters are not allowed in elevenlabs_api_key",
+            )
         clean_key = req.elevenlabs_api_key.strip()
         os.environ["ELEVENLABS_API_KEY"] = clean_key
         repo_root = Path(__file__).resolve().parents[4]

@@ -7,9 +7,13 @@ and /v1/authority/envelope/verify.
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from apps.api.src.auth.dependencies import get_current_user
+from apps.api.src.auth.security import verify_service_token
+from apps.api.src.db.session import get_db
 from packages.contracts.src.models import ProposedAction, AuthorityDecision, ExecutionEnvelope
 from services.authority.src.engine import authority_engine
 from services.authority.src.rules import (
@@ -26,6 +30,29 @@ from services.authority.src.rules import (
 from services.harness.src.envelope import EnvelopeEngine
 
 router = APIRouter(prefix="/v1/authority", tags=["Authority"])
+
+
+async def require_admin_or_service_token(
+    request: Request,
+    authorization: Optional[str] = Header(None, alias="Authorization"),
+    x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
+    x_service_token: Optional[str] = Header(None, alias="X-Service-Token"),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """Allow either a valid internal service token or an authenticated admin user."""
+    if x_service_token and verify_service_token(x_service_token):
+        return
+    user = await get_current_user(
+        request=request,
+        authorization=authorization,
+        x_api_key=x_api_key,
+        db=db,
+    )
+    if getattr(user, "role", None) != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: Admin role or valid service token required",
+        )
 
 
 class AuthorityEvaluateRequest(BaseModel):
@@ -56,6 +83,7 @@ class EnvelopeVerifyRequest(BaseModel):
 @router.post(
     "/evaluate",
     response_model=AuthorityDecision,
+    dependencies=[Depends(get_current_user)],
     summary="Evaluate Proposed Action",
     description="Evaluates a ProposedAction against safety policies, parameter boundaries, and credit balance."
 )
@@ -96,6 +124,7 @@ def get_policies() -> Dict[str, Any]:
 @router.post(
     "/envelope/issue",
     response_model=ExecutionEnvelope,
+    dependencies=[Depends(require_admin_or_service_token)],
     summary="Issue Signed Execution Envelope",
     description="Cryptographically signs and issues an ExecutionEnvelope for an approved AuthorityDecision."
 )
@@ -121,6 +150,7 @@ def issue_envelope(req: EnvelopeIssueRequest) -> ExecutionEnvelope:
 
 @router.post(
     "/envelope/verify",
+    dependencies=[Depends(get_current_user)],
     summary="Verify Execution Envelope",
     description="Verifies HMAC-SHA256 signature, expiration, clock skew, and single-use nonce."
 )

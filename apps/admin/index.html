@@ -517,6 +517,74 @@
   </main>
 
   <script>
+    const ADMIN_TOKEN_KEY = 'keystone_admin_token';
+
+    function getAdminToken() {
+      return sessionStorage.getItem(ADMIN_TOKEN_KEY) || '';
+    }
+
+    function promptAdminToken(reason = '') {
+      let overlay = document.getElementById('adminAuthOverlay');
+      if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'adminAuthOverlay';
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(9,13,22,0.92);z-index:9999;display:flex;align-items:center;justify-content:center;';
+        const box = document.createElement('div');
+        box.style.cssText = 'background:#111827;border:1px solid #334155;border-radius:12px;padding:24px;width:380px;max-width:90vw;color:#f8fafc;font-family:inherit;';
+        const h = document.createElement('h3');
+        h.textContent = 'Admin Authentication Required';
+        h.style.marginTop = '0';
+        const p = document.createElement('p');
+        p.id = 'adminAuthMsg';
+        p.style.cssText = 'font-size:13px;color:#94a3b8;margin-bottom:12px;';
+        p.textContent = reason || 'Enter your Keystone Admin Bearer JWT token to access the console.';
+        const input = document.createElement('input');
+        input.id = 'adminAuthInput';
+        input.type = 'password';
+        input.placeholder = 'Bearer JWT token';
+        input.style.cssText = 'width:100%;padding:10px;border-radius:8px;border:1px solid #334155;background:#0f172a;color:#f8fafc;margin-bottom:12px;box-sizing:border-box;';
+        const btn = document.createElement('button');
+        btn.className = 'btn btn-primary';
+        btn.textContent = 'Unlock Console';
+        btn.style.width = '100%';
+        btn.addEventListener('click', () => {
+          const val = input.value.trim();
+          if (!val) return;
+          sessionStorage.setItem(ADMIN_TOKEN_KEY, val);
+          overlay.style.display = 'none';
+          refreshTelemetry();
+        });
+        box.appendChild(h);
+        box.appendChild(p);
+        box.appendChild(input);
+        box.appendChild(btn);
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+      } else {
+        const msgEl = document.getElementById('adminAuthMsg');
+        if (msgEl && reason) msgEl.textContent = reason;
+        overlay.style.display = 'flex';
+      }
+    }
+
+    const _origFetch = window.fetch.bind(window);
+    window.fetch = async function(input, init = {}) {
+      const token = getAdminToken();
+      const headers = new Headers(init.headers || {});
+      if (token && !headers.has('Authorization')) {
+        headers.set('Authorization', `Bearer ${token}`);
+      }
+      const res = await _origFetch(input, { ...init, headers });
+      if (res.status === 401 || res.status === 403) {
+        promptAdminToken(`Authentication failed (HTTP ${res.status}). Provide a valid Admin Bearer token.`);
+      }
+      return res;
+    };
+
+    if (!getAdminToken()) {
+      promptAdminToken();
+    }
+
     function showToast(id, msg, isError = false) {
       const el = document.getElementById(id);
       if (!el) return;
@@ -588,22 +656,52 @@
           if (!workers.length) {
             tbody.innerHTML = '<tr><td colspan="6" style="color: var(--text-muted);">No workers registered. Configure tunnels on the left or click Probe Tunnels Now.</td></tr>';
           } else {
-            tbody.innerHTML = workers.map(w => {
+            tbody.replaceChildren();
+            workers.forEach(w => {
               const m = w.metrics || {};
-              const stateBadge = w.status === 'ACTIVE'
-                ? '<span class="badge badge-emerald">ACTIVE</span>'
-                : (w.status === 'DRAINING' ? '<span class="badge badge-amber">DRAINING</span>' : '<span class="badge badge-rose">OFFLINE</span>');
-              return `
-                <tr>
-                  <td class="mono">${w.worker_id}</td>
-                  <td>${w.worker_type}</td>
-                  <td class="mono">${w.tunnel_url}</td>
-                  <td class="mono">${m.latency_ms !== undefined ? m.latency_ms + ' ms' : '--'} / ${m.gpu_memory_used_gib || 0} GiB</td>
-                  <td>${stateBadge}</td>
-                  <td><button class="btn" onclick="drainWorker('${w.worker_id}')">Drain</button></td>
-                </tr>
-              `;
-            }).join('');
+              const tr = document.createElement('tr');
+
+              const tdId = document.createElement('td');
+              tdId.className = 'mono';
+              tdId.textContent = String(w.worker_id || '');
+              tr.appendChild(tdId);
+
+              const tdType = document.createElement('td');
+              tdType.textContent = String(w.worker_type || '');
+              tr.appendChild(tdType);
+
+              const tdUrl = document.createElement('td');
+              tdUrl.className = 'mono';
+              tdUrl.textContent = String(w.tunnel_url || '');
+              tr.appendChild(tdUrl);
+
+              const tdMetrics = document.createElement('td');
+              tdMetrics.className = 'mono';
+              const lat = m.latency_ms !== undefined ? `${m.latency_ms} ms` : '--';
+              tdMetrics.textContent = `${lat} / ${m.gpu_memory_used_gib || 0} GiB`;
+              tr.appendChild(tdMetrics);
+
+              const tdStatus = document.createElement('td');
+              const badgeSpan = document.createElement('span');
+              badgeSpan.className = w.status === 'ACTIVE'
+                ? 'badge badge-emerald'
+                : (w.status === 'DRAINING' ? 'badge badge-amber' : 'badge badge-rose');
+              badgeSpan.textContent = w.status === 'ACTIVE'
+                ? 'ACTIVE'
+                : (w.status === 'DRAINING' ? 'DRAINING' : 'OFFLINE');
+              tdStatus.appendChild(badgeSpan);
+              tr.appendChild(tdStatus);
+
+              const tdAction = document.createElement('td');
+              const btn = document.createElement('button');
+              btn.className = 'btn';
+              btn.textContent = 'Drain';
+              btn.addEventListener('click', () => drainWorker(w.worker_id));
+              tdAction.appendChild(btn);
+              tr.appendChild(tdAction);
+
+              tbody.appendChild(tr);
+            });
           }
         }
 
@@ -611,16 +709,43 @@
           const logs = await logsRes.json();
           const tbody = document.getElementById('auditTableBody');
           if (logs.length > 0) {
-            tbody.innerHTML = logs.slice().reverse().map(l => `
-              <tr>
-                <td class="mono">${l.event_id || 'evt_01'}</td>
-                <td><span class="badge badge-indigo">${l.category}</span></td>
-                <td class="mono">${l.action}</td>
-                <td class="mono">${l.actor}</td>
-                <td class="mono">${l.amount}</td>
-                <td>${l.details || ''}</td>
-              </tr>
-            `).join('');
+            tbody.replaceChildren();
+            logs.slice().reverse().forEach(l => {
+              const tr = document.createElement('tr');
+
+              const tdEvt = document.createElement('td');
+              tdEvt.className = 'mono';
+              tdEvt.textContent = String(l.event_id || 'evt_01');
+              tr.appendChild(tdEvt);
+
+              const tdCat = document.createElement('td');
+              const catSpan = document.createElement('span');
+              catSpan.className = 'badge badge-indigo';
+              catSpan.textContent = String(l.category || '');
+              tdCat.appendChild(catSpan);
+              tr.appendChild(tdCat);
+
+              const tdAct = document.createElement('td');
+              tdAct.className = 'mono';
+              tdAct.textContent = String(l.action || '');
+              tr.appendChild(tdAct);
+
+              const tdActor = document.createElement('td');
+              tdActor.className = 'mono';
+              tdActor.textContent = String(l.actor || '');
+              tr.appendChild(tdActor);
+
+              const tdAmt = document.createElement('td');
+              tdAmt.className = 'mono';
+              tdAmt.textContent = String(l.amount ?? '');
+              tr.appendChild(tdAmt);
+
+              const tdDet = document.createElement('td');
+              tdDet.textContent = String(l.details || '');
+              tr.appendChild(tdDet);
+
+              tbody.appendChild(tr);
+            });
           } else {
             tbody.innerHTML = '<tr><td colspan="6" style="color: var(--text-muted);">No audit events recorded in current session yet.</td></tr>';
           }

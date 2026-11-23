@@ -158,9 +158,15 @@ async def _persist_bytes(
 
 
 async def _load_reference_bytes(
-    db: AsyncSession, asset_id: str
+    db: AsyncSession, asset_id: str, tenant_id: str
 ) -> Optional[Tuple[str, str, bytes]]:
-    result = await db.execute(select(Asset).where(Asset.id == str(asset_id)).where(Asset.deleted_at.is_(None)))
+    result = await db.execute(
+        select(Asset).where(
+            Asset.id == str(asset_id),
+            Asset.user_id == tenant_id,
+            Asset.deleted_at.is_(None),
+        )
+    )
     asset = result.scalar_one_or_none()
     if asset is None:
         return None
@@ -518,7 +524,7 @@ async def _run_generation(
         ref_ids = _collect_ref_ids(tool_input)
         references: List[Tuple[str, str, bytes]] = []
         for ref_id in ref_ids:
-            loaded = await _load_reference_bytes(db, ref_id)
+            loaded = await _load_reference_bytes(db, ref_id, tenant_id)
             if loaded is None:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,

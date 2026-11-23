@@ -7,11 +7,17 @@ KHF quality evaluation, and bounded retry decisions.
 from __future__ import annotations
 
 import hashlib
+import ipaddress
+import os
+import socket
 import time
 import uuid
 from typing import Any, Dict, List, Optional
-from fastapi import APIRouter, HTTPException, Query, status
+from urllib.parse import urlparse
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
+
+from apps.api.src.auth.dependencies import get_current_user, require_admin
 
 from services.comfy.src.adapters import (
     ADAPTER_REGISTRY,
@@ -64,21 +70,79 @@ def get_creative_capabilities() -> List[CapabilityManifest]:
     return list_capabilities()
 
 
+def _validate_worker_url(url: str) -> None:
+    if "\r" in url or "\n" in url:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="INVALID_INPUT: Newline characters are not allowed in URL"
+        )
+    if not url:
+        return
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https") or not parsed.hostname:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="INVALID_URL: Only http and https URLs with a valid host are allowed"
+        )
+    host = parsed.hostname.lower()
+    if host in ("169.254.169.254", "metadata.google.internal", "metadata"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="SSRF_BLOCKED: Metadata endpoints are forbidden"
+        )
+    allow_private = os.getenv("KEYSTONE_ALLOW_PRIVATE_WORKERS", "0") == "1"
+    try:
+        ip_obj = ipaddress.ip_address(host)
+        ips = [ip_obj]
+    except ValueError:
+        try:
+            infos = socket.getaddrinfo(host, None)
+            ips = [ipaddress.ip_address(info[4][0]) for info in infos]
+        except OSError:
+            ips = []
+    for ip in ips:
+        if ip.is_link_local or ip.is_multicast or ip.is_unspecified:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="SSRF_BLOCKED: Link-local, multicast, or unspecified IP is forbidden"
+            )
+        if not allow_private and (ip.is_private or ip.is_loopback or ip.is_reserved):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="SSRF_BLOCKED: Private or loopback IP is forbidden unless KEYSTONE_ALLOW_PRIVATE_WORKERS=1"
+            )
+
+
+def _reject_newlines(val: Optional[str], field_name: str) -> None:
+    if val is not None and ("\r" in val or "\n" in val):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"INVALID_INPUT: Newline characters are not allowed in {field_name}"
+        )
+
+
 @router.post(
     "/execute",
     summary="Execute Creative Adapter Request",
-    description="Validates parameters, enforces execution envelope integrity if provided, builds workflow graph."
+    description="Validates parameters, enforces execution envelope integrity, builds workflow graph."
 )
-def execute_creative_job(request: CreativeExecuteRequest) -> Dict[str, Any]:
-    # 1. If envelope is provided, verify it first
-    if request.envelope:
-        try:
-            EnvelopeEngine.verify_envelope(request.envelope)
-        except ValueError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"INVALID_ENVELOPE: {exc}"
-            )
+def execute_creative_job(
+    request: CreativeExecuteRequest,
+    _current_user: Any = Depends(get_current_user),
+) -> Dict[str, Any]:
+    # 1. Require and verify execution envelope
+    if request.envelope is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="MISSING_ENVELOPE: ExecutionEnvelope v2 is required"
+        )
+    try:
+        EnvelopeEngine.verify_envelope(request.envelope)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"INVALID_ENVELOPE: {exc}"
+        )
 
     # 2. Execute adapter
     try:
@@ -145,6 +209,7 @@ def evaluate_retry_decision(request: RetryEvaluateRequest) -> Dict[str, Any]:
 
 class ComfyConfigUpdateRequest(BaseModel):
     comfy_base_url: Optional[str] = Field(None, description="Live ComfyUI base or Cloudflare tunnel URL")
+    base_url: Optional[str] = Field(None, description="Alias for comfy_base_url")
     comfy_api_key: Optional[str] = Field(None, description="Optional Bearer/API key for ComfyUI")
     comfy_auth_token: Optional[str] = Field(None, description="Optional auth token alias for ComfyUI")
     openai_base_url: Optional[str] = Field(None, description="Live OpenAI-compatible Qwen cognition tunnel URL")
@@ -210,14 +275,22 @@ def get_comfy_runtime_status() -> Dict[str, Any]:
     summary="Dynamically Configure ComfyUI & Cognition Tunnel URLs",
     description="Updates COMFY_BASE_URL / KEYSTONE_COMFY_URL and OPENAI_BASE_URL in memory, .env, and WorkerBridge."
 )
-def configure_comfy_runtime(req: ComfyConfigUpdateRequest) -> Dict[str, Any]:
-    import os
+def configure_comfy_runtime(
+    req: ComfyConfigUpdateRequest,
+    _admin: Any = Depends(require_admin),
+) -> Dict[str, Any]:
     from pathlib import Path
     from services.harness.src.worker_bridge import worker_bridge
 
+    _reject_newlines(req.comfy_api_key, "comfy_api_key")
+    _reject_newlines(req.comfy_auth_token, "comfy_auth_token")
+    _reject_newlines(req.openai_api_key, "openai_api_key")
+
     updates: Dict[str, str] = {}
-    if req.comfy_base_url is not None:
-        clean_comfy = req.comfy_base_url.strip().rstrip("/")
+    effective_comfy_url = req.comfy_base_url if req.comfy_base_url is not None else req.base_url
+    if effective_comfy_url is not None:
+        clean_comfy = effective_comfy_url.strip().rstrip("/")
+        _validate_worker_url(clean_comfy)
         if clean_comfy.endswith("/v1"):
             clean_comfy = clean_comfy[:-3].rstrip("/")
         os.environ["COMFY_BASE_URL"] = clean_comfy
@@ -253,6 +326,7 @@ def configure_comfy_runtime(req: ComfyConfigUpdateRequest) -> Dict[str, Any]:
 
     if req.openai_base_url is not None:
         clean_oai = req.openai_base_url.strip().rstrip("/")
+        _validate_worker_url(clean_oai)
         if clean_oai and not clean_oai.endswith("/v1"):
             clean_oai = f"{clean_oai}/v1"
         os.environ["OPENAI_BASE_URL"] = clean_oai

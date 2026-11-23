@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
-from apps.api.src.auth.dependencies import get_current_tenant_id
+from apps.api.src.auth.dependencies import get_current_tenant_id, get_current_user
 from services.authority.src.credits_ledger import credits_ledger
 
 router = APIRouter(prefix="/v1/billing", tags=["Billing & Credits"])
@@ -160,7 +160,15 @@ def create_checkout_session(req: CheckoutSessionRequest) -> Dict[str, Any]:
     summary="Get Account Credits Balance",
     description="Returns available balance, held balance, and ledger entries for user."
 )
-def get_account_balance(account_id: str) -> Dict[str, Any]:
+def get_account_balance(
+    account_id: str,
+    current_user: Any = Depends(get_current_user),
+) -> Dict[str, Any]:
+    if str(current_user.id) != account_id and getattr(current_user, "role", None) != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: Cannot inspect another user's billing balance",
+        )
     available = credits_ledger.get_available_balance(account_id)
     held = credits_ledger.get_held_balance(account_id)
     entries = credits_ledger.get_entries(account_id)
@@ -179,7 +187,15 @@ def get_account_balance(account_id: str) -> Dict[str, Any]:
     summary="List Ledger Transactions",
     description="Returns full append-only ledger transaction history for user account."
 )
-def get_account_transactions(account_id: str) -> List[Dict[str, Any]]:
+def get_account_transactions(
+    account_id: str,
+    current_user: Any = Depends(get_current_user),
+) -> List[Dict[str, Any]]:
+    if str(current_user.id) != account_id and getattr(current_user, "role", None) != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: Cannot inspect another user's billing transactions",
+        )
     return credits_ledger.get_entries(account_id)
 
 

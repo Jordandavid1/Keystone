@@ -161,7 +161,7 @@ class ParameterBoundaryEvaluator:
     """
 
     @classmethod
-    def evaluate(cls, action: ProposedAction) -> EvaluatorResult:
+    def evaluate(cls, action: ProposedAction, user_role: Optional[str] = None) -> EvaluatorResult:
         reason_codes: List[str] = []
         raw_params = dict(action.parameters or {})
         sanitized = dict(raw_params)
@@ -183,7 +183,7 @@ class ParameterBoundaryEvaluator:
                 # Clamp to 16:9 or 1:1 default
                 sanitized["aspect_ratio"] = "16:9"
 
-        unlocked = bool(sanitized.get("unlock_max_bounds"))
+        unlocked = bool(sanitized.get("unlock_max_bounds")) and (user_role == "admin")
         max_w = 4096 if unlocked else IMAGE_MAX_WIDTH
         max_h = 4096 if unlocked else IMAGE_MAX_HEIGHT
         max_steps = 100 if unlocked else STEPS_RANGE[1]

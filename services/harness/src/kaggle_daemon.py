@@ -197,7 +197,7 @@ class KaggleWorkerDaemon:
             else:
                 try:
                     from services.comfy.src.client import ComfyUIClient
-                    stats = ComfyUIClient(base_url=tunnel_url).get_system_stats()
+                    stats = ComfyUIClient().system_stats()
                     reachable = True
                     devices = stats.get("devices") or []
                     if devices:

@@ -161,6 +161,19 @@ async def register_asset(
     }
 
 
+ALLOWED_UPLOAD_MIMES = frozenset({
+    "image/png",
+    "image/jpeg",
+    "image/webp",
+    "video/mp4",
+    "video/webm",
+    "audio/mpeg",
+    "audio/wav",
+    "audio/ogg",
+})
+DEFAULT_MAX_UPLOAD_BYTES = 250 * 1024 * 1024
+
+
 @router.post("/upload-file", summary="Upload photo or video file directly via multipart/form-data")
 async def upload_asset_file(
     file: UploadFile = File(...),
@@ -169,11 +182,22 @@ async def upload_asset_file(
     tenant_id: str = Depends(get_current_tenant_id),
     db: AsyncSession = Depends(get_db)
 ) -> Dict[str, Any]:
+    mime_type = (file.content_type or "application/octet-stream").split(";")[0].strip().lower()
+    if mime_type not in ALLOWED_UPLOAD_MIMES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"UNSUPPORTED_MIME_TYPE: '{mime_type}' is not in the upload allowlist",
+        )
+    max_bytes = int(os.getenv("KEYSTONE_MAX_UPLOAD_BYTES", str(DEFAULT_MAX_UPLOAD_BYTES)))
+    content = await file.read()
+    if len(content) > max_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"PAYLOAD_TOO_LARGE: Upload exceeds {max_bytes} bytes",
+        )
     asset_repo = AssetRepository(db, tenant_id=tenant_id)
     asset_id = str(uuid.uuid4())
-    content = await file.read()
     raw_filename = file.filename or "upload.bin"
-    mime_type = file.content_type or "application/octet-stream"
 
     detected_media = media_type
     if not detected_media:
@@ -646,22 +670,33 @@ async def prepare_upload(
 @router.get("", summary="List assets for current tenant")
 async def list_assets(
     project_id: Optional[str] = None,
+    content_mode: Optional[str] = Query(None, description="Resolved content mode: sfw or unrestricted"),
     tenant_id: str = Depends(get_current_tenant_id),
     db: AsyncSession = Depends(get_db)
 ) -> Dict[str, Any]:
+    from apps.api.src.db.models import User as _DbUser
+    user_res = await db.execute(select(_DbUser).where(_DbUser.id == tenant_id))
+    user_obj = user_res.scalar_one_or_none()
+    allow_mature = (
+        content_mode == "unrestricted"
+        and user_obj is not None
+        and bool(getattr(user_obj, "age_verified", False))
+    )
     asset_repo = AssetRepository(db, tenant_id=tenant_id)
     assets = await asset_repo.get_assets(project_id=project_id)
+    if not allow_mature:
+        assets = [a for a in assets if not getattr(a, "mature", False)]
     return {
         "assets": [
             {
                 "id": a.id,
-                "owner_id": a.owner_id,
+                "owner_id": a.user_id,
                 "project_id": a.project_id,
-                "media_type": a.media_type,
+                "media_type": a.asset_type,
                 "mime_type": a.mime_type,
                 "storage_key": a.storage_key,
-                "byte_size": a.byte_size,
-                "metadata": a.metadata_ or {},
+                "byte_size": a.size_bytes,
+                "metadata": getattr(a, "metadata_", None) or {},
                 "download_url": content_url(a),
                 "created_at": a.created_at.isoformat() if a.created_at else None
             }
@@ -727,12 +762,15 @@ async def get_asset_content(
             detail="ASSET_BYTES_UNAVAILABLE: this asset has no stored file",
         )
 
+    mime_clean = (asset.mime_type or "application/octet-stream").split(";")[0].strip().lower()
+    disposition = "inline" if mime_clean in ALLOWED_UPLOAD_MIMES else "attachment"
     return Response(
         content=payload,
         media_type=asset.mime_type,
         headers={
             "Cache-Control": "private, max-age=300",
-            "Content-Disposition": f'inline; filename="{asset_id}"',
+            "X-Content-Type-Options": "nosniff",
+            "Content-Disposition": f'{disposition}; filename="{asset_id}"',
         },
     )
 

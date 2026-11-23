@@ -33,6 +33,9 @@ export async function proxyToBackend(request: NextRequest): Promise<Response> {
     const host = request.headers.get('host');
     if (host) upstreamHeaders.set('x-forwarded-host', host);
   }
+  const existingXff = request.headers.get('x-forwarded-for');
+  const clientIp = (request as NextRequest & { ip?: string }).ip || request.headers.get('x-real-ip') || '127.0.0.1';
+  upstreamHeaders.set('x-forwarded-for', existingXff ? `${existingXff}, ${clientIp}` : clientIp);
 
   const hasBody = request.method !== 'GET' && request.method !== 'HEAD';
   const init: RequestInit & { duplex?: 'half' } = {
