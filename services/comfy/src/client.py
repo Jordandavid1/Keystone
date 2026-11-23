@@ -1969,6 +1969,30 @@ class MiniMaxH3Adapter(CreativeAdapterBase):
         }
 
 
+class LocalEmbeddingsAdapter(CreativeAdapterBase):
+    """Local Qwen-embedding capability adapter behind CognitiveProvider (Bible v2 §2 Invariants 2, 5–7, §42.3)."""
+
+    def __init__(self):
+        super().__init__("local_embeddings", "cognition.local_embeddings", "cognition.qwen_embedding", version="2.0.0")
+
+    def get_manifest(self) -> CapabilityManifest:
+        from services.cognition.src.embeddings import get_embedding_manifest
+
+        return get_embedding_manifest()
+
+    def build_workflow_graph(self, params: Dict[str, Any], prompt: str) -> Dict[str, Any]:
+        from services.cognition.src.embeddings import DEFAULT_EMBEDDING_MODEL, KEYSTONE_EMBEDDING_DIM
+
+        return {
+            "endpoint": "/v1/embeddings",
+            "model": params.get("model", DEFAULT_EMBEDDING_MODEL),
+            "input": prompt or params.get("input", ""),
+            "dimensions": int(params.get("dimensions", KEYSTONE_EMBEDDING_DIM)),
+            "quantization": params.get("quantization", "GGUF-Q8_0"),
+            "license": "Apache-2.0",
+        }
+
+
 ADAPTER_REGISTRY: Dict[str, CreativeAdapterBase] = {
     "comfyui": ComfyUIAdapter(),
     "image_gen": ImageGenAdapter(),
@@ -1978,10 +2002,13 @@ ADAPTER_REGISTRY: Dict[str, CreativeAdapterBase] = {
     "facefusion": FaceFusionAdapter(),
     "upscale": UpscaleAdapter(),
     "minimax_h3": MiniMaxH3Adapter(),
+    "local_embeddings": LocalEmbeddingsAdapter(),
 }
 
 
 def get_adapter(adapter_name: str) -> CreativeAdapterBase:
+    if adapter_name == "cognition.local_embeddings" and "local_embeddings" in ADAPTER_REGISTRY:
+        return ADAPTER_REGISTRY["local_embeddings"]
     if adapter_name not in ADAPTER_REGISTRY:
         raise ValueError(f"UNKNOWN_ADAPTER: {adapter_name}")
     return ADAPTER_REGISTRY[adapter_name]

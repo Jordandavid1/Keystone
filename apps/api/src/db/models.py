@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 import os
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import sqlalchemy as sa
@@ -28,7 +28,8 @@ from sqlalchemy import (
     func,
     text as sa_text,
 )
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, synonym
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
 from sqlalchemy.ext.mutable import MutableDict
 from pgvector.sqlalchemy import Vector
@@ -645,6 +646,11 @@ class Recipe(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), server_default=sa_text("now()"))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), onupdate=func.now(), server_default=sa_text("now()"))
 
+    # SPEC_MEMORY.md / Runbook column synonyms (zero DDL drift)
+    tenant_id: Mapped[str] = synonym("user_id")
+    mode: Mapped[str] = synonym("content_mode")
+    passing_runs: Mapped[int] = synonym("promotion_runs")
+
     __table_args__ = (
         CheckConstraint("content_mode IN ('sfw','unrestricted')", name="ck_recipes_content_mode"),
         CheckConstraint("status IN ('candidate','promoted','retired')", name="ck_recipes_status"),
@@ -655,6 +661,95 @@ class Recipe(Base):
 
     embedding: Mapped[Optional["RecipeEmbedding"]] = relationship("RecipeEmbedding", back_populates="recipe", uselist=False, cascade="all, delete-orphan")
 
+    @hybrid_property
+    def promoted(self) -> bool:
+        return bool(self.promoted_at is not None or self.status == "promoted")
+
+    @promoted.setter
+    def promoted(self, value: bool) -> None:
+        if value:
+            self.status = "promoted"
+            if self.promoted_at is None:
+                self.promoted_at = datetime.now(timezone.utc)
+        else:
+            if self.status == "promoted":
+                self.status = "candidate"
+            self.promoted_at = None
+
+    @promoted.expression
+    def promoted(cls):
+        return sa.or_(cls.promoted_at.is_not(None), cls.status == "promoted")
+
+    @property
+    def vendor(self) -> bool:
+        if hasattr(self, "_vendor"):
+            return bool(self._vendor)
+        if isinstance(self.scores, dict) and "vendor" in self.scores:
+            return bool(self.scores["vendor"])
+        return False
+
+    @vendor.setter
+    def vendor(self, value: bool) -> None:
+        self._vendor = bool(value)
+
+    @property
+    def prompt_hash(self) -> Optional[str]:
+        if isinstance(self.compiled_prompt, dict):
+            ph = self.compiled_prompt.get("prompt_hash") or (
+                self.compiled_prompt.get("provenance") or {}
+            ).get("hash")
+            if ph:
+                return str(ph)
+        if isinstance(self.envelope, dict):
+            ph = self.envelope.get("prompt_hash")
+            if ph:
+                return str(ph)
+        return None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "tenant_id": self.user_id,
+            "user_id": self.user_id,
+            "project_id": self.project_id,
+            "persona_id": self.persona_id,
+            "name": self.name,
+            "envelope": self.envelope,
+            "compiled_prompt": self.compiled_prompt,
+            "prompt_hash": self.prompt_hash,
+            "seed": self.seed,
+            "fabric_versions": self.fabric_versions,
+            "scores": self.scores,
+            "mode": self.content_mode,
+            "content_mode": self.content_mode,
+            "status": self.status,
+            "passing_runs": self.promotion_runs,
+            "promotion_runs": self.promotion_runs,
+            "promoted": self.promoted,
+            "promoted_at": self.promoted_at.isoformat() if self.promoted_at else None,
+            "vendor": self.vendor,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+    def __getitem__(self, key: str) -> Any:
+        if hasattr(self, key):
+            return getattr(self, key)
+        if isinstance(self.scores, dict) and key in self.scores:
+            return self.scores[key]
+        raise KeyError(key)
+
+    def get(self, key: str, default: Any = None) -> Any:
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
+    def __contains__(self, key: object) -> bool:
+        if not isinstance(key, str):
+            return False
+        return hasattr(self, key) or (isinstance(self.scores, dict) and key in self.scores)
+
 
 # -----------------------------------------------------------------------------
 # 26. RecipeEmbedding (Bible v2 §21, §42.3 — Matryoshka 1024-dim embedding)
@@ -664,8 +759,10 @@ class RecipeEmbedding(Base):
 
     recipe_id: Mapped[str] = mapped_column(sa.UUID(as_uuid=False), ForeignKey("recipes.id", ondelete="CASCADE"), primary_key=True)
     embedding: Mapped[List[float]] = mapped_column(Vector(1024), nullable=False)
-    model: Mapped[str] = mapped_column(Text, nullable=False)
+    model: Mapped[str] = mapped_column(Text, nullable=False, default="qwen-embedding-local")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), server_default=sa_text("now()"))
+
+    embedding_model: Mapped[str] = synonym("model")
 
     __table_args__ = (
         Index(
@@ -694,6 +791,37 @@ class StyleRule(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), server_default=sa_text("now()"))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), onupdate=func.now(), server_default=sa_text("now()"))
 
+    tenant_id: Mapped[str] = synonym("user_id")
+    text: Mapped[str] = synonym("rule_text")
+
     __table_args__ = (
         Index("ix_style_rules_active", "project_id", postgresql_where=sa_text("active")),
     )
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "tenant_id": self.user_id,
+            "user_id": self.user_id,
+            "project_id": self.project_id,
+            "text": self.rule_text,
+            "rule_text": self.rule_text,
+            "weight": float(self.weight) if self.weight is not None else 1.0,
+            "active": bool(self.active),
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+    def __getitem__(self, key: str) -> Any:
+        if hasattr(self, key):
+            return getattr(self, key)
+        raise KeyError(key)
+
+    def get(self, key: str, default: Any = None) -> Any:
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
+    def __contains__(self, key: object) -> bool:
+        return isinstance(key, str) and hasattr(self, key)

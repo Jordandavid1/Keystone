@@ -204,6 +204,14 @@ try:
 except ImportError:
     pass
 
+# Mount Recipe Library & Style Rules Router (/v1/recipes, Bible v2 §42.3, ADR-005)
+try:
+    from apps.api.src.routers.recipes import router as recipes_router
+    app.include_router(recipes_router)
+except ImportError as exc:
+    print(f"[Warning] Failed to import recipes router: {exc}")
+
+
 
 # ============================================================================
 # Database Schema Initialization Hook

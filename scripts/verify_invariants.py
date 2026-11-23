@@ -32,12 +32,13 @@ if hasattr(sys.stdout, "reconfigure"):
     except Exception:
         pass
 
-# Checks enforced as blocking right now (O17 + PR6: no_duplicate_engines blocking).
+# Checks enforced as blocking right now (O17 + PR6 + PR8: all checks blocking).
 # Checks not in this set run in advisory (warn-only) mode unless --strict is passed.
 BLOCKING_CHECKS: Set[str] = {
     "bible_sync",
     "license_policy",
     "no_duplicate_engines",
+    "manifest_accounting",
     "banned_strings",
     "change_control",
     "npm_test_identity",
@@ -149,21 +150,70 @@ def verify_no_duplicate_engines(root_dir: Path) -> Dict[str, Any]:
 
 def verify_manifest_accounting(root_dir: Path) -> Dict[str, Any]:
     """
-    Bible v2 §2 Invariants 5–7 & ADR-005: replaces the retired quantization ban
+    Bible v2 §2 Invariants 2, 5–7 & ADR-005: replaces the retired quantization ban
     with capability-manifest accounting (GGUF/int8/fp8 quantization is sanctioned
-    when disclosed in operator config / capability manifests).
+    when disclosed in operator config / capability manifests) and verifies that
+    `cognition.local_embeddings` is registered in `CapabilityManifest` with
+    model_id, quantization, dimension=1024, and license.
     """
     issues: List[str] = []
     manifest_candidates = [
         root_dir / "apps" / "api" / "src" / "creative" / "h3_manifest.py",
         root_dir / "services" / "comfy" / "src" / "client.py",
+        root_dir / "services" / "cognition" / "src" / "embeddings.py",
     ]
     present_manifests = [str(p.relative_to(root_dir)).replace("\\", "/") for p in manifest_candidates if p.exists()]
     if not present_manifests:
         issues.append("No capability manifest modules found.")
 
+    embeddings_file = root_dir / "services" / "cognition" / "src" / "embeddings.py"
+    comfy_client_file = root_dir / "services" / "comfy" / "src" / "client.py"
+    local_embeddings_registered = False
+    local_embeddings_metadata: Dict[str, Any] = {}
+
+    if not embeddings_file.exists():
+        issues.append("Missing services/cognition/src/embeddings.py for cognition.local_embeddings CapabilityManifest.")
+    else:
+        emb_text = embeddings_file.read_text(encoding="utf-8", errors="replace")
+        if "cognition.local_embeddings" not in emb_text or "CapabilityManifest" not in emb_text:
+            issues.append("services/cognition/src/embeddings.py does not declare cognition.local_embeddings inside CapabilityManifest.")
+        elif comfy_client_file.exists() and "cognition.local_embeddings" not in comfy_client_file.read_text(encoding="utf-8", errors="replace"):
+            issues.append("services/comfy/src/client.py does not register cognition.local_embeddings in ADAPTER_REGISTRY / CapabilityManifest.")
+        else:
+            try:
+                if str(root_dir) not in sys.path:
+                    sys.path.insert(0, str(root_dir))
+                from services.cognition.src.embeddings import KEYSTONE_EMBEDDING_DIM, get_embedding_manifest
+                from services.comfy.src.client import list_capabilities
+
+                emb_manifest = get_embedding_manifest()
+                meta = dict(emb_manifest.metadata or {})
+                local_embeddings_metadata = meta
+                registered_ids = {m.capability_id for m in list_capabilities()}
+
+                if emb_manifest.capability_id != "cognition.local_embeddings":
+                    issues.append(f"Expected capability_id 'cognition.local_embeddings', got '{emb_manifest.capability_id}'.")
+                if "cognition.local_embeddings" not in registered_ids:
+                    issues.append("cognition.local_embeddings is not registered in services.comfy.src.client.list_capabilities().")
+                if int(KEYSTONE_EMBEDDING_DIM) != 1024 or int(meta.get("dimension", 0)) != 1024:
+                    issues.append(f"cognition.local_embeddings dimension must be 1024, got {meta.get('dimension')}.")
+                for required_meta_key in ("model_id", "quantization", "dimension", "license"):
+                    if not meta.get(required_meta_key):
+                        issues.append(f"cognition.local_embeddings CapabilityManifest missing metadata '{required_meta_key}'.")
+
+                local_embeddings_registered = (
+                    emb_manifest.capability_id == "cognition.local_embeddings"
+                    and "cognition.local_embeddings" in registered_ids
+                    and int(meta.get("dimension", 0)) == 1024
+                    and bool(meta.get("model_id"))
+                    and bool(meta.get("quantization"))
+                    and bool(meta.get("license"))
+                )
+            except Exception as exc:
+                issues.append(f"Failed to verify cognition.local_embeddings CapabilityManifest: {exc}")
+
     # Ensure closed-source aligned vendor models are not invoked in active Python runtime paths.
-    closed_vendor_pattern = re.compile(r"\b(gemini-2\.5-flash|gpt-4o|claude-3)\b", re.IGNORECASE)
+    closed_vendor_pattern = re.compile(r"\b(gemini-2\.5-flash|gpt-4o|claude-3|text-embedding-005)\b", re.IGNORECASE)
     for rel_dir in ("apps/api/src", "services/cognition", "services/authority", "services/harness", "services/comfy"):
         base = root_dir / rel_dir
         if not base.exists():
@@ -183,6 +233,8 @@ def verify_manifest_accounting(root_dir: Path) -> Dict[str, Any]:
     return {
         "valid": len(issues) == 0,
         "present_manifests": present_manifests,
+        "local_embeddings_registered": local_embeddings_registered,
+        "local_embeddings_manifest": local_embeddings_metadata,
         "quantization_sanctioned": True,
         "issues": issues,
     }

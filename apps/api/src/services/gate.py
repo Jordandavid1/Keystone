@@ -350,6 +350,23 @@ class GateService:
                     },
                 )
 
+        # 4.1 Advisory Memory & Style Rule Retrieval (Bible v2 §42.3, ADR-005)
+        advisory_memory = None
+        if project is not None:
+            try:
+                from apps.api.src.services.memory import retrieve_advisory_context
+                advisory_memory = retrieve_advisory_context(
+                    db,
+                    tenant_id=str(user.id),
+                    project_id=str(project.id),
+                    resolved_mode=content_mode,
+                    persona_id=str(persona.id) if persona is not None else None,
+                    query_text=prompt_text,
+                    k=3,
+                )
+            except Exception:
+                advisory_memory = None
+
         # 5. Compile prompt
         compiled_text = _compile_prompt(prompt_text, content_mode, intent, persona=persona)
         req_id = str(uuid.uuid4())
