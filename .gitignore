@@ -20,14 +20,20 @@ data/storage/
 __pycache__/
 *.py[cod]
 .venv/
+.venv-modal/
 venv/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
 
+# ---- Build & packaging artifacts ----
+build/
+dist/
+
 # ---- Node ----
 node_modules/
 .next/
+*.tsbuildinfo
 npm-debug.log*
 
 # ---- Agent session artifacts (contain transcripts and pasted credentials) ----

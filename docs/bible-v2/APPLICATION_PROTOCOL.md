@@ -54,18 +54,18 @@ O17   Housekeeping (proprietary LICENSE/package.json, docs/runbooks/kaggle.md,
 
 ---
 
-## Phase C — Code Ratification (PR Sequence, per ADR-005)
+## Phase C — Code Ratification (PR Sequence, per ADR-005 + Refinements)
 
 1. **PR1** — Alembic migrations (`users`/`sessions`/`projects`/`assets`/`credit_ledger` columns + `recipes`/`recipe_embeddings`/`style_rules` + `personas` & `projects.deleted_at` gap fix)
 2. **PR2** — Envelope v2 + env-held `KEYSTONE_ENVELOPE_SECRET` (hardcoded secrets removed)
-3. **PR3** — `apps/api/src/services/gate.py` + Tier-A floor/deterministic checks + durable DB `authority_decisions`/`audit_events` + P0/P1 security wall (admin/config/worker auth, IDORs, SSRF)
+3. **PR3** — `apps/api/src/services/gate.py` + Tier-A floor/deterministic checks + durable DB `authority_decisions`/`audit_events` + **Stage-1 age verification (`POST /v1/account/age-verification` + `PATCH /v1/account/content-mode`)** + P0/P1 security wall (admin/config/worker auth, IDORs, SSRF, `envelope=null -> 400`). *(Splits cleanly into PR3a security wall + PR3b Gate if review weight warrants.)*
 4. **PR4** — Image-gen crash fix (`assets.py:478`) + ComfyUI workflow zoo image paths + single consolidated client & compiler (flip `no_duplicate_engines` compiler/client checks)
-5. **PR5** — Video variants (`t2v`/`i2v`/`ref2v`/`v2v`) + `extend` chain & stitch + deterministic grade lane + neural ESRGAN upscale (flip `manifest_accounting` to blocking)
+5. **PR5** — Video variants (`t2v`/`i2v`/`ref2v`/`v2v`) + `extend` chain & stitch + deterministic grade lane + neural ESRGAN upscale
 6. **PR6** — Cross-modal Personas (`as: persona_id`, `PersonasModal` unwrap fix, avatar IDOR fix, `depicts` lineage) + UX Parity pass (`specs/UX_PARITY.md` rows → `PORTED-WIRED`, retire legacy SPA, flip `no_duplicate_engines` UI check to blocking)
 7. **PR7** — Tier-B evaluators (`services/harness/src/evaluators/`: OCR, mode-aware VLM critique, temporal, identity) + bounded retry wiring
-8. **PR8** — Memory & Recipe Library (`pgvector`, local Qwen embeddings, `POST /v1/recipes/{id}/replay`, two-run promotion)
-9. **PR9** — Billing provenance (immutable DB credit ledger, hold→settle→release, VRAM-minute metering, dual-rail SFW/UNRESTRICTED processor routing) + age gate + C2PA Content Credentials (§43)
-10. **PR10** — Real HTTP/DB acceptance suite replacing retired v1 theater; wire live `verify_alpha_gate.py`; flip all structural lint checks to blocking
+8. **PR8** — Memory & Recipe Library (`pgvector`, local Qwen embeddings registered in `CapabilityManifest`, `POST /v1/recipes/{id}/replay`, two-run promotion; **flip `manifest_accounting` to blocking here** once the local embedding model is registered)
+9. **PR9** — Billing provenance (immutable DB credit ledger, hold→settle→release, VRAM-minute metering, dual-rail SFW/UNRESTRICTED processor routing) + **Stage-2 age gate** (card/adult-processor verification & billing-side gating) + C2PA Content Credentials (§43)
+10. **PR10** — Real HTTP/DB acceptance suite replacing retired v1 theater; wire live `verify_alpha_gate.py`; **final `openapi.yaml` regeneration** matching all shipped PR1–PR9 routes; flip all remaining structural lint checks to blocking
 
 ---
 

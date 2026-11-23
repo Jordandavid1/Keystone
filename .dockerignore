@@ -1,0 +1,56 @@
+# KEYSTONE Container Build Exclusions (Bible v2 §28 Secret & Hygiene Policy)
+# Prevents secrets, local SQLite databases, virtualenvs, caches, and agent transcripts
+# from being copied into Docker / Cloud Run images.
+
+# Secrets & environment files
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# Local databases & runtime files
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+data/storage/
+state/
+.run/
+
+# Version control & editor metadata
+.git/
+.gitignore
+.vscode/
+
+# Python virtualenvs & caches
+.venv/
+.venv-modal/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node & Next.js build artifacts (API container does not need frontend node_modules)
+node_modules/
+apps/web/node_modules/
+apps/web/.next/
+*.tsbuildinfo
+
+# Agent transcripts, scraped caches, archives, desktop build artifacts & zips
+.agents/
+.firecrawl/
+.freebuff/
+archive/
+build/
+dist/
+*.zip
+*.log
+*.ipynb
+KAGGLE_SETUP/
+Keystone XL/

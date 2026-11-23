@@ -9,7 +9,7 @@ explicitly as their target milestones land:
   - bible_sync           : advisory at O0.5 -> BLOCKING from O2 (Bible v2 landing)
   - license_policy       : advisory at O0.5 -> BLOCKING from O17 (housekeeping)
   - no_duplicate_engines : advisory until consolidation PRs (1 compiler, 1 Comfy client, 1 web UI)
-  - manifest_accounting  : advisory until PR4/PR5 (quantization sanctioned; manifest-disclosed)
+  - manifest_accounting  : advisory until PR8 (quantization sanctioned; flips blocking once local Qwen-embedding registers in CapabilityManifest)
   - banned_strings       : BLOCKING (zero placeholders / sample inputs / silent fallbacks)
   - change_control       : BLOCKING (§37 ADR traceability)
   - npm_test_identity    : BLOCKING (preserved plan.v1 / PromptAnatomy identity tests)

@@ -1,7 +1,7 @@
 # SPEC: The Gate & ExecutionEnvelope v2 (`apps/api/src/services/gate.py`)
 
 **Authority:** KEYSTONE Bible v2 (§2 Invariants 1–4, 13; §12; §17; §18; §40) & ADR-005  
-**Target Implementation:** PR2 (Envelope v2 + env secret) & PR3 (`gate.py` + Tier-A floor + durable DB audit + security wall)
+**Target Implementation:** PR2 (Envelope v2 + env secret) & PR3 (`gate.py` + Tier-A floor + Stage-1 age verification `POST /v1/account/age-verification` & `PATCH /v1/account/content-mode` + durable DB audit + security wall; splittable into PR3a security wall / PR3b Gate)
 
 ---
 
