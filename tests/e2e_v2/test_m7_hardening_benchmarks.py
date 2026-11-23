@@ -26,17 +26,18 @@ from services.authority.src.credits_ledger import credits_ledger
 # ============================================================================
 
 class TestAlphaGateVerification:
-    """Verifies all 13 Alpha Gate criteria from KEYSTONE Bible §34."""
+    """Verifies v1 fabricated PASS-dict Alpha Gate stub is retired fail-closed (ADR-004/ADR-005 O0.5)."""
 
-    def test_alpha_gate_all_thirteen_criteria_pass(self):
+    def test_alpha_gate_retired_fail_closed_pending_pr10(self):
         report = verify_alpha_gate()
-        assert report["alpha_gate_passed"] is True
-        assert report["criteria_count"] == 13
-        assert report["passed_count"] == 13
+        assert report["status"] == "RETIRED_PENDING_PR10"
+        assert report["alpha_gate_passed"] is False
+        assert report["criteria_count"] == 15
+        assert report["passed_count"] == 0
 
         for crit in ALPHA_GATE_CRITERIA:
             assert crit in report["results"]
-            assert report["results"][crit]["status"] == "PASS"
+            assert report["results"][crit]["status"] == "NOT_RUN"
 
 
 # ============================================================================

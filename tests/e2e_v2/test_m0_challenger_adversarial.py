@@ -396,127 +396,72 @@ class TestAssetRelationshipsSimulation:
 # ==============================================================================
 
 class TestVerifyInvariantsAdversarial:
-    """Stress tests scripts/verify_invariants.py under simulated invariant breaches."""
+    """Tests scripts/verify_invariants.py v2 structural lint (ADR-004 / ADR-005)."""
 
-    def test_verifier_passes_on_current_workspace(self):
-        """Standard execution on uncorrupted workspace must return 0."""
-        res = verify_invariants.verify_bible(ROOT_DIR, require_docs_copy=True)
-        assert res["overall_valid"] is True
-        assert res["root_valid"] is True
-        assert res["docs_valid"] is True
+    def test_v1_byte_freeze_permanently_retired(self):
+        """ADR-004 retires the 69-file PREBUILT_MANIFEST and BIBLE_EXPECTED_SHA256 freeze."""
+        assert not hasattr(verify_invariants, "PREBUILT_MANIFEST")
+        assert not hasattr(verify_invariants, "BIBLE_EXPECTED_SHA256")
+        assert not hasattr(verify_invariants, "PROHIBITED_MODEL_PATTERNS")
 
-        manifest = verify_invariants.verify_prebuilt_manifest(ROOT_DIR)
-        assert manifest["all_valid"] is True
-        assert manifest["mismatch_count"] == 0
-        assert manifest["missing_count"] == 0
-
-        cog = verify_invariants.verify_cognition_checkpoint(ROOT_DIR)
-        assert cog["valid"] is True
-
-    def test_detects_tampered_root_bible(self, tmp_path):
-        """Modifying root Bible by 1 byte must trigger failure."""
+    def test_detects_out_of_sync_bible_copies(self, tmp_path):
+        """Divergent root and docs/ Bible copies must fail bible_sync."""
         fake_root = tmp_path / "mock_keystone"
+        (fake_root / "docs").mkdir(parents=True)
+        (fake_root / "KEYSTONE_BIBLE.md").write_text("Bible v2 root", encoding="utf-8")
+        (fake_root / "docs" / "KEYSTONE_BIBLE.md").write_text("Bible v2 docs DRIFTED", encoding="utf-8")
+
+        res = verify_invariants.verify_bible_sync(fake_root)
+        assert res["valid"] is False
+        assert res["in_sync"] is False
+
+    def test_passes_when_bible_copies_identical(self, tmp_path):
+        """Identical root and docs/ Bible copies pass bible_sync regardless of content edits."""
+        fake_root = tmp_path / "mock_keystone_ok"
+        (fake_root / "docs").mkdir(parents=True)
+        body = "# KEYSTONE Bible v2\n"
+        (fake_root / "KEYSTONE_BIBLE.md").write_text(body, encoding="utf-8")
+        (fake_root / "docs" / "KEYSTONE_BIBLE.md").write_text(body, encoding="utf-8")
+
+        res = verify_invariants.verify_bible_sync(fake_root)
+        assert res["valid"] is True
+        assert res["in_sync"] is True
+
+    def test_detects_missing_docs_bible(self, tmp_path):
+        """Missing docs/KEYSTONE_BIBLE.md must fail bible_sync."""
+        fake_root = tmp_path / "mock_missing_docs"
         fake_root.mkdir()
-        fake_bible = fake_root / "KEYSTONE_BIBLE.md"
-        fake_bible.write_text("Corrupted content", encoding="utf-8")
+        (fake_root / "KEYSTONE_BIBLE.md").write_text("Bible v2", encoding="utf-8")
 
-        res = verify_invariants.verify_bible(fake_root)
-        assert res["root_valid"] is False
-        assert res["overall_valid"] is False
-
-    def test_detects_missing_docs_bible_when_required(self, tmp_path):
-        """Missing docs/KEYSTONE_BIBLE.md must fail when require_docs_copy=True."""
-        fake_root = tmp_path / "mock_keystone"
-        fake_root.mkdir()
-        # Create valid root
-        real_bible = ROOT_DIR / "KEYSTONE_BIBLE.md"
-        (fake_root / "KEYSTONE_BIBLE.md").write_bytes(real_bible.read_bytes())
-
-        res = verify_invariants.verify_bible(fake_root, require_docs_copy=True)
-        assert res["root_valid"] is True
+        res = verify_invariants.verify_bible_sync(fake_root)
         assert res["docs_present"] is False
-        assert res["docs_valid"] is False
-        assert res["overall_valid"] is False
-
-    def test_detects_missing_manifest_file(self, tmp_path):
-        """Missing any of the 69 pre-built files must fail manifest verification."""
-        fake_root = tmp_path / "mock_manifest_missing"
-        fake_root.mkdir()
-
-        res = verify_invariants.verify_prebuilt_manifest(fake_root)
-        assert res["all_valid"] is False
-        assert res["missing_count"] == len(verify_invariants.PREBUILT_MANIFEST)
-
-    def test_detects_corrupted_manifest_file(self, tmp_path):
-        """Modifying even 1 byte in a pre-built file must fail manifest verification."""
-        fake_root = tmp_path / "mock_manifest_corrupted"
-        fake_root.mkdir()
-
-        # Recreate a single tracked file with corrupted bytes
-        rel_path = "README.md"
-        target = fake_root / rel_path
-        target.write_text("Modified README content", encoding="utf-8")
-
-        res = verify_invariants.verify_prebuilt_manifest(fake_root)
-        assert res["all_valid"] is False
-        mismatched_paths = [m["path"] for m in res["mismatches"]]
-        assert rel_path in mismatched_paths
-
-    def test_detects_cognition_checkpoint_tampering(self, tmp_path):
-        """Removing pinned model or adding prohibited model patterns must trigger breach."""
-        fake_root = tmp_path / "mock_kaggle"
-        nb_dir = fake_root / "infrastructure" / "kaggle"
-        nb_dir.mkdir(parents=True)
-        nb_file = nb_dir / "keystone_kaggle_bootstrap.ipynb"
-
-        # Case 1: Pinned model missing
-        nb_file.write_text(json.dumps({"cells": [{"source": ["some generic model"]}]}), encoding="utf-8")
-        res1 = verify_invariants.verify_cognition_checkpoint(fake_root)
-        assert res1["valid"] is False
-
-        # Case 2: Pinned model present, but prohibited quantized substitute injected
-        nb_file.write_text(json.dumps({
-            "cells": [
-                {"source": [verify_invariants.PINNED_COGNITION_MODEL]},
-                {"source": ["Using qwen/qwen2.5-7b as fallback"]}
-            ]
-        }), encoding="utf-8")
-        res2 = verify_invariants.verify_cognition_checkpoint(fake_root)
-        assert res2["valid"] is False
-
-    def test_detects_prohibited_model_in_kaggle_setup(self, tmp_path):
-        """Prohibited models in KAGGLE_SETUP/*.ipynb must also fail verification."""
-        fake_root = tmp_path / "mock_kaggle_setup"
-        # Valid bootstrap
-        nb_dir = fake_root / "infrastructure" / "kaggle"
-        nb_dir.mkdir(parents=True)
-        (nb_dir / "keystone_kaggle_bootstrap.ipynb").write_text(
-            json.dumps({"cells": [{"source": [verify_invariants.PINNED_COGNITION_MODEL]}]}),
-            encoding="utf-8"
-        )
-        # Invalid KAGGLE_SETUP notebook
-        setup_dir = fake_root / "KAGGLE_SETUP"
-        setup_dir.mkdir(parents=True)
-        (setup_dir / "worker.ipynb").write_text(
-            json.dumps({"cells": [{"source": ["unsloth 4bit quantized"]}]}),
-            encoding="utf-8"
-        )
-
-        res = verify_invariants.verify_cognition_checkpoint(fake_root)
         assert res["valid"] is False
 
-    def test_flaw_analysis_in_verify_npm_test_regex(self):
-        """
-        Adversarial Analysis of verify_invariants.py:
-        Line 476: has_fail = ("fail [1-9]" in output or ...)
-        Because 'fail [1-9]' is evaluated as a string literal and not a compiled regex,
-        an output containing 'fail 1' does not trigger 'fail [1-9]' in output!
-        Demonstrates the logic weakness if exit_code is zero.
-        """
-        mock_npm_output = "ℹ tests 3, pass 2, fail 1\n"
-        # Direct string membership test as written in verify_invariants.py:
-        literal_match = "fail [1-9]" in mock_npm_output
-        assert literal_match is False, "Demonstrates that 'fail [1-9]' is treated as literal, not regex."
+    def test_detects_permissive_license_twins(self, tmp_path):
+        """Apache-2.0 LICENSE or MIT package.json must be flagged by license_policy."""
+        fake_root = tmp_path / "mock_lic"
+        fake_root.mkdir()
+        (fake_root / "LICENSE").write_text("Apache License Version 2.0", encoding="utf-8")
+        (fake_root / "package.json").write_text(json.dumps({"name": "keystone", "license": "MIT"}), encoding="utf-8")
+
+        res = verify_invariants.verify_license_policy(fake_root)
+        assert res["valid"] is False
+        assert len(res["issues"]) >= 2
+
+    def test_verify_npm_test_regex_catches_failure_with_zero_exit(self, monkeypatch):
+        """Regex check catches 'fail 1' even if subprocess exit code were zero."""
+        def mock_run_command_sneaky(cmd, cwd):
+            return {
+                "command": "npm test",
+                "exit_code": 0,
+                "stdout": "ℹ tests 3, pass 2, fail 1\n",
+                "stderr": "",
+                "success": True,
+            }
+
+        monkeypatch.setattr(verify_invariants, "run_command_check", mock_run_command_sneaky)
+        res = verify_invariants.verify_npm_test(ROOT_DIR)
+        assert res["passed"] is False
 
     def test_verify_npm_test_non_zero_exit_fails(self, monkeypatch):
         """Simulate npm test returning non-zero exit code."""
@@ -526,36 +471,19 @@ class TestVerifyInvariantsAdversarial:
                 "exit_code": 1,
                 "stdout": "fail 1",
                 "stderr": "AssertionError",
-                "success": False
+                "success": False,
             }
+
         monkeypatch.setattr(verify_invariants, "run_command_check", mock_run_command_fail)
         res = verify_invariants.verify_npm_test(ROOT_DIR)
         assert res["passed"] is False
 
-    def test_verify_e2e_runner_failure_fails(self, monkeypatch):
-        """Simulate node e2e runner returning failure."""
-        def mock_run_command_fail(cmd, cwd):
-            return {
-                "command": "node tests/e2e/runner.js",
-                "exit_code": 1,
-                "stdout": "Total Failed: 2",
-                "stderr": "",
-                "success": False
-            }
-        monkeypatch.setattr(verify_invariants, "run_command_check", mock_run_command_fail)
-        res = verify_invariants.verify_e2e_runner(ROOT_DIR)
-        assert res["passed"] is False
-
     def test_cli_skip_tests_flag_behavior(self):
-        """
-        Adversarial Analysis of CLI flags:
-        When --skip-tests is passed, verify_invariants skips npm test and e2e runner.
-        Verify that --skip-tests flags them as skipped.
-        """
-        cmd = [sys.executable, str(VERIFY_SCRIPT), "--require-docs-bible", "--skip-tests", "--json"]
+        """When --skip-tests is passed, verify_invariants flags npm_test_identity as skipped."""
+        cmd = [sys.executable, str(VERIFY_SCRIPT), "--skip-tests", "--json"]
         proc = subprocess.run(cmd, cwd=str(ROOT_DIR), capture_output=True, text=True)
         assert proc.returncode == 0
         data = json.loads(proc.stdout)
-        assert data["npm_test_identity"]["skipped"] is True
-        assert data["e2e_runner_run1"]["skipped"] is True
+        assert data["lint_version"] == "2.0"
+        assert data["checks"]["npm_test_identity"]["skipped"] is True
 
