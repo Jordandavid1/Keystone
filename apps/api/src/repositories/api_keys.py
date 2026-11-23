@@ -29,10 +29,7 @@ class ApiKeyRepository(BaseRepository[ApiKey]):
             user_id=self.tenant_id,
             name=name,
             key_hash=key_hash,
-            key_prefix=key_prefix,
-            scopes=scopes or ["*"],
-            status="active",
-            expires_at=expires_at
+            expires_at=expires_at,
         )
         self.session.add(api_key)
         await self.session.flush()
@@ -42,7 +39,7 @@ class ApiKeyRepository(BaseRepository[ApiKey]):
         stmt = (
             select(ApiKey)
             .where(ApiKey.key_hash == key_hash)
-            .where(ApiKey.status == "active")
+            .where(ApiKey.revoked_at.is_(None))
         )
         res = await self.session.execute(stmt)
         return res.scalar_one_or_none()

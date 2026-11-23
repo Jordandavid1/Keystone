@@ -125,7 +125,8 @@ async def send_message(
             session_id=session.id,
             role=req.role,
             content=req.content,
-            metadata=req.metadata
+            metadata=req.metadata,
+            user_id=tenant_id,
         )
     except ValueError as err:
         raise HTTPException(

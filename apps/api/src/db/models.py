@@ -72,6 +72,23 @@ class User(Base):
     projects: Mapped[List["Project"]] = relationship("Project", back_populates="user")
     personas: Mapped[List["Persona"]] = relationship("Persona", back_populates="user")
 
+    @property
+    def display_name(self) -> str:
+        cached = getattr(self, "_display_name", None)
+        if cached:
+            return cached
+        if self.email and "@" in self.email:
+            return self.email.split("@")[0]
+        return "Creator"
+
+    @display_name.setter
+    def display_name(self, value: Optional[str]) -> None:
+        self._display_name = value or "Creator"
+
+    @property
+    def status(self) -> str:
+        return "active" if (self.is_active and not self.is_suspended) else "suspended"
+
 
 # -----------------------------------------------------------------------------
 # 2. Subscription (Bible v2 §21)
@@ -110,6 +127,18 @@ class ApiKey(Base):
         Index("ix_api_keys_user", "user_id"),
     )
 
+    @property
+    def status(self) -> str:
+        return "revoked" if self.revoked_at is not None else "active"
+
+    @property
+    def scopes(self) -> List[str]:
+        return ["*"]
+
+    @property
+    def key_prefix(self) -> str:
+        return "ks_live"
+
 
 # -----------------------------------------------------------------------------
 # 4. Project (Bible v2 §21)
@@ -134,6 +163,10 @@ class Project(Base):
     user: Mapped["User"] = relationship("User", back_populates="projects")
     sessions: Mapped[List["Session"]] = relationship("Session", back_populates="project")
 
+    @property
+    def status(self) -> str:
+        return "deleted" if self.deleted_at is not None else "active"
+
 
 # -----------------------------------------------------------------------------
 # 5. Session (Bible v2 §21)
@@ -157,6 +190,10 @@ class Session(Base):
     project: Mapped[Optional["Project"]] = relationship("Project", back_populates="sessions")
     messages: Mapped[List["Message"]] = relationship("Message", back_populates="session")
 
+    @property
+    def status(self) -> str:
+        return "active"
+
 
 # -----------------------------------------------------------------------------
 # 6. Message (Bible v2 §21)
@@ -177,6 +214,10 @@ class Message(Base):
     )
 
     session: Mapped["Session"] = relationship("Session", back_populates="messages")
+
+    @property
+    def metadata_(self) -> Dict[str, Any]:
+        return {}
 
 
 # -----------------------------------------------------------------------------

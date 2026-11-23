@@ -31,9 +31,8 @@ class UserRepository:
             id=user_id_str,
             email=email.strip().lower(),
             password_hash=password_hash,
-            display_name=display_name,
-            status="active"
         )
+        user.display_name = display_name
         self.session.add(user)
 
         # Automatically initialize credit account for user with 100,000 studio credits
@@ -41,9 +40,6 @@ class UserRepository:
             id=str(uuid.uuid4()),
             user_id=user_id_str,
             balance=100000,
-            held_balance=0,
-            currency="credits",
-            status="active"
         )
         self.session.add(credit_account)
 

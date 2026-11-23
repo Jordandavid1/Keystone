@@ -32,8 +32,7 @@ class ProjectRepository(BaseRepository[Project]):
             user_id=self.tenant_id,
             name=name,
             description=description,
-            status="active",
-            deleted_at=None
+            deleted_at=None,
         )
         self.session.add(project)
         await self.session.flush()
@@ -77,7 +76,7 @@ class ProjectRepository(BaseRepository[Project]):
             .where(Project.id == str(project_id))
             .where(Project.user_id == self.tenant_id)
             .where(Project.deleted_at.is_(None))
-            .values(deleted_at=datetime.now(timezone.utc), status="deleted")
+            .values(deleted_at=datetime.now(timezone.utc))
         )
         res = await self.session.execute(stmt)
         await self.session.flush()
