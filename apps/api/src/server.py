@@ -94,7 +94,7 @@ app.version = "2.0.0-alpha.1"
 app.description = (
     "KEYSTONE is the proprietary prompt-intelligence engine, prompting authority, "
     "cognition controller, workflow orchestrator, and quality authority for multimodal creative AI.\n\n"
-    "Canonical spec: KEYSTONE Bible (SHA-256: 3BFF4E7063733146B663BDBE9C9BAD7271D480152243A05542F256DC05E7B25D)."
+    "Canonical spec: KEYSTONE Bible v2 (ADR-004 / ADR-005; v1 archived at git tag bible-v1-final)."
 )
 
 app.openapi_tags = [

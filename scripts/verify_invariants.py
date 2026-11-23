@@ -32,10 +32,11 @@ if hasattr(sys.stdout, "reconfigure"):
     except Exception:
         pass
 
-# Checks enforced as blocking right now (O2: bible_sync promoted to blocking).
+# Checks enforced as blocking right now (O17: bible_sync + license_policy blocking).
 # Checks not in this set run in advisory (warn-only) mode unless --strict is passed.
 BLOCKING_CHECKS: Set[str] = {
     "bible_sync",
+    "license_policy",
     "banned_strings",
     "change_control",
     "npm_test_identity",

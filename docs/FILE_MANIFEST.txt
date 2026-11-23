@@ -1,21 +1,37 @@
-./README.md
-./apps/admin/README.md
-./apps/api/src/main.py
-./apps/web/README.md
-./docs/BUILD_NOW.md
-./docs/FILE_MANIFEST.txt
+# KEYSTONE Canonical Deliverables & Manifest Notice (Bible v2 §38 / ADR-004 O17)
+#
+# NOTE: The v1 21-file / 69-file SHA-256 byte-freeze was permanently retired under
+# ADR-004 (D14) and O0.5. Bible v1 is archived intact at git tag `bible-v1-final`.
+# Enforcement now runs via scripts/verify_invariants.py (v2 structural lint +
+# root/docs Bible sync check + proprietary license check + real integration tests).
+#
+# Core canonical deliverables (Bible v2 §38):
+./KEYSTONE_BIBLE.md
+./docs/KEYSTONE_BIBLE.md
 ./docs/IDENTITY_PRESERVATION.md
-./infrastructure/kaggle/keystone_kaggle_bootstrap.ipynb
-./infrastructure/migrations/versions/0001_core.sql
+./docs/change_control/ADR_004_BIBLE_V2_CONTENT_MODES_PERSONAS_MEMORY_CREDENTIALS.md
+./docs/change_control/ADR_005_EXECUTION_ARCHITECTURE_GATE_ENVELOPE_V2_EVALUATORS_MEMORY.md
+./docs/bible-v2/APPLICATION_PROTOCOL.md
+./docs/runbooks/kaggle.md
+./specs/SPEC_GATE.md
+./specs/SPEC_EVALUATORS.md
+./specs/SPEC_MEMORY.md
+./specs/UX_PARITY.md
+./specs/DEPENDENCY_MANIFEST.md
+./LICENSE
 ./openapi.yaml
+./README.md
 ./package.json
-./packages/contracts/src/contracts.json
+./packages/contracts/src/models.py
 ./packages/prompt-engine/src/engine.js
-./packages/prompt-engine/src/meta-prompt.js
 ./packages/prompt-engine/src/playbooks.js
 ./packages/prompt-engine/src/prompt-compiler.js
-./services/authority/README.md
-./services/cognition/README.md
-./services/comfy/README.md
-./services/harness/README.md
+./packages/prompt_engine/engine.py
+./packages/prompt_engine/playbooks.py
+./packages/prompt_engine/compiler.py
+./apps/api/src/server.py
+./apps/web/app/page.tsx
+./apps/admin/index.html
+./scripts/verify_invariants.py
+./scripts/verify_change_control.py
 ./tests/identity.test.js

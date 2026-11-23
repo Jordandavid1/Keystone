@@ -16,7 +16,7 @@
     "prompt-injection"
   ],
   "author": "Jordan Maxwell",
-  "license": "MIT",
+  "license": "UNLICENSED",
   "engines": {
     "node": ">=20.0.0"
   }

@@ -1,10 +1,21 @@
 # KEYSTONE E2E Test Suite Readiness Report (TEST_READY.md)
 
+> **ARCHIVED / SUPERSEDED NOTICE (2026-11-22 — ADR-004 / ADR-005 / O0.5 / O17):**  
+> This v1 report recorded results from the `e2e_v2` JavaScript mock-oracle suite (`keystone_oracle.js`), which tested standalone in-memory mocks rather than live FastAPI endpoints or database boundaries. Per **KEYSTONE Bible v2 §2 Invariant 12 (Real Tests Only)**, **ADR-004**, and **ADR-005**:
+> - The v1 `e2e_v2` JS mock-oracle suite was archived to `archive/v1_verification/e2e_v2_oracle/` in `O0.5`.
+> - The v1 `scripts/verify_alpha_gate.py` fabricated PASS-dict stub was retired fail-closed in `O0.5`.
+> - The v1 Bible SHA-256 content freeze (`1D31D909...` / `1DA5FFE9...`) and 69-file byte freeze were permanently retired in `O0.5` (`bible-v1-final` preserves v1).
+> - Real HTTP/DB acceptance tests satisfying Bible v2 §34–§35 & ADR-005 are scheduled for **PR10**.
+
+---
+
+## Historical v1 Report (Preserved for Traceability)
+
 **Date**: 2026-10-22  
 **Milestone**: E2E Test Suite Creation (Dual-Track Testing Track)  
-**Status**: 100% READY & VERIFIED  
-**Integrity Mode**: Development / Non-Destructive Additive  
-**Authority Reference**: `PROJECT.md`, `KEYSTONE_BIBLE.md`, `ORIGINAL_REQUEST.md`, `TEST_INFRA.md`  
+**Status**: ARCHIVED (Superseded by ADR-004 / ADR-005)  
+**Integrity Mode**: Historical v1 Snapshot  
+**Authority Reference**: `KEYSTONE_BIBLE.md` (v1 at tag `bible-v1-final`), `TEST_INFRA.md`  
 
 ---
 

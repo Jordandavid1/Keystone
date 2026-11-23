@@ -4,7 +4,7 @@
   "private": true,
   "description": "KEYSTONE prompt-intelligence and authoritative creative orchestration platform.",
   "author": "Jordan Maxwell",
-  "license": "MIT",
+  "license": "UNLICENSED",
   "workspaces": [
     "apps/*",
     "packages/*",

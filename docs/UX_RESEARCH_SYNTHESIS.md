@@ -11,7 +11,7 @@
 KEYSTONE's customer-facing experience is **not** a fragmented grid of raw model playgrounds or technical parameter dumps. Per **KEYSTONE Bible §25**, KEYSTONE is a **unified, canvas-first creative workspace** where:
 1. **The creative asset is visually primary.**
 2. **Natural-language conversation supports the canvas.**
-3. **Ordinary users interact via creative intents (`Create`, `Edit`, `Animate`, `Analyze`) and 13 Domain Playbooks**, while KEYSTONE's embedded cognition (`OBLITERATUS/Qwen3.8-27B-OBLITERATED`), PromptCompiler, and Authority Engine own model selection, 6-part `PromptAnatomy` compilation, and execution.
+3. **Ordinary users interact via creative intents (`Create`, `Edit`, `Animate`, `Analyze`) and 16 mode-scoped Domain Playbooks** (1–13 SFW, 14–16 UNRESTRICTED per Bible v2 §6 & §40.6; governed by §25.9 Port Parity Rule and `specs/UX_PARITY.md`), while KEYSTONE's embedded cognition behind `CognitiveProvider`, PromptCompiler, and Authority Engine own model selection, 6-part `PromptAnatomy` compilation, and execution.
 
 To design a category-defining UX, we analyzed 6 benchmark platforms across generative media, motion control, node orchestration, privacy-first inference, and enterprise creative suites.
 
@@ -35,7 +35,7 @@ To design a category-defining UX, we analyzed 6 benchmark platforms across gener
 ### ✅ Patterns Adopted
 1. **Adobe Firefly's 5-Region Studio Ergonomics**:
    - **Top Bar**: Product & active project identity, global `⌘K` command palette, real-time credit balance (Available / Held), and Workspace Switcher.
-   - **Left Sidebar**: Modes & navigation (`Create`, `Projects`, `Assets`, `History`, `Favorites`, plus `13 Domain Playbooks`).
+   - **Left Sidebar**: Modes & navigation (`Create`, `Projects`, `Assets`, `History`, `Favorites`, `Personas`, plus `16 mode-scoped Domain Playbooks`).
    - **Center Canvas**: Dominant dark-obsidian stage supporting single-asset inspection, **Split-Screen Image Comparison** (interactive curtain slider), **Synchronized Dual-Video Playback**, **Variations Grid**, and **Interactive Lineage DAG**.
    - **Right Inspector**: Asset metadata, KHF multidimensional quality scores, customer-level style/aspect controls, and a collapsible **Developer / Authority Mode** drawer.
    - **Bottom Composer**: Floating glassmorphic natural-language bar with drag/drop/paste asset trays and 1-click intent pills (`Create`, `Edit`, `Animate`, `Analyze`).
