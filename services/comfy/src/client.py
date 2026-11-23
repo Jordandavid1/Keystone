@@ -392,20 +392,20 @@ def build_upscale_graph(
     scale_factor: int = 2,
     model_name: str = "4x-UltraSharp.pth",
 ) -> Dict[str, Any]:
-    """Super-resolution upscale graph using ComfyUI UpscaleImageBy."""
+    """Neural ESRGAN super-resolution upscale graph using UpscaleModelLoader + ImageUpscaleWithModel."""
     return {
         "1": {"class_type": "LoadImage", "inputs": {"image": image_name}},
-        "2": {
-            "class_type": "UpscaleImageBy",
+        "2": {"class_type": "UpscaleModelLoader", "inputs": {"model_name": model_name}},
+        "3": {
+            "class_type": "ImageUpscaleWithModel",
             "inputs": {
+                "upscale_model": ["2", 0],
                 "image": ["1", 0],
-                "upscale_method": "bicubic",
-                "scale_by": float(scale_factor),
             },
         },
-        "3": {
+        "4": {
             "class_type": "SaveImage",
-            "inputs": {"filename_prefix": "keystone_upscale", "images": ["2", 0]},
+            "inputs": {"filename_prefix": "keystone_upscale", "images": ["3", 0]},
         },
     }
 
@@ -933,6 +933,32 @@ class ComfyUIClient:
     def system_stats(self) -> Dict[str, Any]:
         return system_stats()
 
+    def execute_workflow(
+        self,
+        envelope: Any,
+        workflow_name: Optional[str] = None,
+        graph: Optional[Dict[str, Any]] = None,
+        expected_mode: Optional[str] = None,
+        timeout: Optional[float] = None,
+    ) -> Dict[str, Any]:
+        """Verify ExecutionEnvelope v2 signature & mode, then execute workflow on ComfyUI."""
+        from services.harness.src.envelope import EnvelopeEngine
+
+        verified = EnvelopeEngine.verify_envelope(envelope, expected_mode=expected_mode)
+        if graph is None:
+            if not workflow_name:
+                raise ComfyUIError("Either workflow_name or graph must be provided")
+            graph = load_workflow_template(workflow_name)
+
+        prompt_id = submit_graph(graph)
+        history = wait_for_result(prompt_id, timeout=timeout)
+        return {
+            "prompt_id": prompt_id,
+            "envelope_id": verified.get("envelope_id"),
+            "job_id": verified.get("job_id"),
+            "history": history,
+        }
+
     def generate_image(self, prompt: str, **kwargs: Any) -> Dict[str, Any]:
         return generate_image(prompt, **kwargs)
 
@@ -947,3 +973,357 @@ class ComfyUIClient:
 
 
 comfy_client = ComfyUIClient()
+
+
+# ---------------------------------------------------------------------------
+# Workflow templates & MiniMax H3 helpers (consolidated from creative/h3.py)
+# ---------------------------------------------------------------------------
+
+WORKFLOWS_DIR = Path(__file__).resolve().parent / "workflows"
+H3Error = ComfyUIError
+
+
+def load_workflow_template(name: str) -> Dict[str, Any]:
+    """Load a JSON workflow template from services/comfy/src/workflows/."""
+    filename = name if name.endswith(".json") else f"{name}.json"
+    path = WORKFLOWS_DIR / filename
+    if not path.exists():
+        raise ComfyUIError(f"Workflow template not found: {path}")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def h3_workflow_path() -> Optional[Path]:
+    try:
+        return _resolve_workflow_file()
+    except Exception:
+        return None
+
+
+def h3_describe() -> Dict[str, Any]:
+    wf = h3_workflow_path()
+    return {
+        "configured": is_configured(),
+        "url": comfy_base_url(),
+        "workflow": str(wf) if wf else None,
+    }
+
+
+def h3_health() -> Dict[str, Any]:
+    if not is_configured():
+        return {"configured": False, "reachable": False, "detail": "COMFY_BASE_URL is not set"}
+    try:
+        stats = system_stats()
+        return {"configured": True, "reachable": True, "system_stats": stats}
+    except Exception as exc:
+        return {"configured": True, "reachable": False, "detail": str(exc)}
+
+
+async def h3_generate(
+    prompt: str,
+    references: Optional[list] = None,
+) -> Tuple[bytes, str, Dict[str, Any]]:
+    import asyncio
+    ref_images = [item[2] for item in (references or []) if len(item) >= 3]
+    res = await asyncio.to_thread(
+        generate_minimax_h3_video,
+        prompt=prompt,
+        reference_images=ref_images,
+    )
+    return res["video_bytes"], res.get("mime_type", "video/mp4"), res
+
+
+# ---------------------------------------------------------------------------
+# Creative Tool Fabric Adapters (consolidated from services/comfy/src/adapters.py)
+# ---------------------------------------------------------------------------
+
+from packages.contracts.src.models import CapabilityManifest, ParameterSpec, ExecutionEnvelope
+
+SUPPORTED_ADAPTERS = [
+    "comfyui",
+    "image_gen",
+    "image_edit",
+    "wan_i2v",
+    "wan_t2v",
+    "facefusion",
+    "upscale",
+]
+
+
+class CreativeAdapterBase:
+    """Base interface for all creative tool fabric adapters."""
+
+    def __init__(self, adapter_name: str, capability_id: str, provider_id: str, version: str = "1.0.0"):
+        self.adapter_name = adapter_name
+        self.capability_id = capability_id
+        self.provider_id = provider_id
+        self.version = version
+
+    def get_manifest(self) -> CapabilityManifest:
+        raise NotImplementedError
+
+    def validate_parameters(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        return params
+
+    def build_workflow_graph(self, params: Dict[str, Any], prompt: str) -> Dict[str, Any]:
+        raise NotImplementedError
+
+    def execute(self, params: Dict[str, Any], envelope: Optional[ExecutionEnvelope] = None) -> Dict[str, Any]:
+        validated = self.validate_parameters(params)
+        prompt = validated.get("prompt", "")
+        graph = self.build_workflow_graph(validated, prompt)
+        return {
+            "adapter": self.adapter_name,
+            "capability_id": self.capability_id,
+            "status": "READY",
+            "workflow_id": f"wf_{self.adapter_name}_v1",
+            "graph": graph,
+            "parameters": validated,
+            "estimated_runtime_seconds": 45,
+        }
+
+
+class ComfyUIAdapter(CreativeAdapterBase):
+    def __init__(self):
+        super().__init__("comfyui", "creative.comfyui", "comfy.core")
+
+    def get_manifest(self) -> CapabilityManifest:
+        return CapabilityManifest(
+            capability_id="creative.comfyui",
+            provider_id="comfy.core",
+            provider_version="1.0.0",
+            capability_type="generation",
+            description="ComfyUI modular graph generation engine",
+            accepts=["application/json"],
+            produces=["image/png", "video/mp4"],
+            parameters={
+                "workflow_graph": ParameterSpec(type="object", required=True, description="ComfyUI node graph JSON")
+            },
+        )
+
+    def validate_parameters(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        if "workflow_graph" not in params and "prompt" not in params:
+            raise ValueError("MISSING_GRAPH_OR_PROMPT: workflow_graph or prompt required for ComfyUI adapter")
+        return params
+
+    def build_workflow_graph(self, params: Dict[str, Any], prompt: str) -> Dict[str, Any]:
+        return params.get("workflow_graph", {"3": {"inputs": {"text": prompt}, "class_type": "CLIPTextEncode"}})
+
+
+class ImageGenAdapter(CreativeAdapterBase):
+    """Flux Schnell / Dev text-to-image adapter."""
+
+    def __init__(self):
+        super().__init__("image_gen", "image.generation", "comfy.flux_schnell")
+
+    def get_manifest(self) -> CapabilityManifest:
+        return CapabilityManifest(
+            capability_id="image.generation",
+            provider_id="comfy.flux_schnell",
+            provider_version="1.0.0",
+            capability_type="generation",
+            description="High-fidelity text-to-image generation powered by Flux",
+            accepts=["text/plain"],
+            produces=["image/png"],
+            parameters={
+                "prompt": ParameterSpec(type="string", required=True, description="Generation prompt"),
+                "width": ParameterSpec(type="integer", required=False, default=1024),
+                "height": ParameterSpec(type="integer", required=False, default=1024),
+                "steps": ParameterSpec(type="integer", required=False, default=4),
+                "seed": ParameterSpec(type="integer", required=False, description="Deterministic seed"),
+            },
+        )
+
+    def build_workflow_graph(self, params: Dict[str, Any], prompt: str) -> Dict[str, Any]:
+        return build_sdxl_graph(
+            prompt=prompt,
+            width=params.get("width", 1024),
+            height=params.get("height", 1024),
+            steps=params.get("steps", 25),
+            seed=params.get("seed"),
+        )
+
+
+class ImageEditAdapter(CreativeAdapterBase):
+    def __init__(self):
+        super().__init__("image_edit", "image.edit", "comfy.image_edit")
+
+    def get_manifest(self) -> CapabilityManifest:
+        return CapabilityManifest(
+            capability_id="image.edit",
+            provider_id="comfy.image_edit",
+            provider_version="1.0.0",
+            capability_type="edit",
+            description="Reference-guided image editing",
+            accepts=["image/png", "text/plain"],
+            produces=["image/png"],
+            parameters={
+                "prompt": ParameterSpec(type="string", required=True, description="Edit instruction"),
+                "image_name": ParameterSpec(type="string", required=True, description="Input image filename"),
+                "denoise": ParameterSpec(type="number", required=False, default=0.65),
+            },
+        )
+
+    def build_workflow_graph(self, params: Dict[str, Any], prompt: str) -> Dict[str, Any]:
+        return build_img2img_graph(
+            prompt=prompt,
+            image_name=params.get("image_name", ""),
+            denoise=params.get("denoise", 0.65),
+        )
+
+
+class WanI2VAdapter(CreativeAdapterBase):
+    def __init__(self):
+        super().__init__("wan_i2v", "video.i2v", "comfy.wan_2_1")
+
+    def get_manifest(self) -> CapabilityManifest:
+        return CapabilityManifest(
+            capability_id="video.i2v",
+            provider_id="comfy.wan_2_1",
+            provider_version="1.0.0",
+            capability_type="video",
+            description="Wan 2.1 Image-to-Video generation",
+            accepts=["image/png", "text/plain"],
+            produces=["video/mp4"],
+            parameters={
+                "prompt": ParameterSpec(type="string", required=True, description="Motion prompt"),
+                "image_name": ParameterSpec(type="string", required=False, description="Source image"),
+            },
+        )
+
+    def build_workflow_graph(self, params: Dict[str, Any], prompt: str) -> Dict[str, Any]:
+        return {
+            "1": {"class_type": "WanImageToVideo", "inputs": {"prompt": prompt, "image": params.get("image_name", "")}},
+            "3": {"class_type": "WanMotionPrompt", "inputs": {"motion_text": prompt}},
+        }
+
+
+class WanT2VAdapter(CreativeAdapterBase):
+    def __init__(self):
+        super().__init__("wan_t2v", "video.t2v", "comfy.wan_2_1")
+
+    def get_manifest(self) -> CapabilityManifest:
+        return CapabilityManifest(
+            capability_id="video.t2v",
+            provider_id="comfy.wan_2_1",
+            provider_version="1.0.0",
+            capability_type="video",
+            description="Wan 2.1 Text-to-Video generation",
+            accepts=["text/plain"],
+            produces=["video/mp4"],
+            parameters={"prompt": ParameterSpec(type="string", required=True, description="Video prompt")},
+        )
+
+    def build_workflow_graph(self, params: Dict[str, Any], prompt: str) -> Dict[str, Any]:
+        return {"1": {"class_type": "WanTextToVideo", "inputs": {"prompt": prompt}}}
+
+
+class FaceFusionAdapter(CreativeAdapterBase):
+    def __init__(self):
+        super().__init__("facefusion", "image.facefusion", "comfy.facefusion")
+
+    def get_manifest(self) -> CapabilityManifest:
+        return CapabilityManifest(
+            capability_id="image.facefusion",
+            provider_id="comfy.facefusion",
+            provider_version="1.0.0",
+            capability_type="edit",
+            description="FaceFusion 3.x identity-preserving face swap",
+            accepts=["image/png"],
+            produces=["image/png"],
+            parameters={
+                "source_image": ParameterSpec(type="string", required=True),
+                "target_image": ParameterSpec(type="string", required=True),
+            },
+        )
+
+    def build_workflow_graph(self, params: Dict[str, Any], prompt: str) -> Dict[str, Any]:
+        return {"1": {"class_type": "FaceFusion", "inputs": {"source": params.get("source_image", ""), "target": params.get("target_image", "")}}}
+
+
+class UpscaleAdapter(CreativeAdapterBase):
+    def __init__(self):
+        super().__init__("upscale", "image.upscale", "comfy.esrgan")
+
+    def get_manifest(self) -> CapabilityManifest:
+        return CapabilityManifest(
+            capability_id="image.upscale",
+            provider_id="comfy.esrgan",
+            provider_version="1.0.0",
+            capability_type="upscale",
+            description="Neural ESRGAN 4x-UltraSharp super-resolution upscale",
+            accepts=["image/png"],
+            produces=["image/png"],
+            parameters={
+                "image_name": ParameterSpec(type="string", required=True),
+                "model_name": ParameterSpec(type="string", required=False, default="4x-UltraSharp.pth"),
+            },
+        )
+
+    def build_workflow_graph(self, params: Dict[str, Any], prompt: str) -> Dict[str, Any]:
+        return build_upscale_graph(
+            image_name=params.get("image_name", ""),
+            model_name=params.get("model_name", "4x-UltraSharp.pth"),
+        )
+
+
+class MiniMaxH3Adapter(CreativeAdapterBase):
+    def __init__(self):
+        super().__init__("minimax_h3", "video.minimax_h3_ref2va", "comfy.minimax_h3")
+
+    def get_manifest(self) -> CapabilityManifest:
+        return CapabilityManifest(
+            capability_id="video.minimax_h3_ref2va",
+            provider_id="comfy.minimax_h3",
+            provider_version="1.0.0",
+            capability_type="video",
+            description="MiniMax H3 Reference-to-Video",
+            accepts=["image/png", "text/plain"],
+            produces=["video/mp4"],
+            parameters={
+                "prompt": ParameterSpec(type="string", required=True),
+                "duration_seconds": ParameterSpec(type="integer", required=False, default=5),
+            },
+        )
+
+    def build_workflow_graph(self, params: Dict[str, Any], prompt: str) -> Dict[str, Any]:
+        return {
+            "ref2v": {
+                "class_type": "MiniMaxH3ReferenceToVideo",
+                "inputs": {
+                    "prompt": prompt,
+                    "ref_image_size": params.get("ref_image_size", "match"),
+                    "duration": params.get("duration_seconds", 5),
+                    "ref_image": params.get("ref_image_asset_id"),
+                    "ref_video": params.get("ref_video_asset_id"),
+                    "ref_audio": params.get("ref_audio_asset_id"),
+                },
+            },
+            "output": {"class_type": "VHS_VideoCombine", "inputs": {"format": "video/h264-mp4", "audio": True, "filename_prefix": "keystone/h3_"}},
+        }
+
+
+ADAPTER_REGISTRY: Dict[str, CreativeAdapterBase] = {
+    "comfyui": ComfyUIAdapter(),
+    "image_gen": ImageGenAdapter(),
+    "image_edit": ImageEditAdapter(),
+    "wan_i2v": WanI2VAdapter(),
+    "wan_t2v": WanT2VAdapter(),
+    "facefusion": FaceFusionAdapter(),
+    "upscale": UpscaleAdapter(),
+    "minimax_h3": MiniMaxH3Adapter(),
+}
+
+
+def get_adapter(adapter_name: str) -> CreativeAdapterBase:
+    if adapter_name not in ADAPTER_REGISTRY:
+        raise ValueError(f"UNKNOWN_ADAPTER: {adapter_name}")
+    return ADAPTER_REGISTRY[adapter_name]
+
+
+def list_capabilities() -> List[CapabilityManifest]:
+    return [adapter.get_manifest() for adapter in ADAPTER_REGISTRY.values()]
+
+
+def validate_adapter_request(adapter: str, params: Dict[str, Any]) -> Dict[str, Any]:
+    ad = get_adapter(adapter)
+    return ad.execute(params)

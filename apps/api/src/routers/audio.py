@@ -127,7 +127,7 @@ async def synthesize_speech(
     db: AsyncSession = Depends(get_db)
 ) -> Any:
     """Synthesizes text into real spoken audio after KEYSTONE prompt compilation."""
-    from apps.api.src.keystone import prompting as keystone_prompting
+    from packages.prompt_engine import compiler as keystone_prompting
 
     compiled = await keystone_prompting.digest_and_compile_prompt(
         user_text=req.text,

@@ -75,17 +75,18 @@ class MessageRepository:
         session_id: str | uuid.UUID,
         role: str,
         content: str,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
+        user_id: Optional[str | uuid.UUID] = None,
     ) -> Message:
-        if role not in ("user", "keystone"):
+        if role not in ("user", "keystone", "assistant", "system"):
             raise ValueError(f"INVALID_MESSAGE_ROLE: {role}")
 
         msg = Message(
             id=str(id),
             session_id=str(session_id),
+            user_id=str(user_id) if user_id is not None else "",
             role=role,
             content=content,
-            metadata_=metadata or {}
         )
         self.session.add(msg)
         await self.session.flush()

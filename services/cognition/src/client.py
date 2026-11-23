@@ -13,8 +13,7 @@ import os
 import time
 import uuid
 from typing import Any, Dict, List, Optional, Union
-import urllib.request
-import urllib.error
+import httpx
 
 from pathlib import Path
 import sys
@@ -305,6 +304,49 @@ class CognitionConnector:
             raise ValueError("INVALID_PROPOSED_ACTION: estimated_credits must be non-negative")
         return ProposedAction.model_validate(action_data)
 
+    async def acomplete(self, prompt: str, options: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """
+        Asynchronously dispatches completion request to the live vLLM endpoint using httpx.AsyncClient.
+        Never returns synthetic or mock actions; raises explicitly when unconfigured or unreachable.
+        """
+        req_payload = self.build_completion_request(prompt, options)
+        req_payload["model"] = self.resolve_served_model()
+        active_base_url = self.resolve_active_endpoint()
+        if not active_base_url:
+            raise RuntimeError(
+                "COGNITION_NOT_CONFIGURED: No live cognition endpoint is configured. "
+                "Set COGNITION_BASE_URL or OPENAI_BASE_URL to the active OpenAI-compatible runtime."
+            )
+
+        endpoint = f"{active_base_url.rstrip('/')}/chat/completions"
+        start_time = time.time()
+        headers = {
+            "Content-Type": "application/json",
+            "User-Agent": "Keystone/2.0",
+        }
+        api_key = self.resolve_api_key()
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.post(endpoint, json=req_payload, headers=headers)
+                resp.raise_for_status()
+                raw_data = resp.json()
+                latency_ms = int((time.time() - start_time) * 1000)
+                raw_data["latency_ms"] = latency_ms
+                return self.parse_response(raw_data, prompt=prompt)
+        except httpx.HTTPStatusError as exc:
+            body = exc.response.text[:600]
+            raise ConnectionError(
+                f"COGNITION_HTTP_{exc.response.status_code}: Live cognition endpoint '{endpoint}' failed: {body or exc.response.reason_phrase}"
+            ) from exc
+        except Exception as exc:
+            raise ConnectionError(
+                f"COGNITION_UNREACHABLE: Live cognition endpoint '{endpoint}' failed ({type(exc).__name__}: {exc}). "
+                "Zero synthetic or mock responses are permitted."
+            ) from exc
+
     def complete(self, prompt: str, options: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         Synchronously dispatches completion request to the live vLLM endpoint.
@@ -322,30 +364,26 @@ class CognitionConnector:
 
         endpoint = f"{active_base_url.rstrip('/')}/chat/completions"
         start_time = time.time()
+        headers = {
+            "Content-Type": "application/json",
+            "User-Agent": "Keystone/2.0",
+        }
+        api_key = self.resolve_api_key()
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
 
         try:
-            req_data = json.dumps(req_payload).encode("utf-8")
-            req = urllib.request.Request(
-                endpoint,
-                data=req_data,
-                headers={
-                    "Content-Type": "application/json",
-                    "User-Agent": "Keystone/2.0",
-                }
-            )
-            api_key = self.resolve_api_key()
-            if api_key:
-                req.add_header("Authorization", f"Bearer {api_key}")
-
-            with urllib.request.urlopen(req, timeout=10) as resp:
-                raw_data = json.loads(resp.read().decode("utf-8"))
+            with httpx.Client(timeout=10.0) as client:
+                resp = client.post(endpoint, json=req_payload, headers=headers)
+                resp.raise_for_status()
+                raw_data = resp.json()
                 latency_ms = int((time.time() - start_time) * 1000)
                 raw_data["latency_ms"] = latency_ms
                 return self.parse_response(raw_data, prompt=prompt)
-        except urllib.error.HTTPError as exc:
-            body = exc.read()[:600].decode("utf-8", errors="replace")
+        except httpx.HTTPStatusError as exc:
+            body = exc.response.text[:600]
             raise ConnectionError(
-                f"COGNITION_HTTP_{exc.code}: Live cognition endpoint '{endpoint}' failed: {body or exc.reason}"
+                f"COGNITION_HTTP_{exc.response.status_code}: Live cognition endpoint '{endpoint}' failed: {body or exc.response.reason_phrase}"
             ) from exc
         except Exception as exc:
             raise ConnectionError(

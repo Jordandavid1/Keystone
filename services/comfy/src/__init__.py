@@ -2,7 +2,7 @@
 KEYSTONE Creative Tool Fabric Module (Bible §8, §23).
 """
 
-from services.comfy.src.adapters import (
+from services.comfy.src.client import (
     CreativeAdapterBase,
     ComfyUIAdapter,
     ImageGenAdapter,

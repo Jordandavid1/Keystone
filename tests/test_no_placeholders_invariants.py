@@ -181,7 +181,7 @@ def test_cognition_connector_never_fabricates_mock_actions(monkeypatch):
 
 def test_comfy_client_and_adapters_never_fallback_or_use_sample_inputs(monkeypatch):
     from services.comfy.src import client as comfy_client_mod
-    from services.comfy.src.adapters import ImageGenAdapter, WanI2VAdapter
+    from services.comfy.src.client import ImageGenAdapter, WanI2VAdapter
     from services.harness.src.worker_bridge import worker_bridge
 
     monkeypatch.setattr(comfy_client_mod, "_load_repo_env", lambda: None)
@@ -251,7 +251,7 @@ def test_zencreator_unwired_tool_returns_explicit_503_no_placeholder():
     from apps.api.src.server import app
 
     client = TestClient(app)
-    res = client.post("/v1/zencreator/generate", json={"tool": "by_prompt", "input": {"prompt": "test"}})
+    res = client.post("/v1/zencreator/generate", json={"tool": "text_to_video", "input": {"prompt": "test"}})
     assert res.status_code == 503
     assert "NO_ENGINE_CONFIGURED" in res.text
 

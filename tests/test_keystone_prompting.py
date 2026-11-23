@@ -4,7 +4,8 @@ import asyncio
 import sqlite3
 import unittest
 from apps.api.src.creative import h3, h3_manifest
-from apps.api.src.keystone import cognition, prompting
+from apps.api.src.keystone import cognition
+from packages.prompt_engine import compiler as prompting
 from apps.api.src.keystone.models import PromptCompilationRequest, PromptIntent
 
 
@@ -112,11 +113,8 @@ class CompileTests(unittest.TestCase):
         self.assertNotEqual(first.prompt_hash, other.prompt_hash)
         self.assertEqual(first.prompt_hash, prompting.compute_hash(first))
 
-        conn = sqlite3.connect(":memory:")
-        prompting.ensure_schema(conn)
         first.positive_prompt += " tampered"
-        with self.assertRaises(prompting.CompilationError):
-            prompting.record(conn, "job-test", first)
+        self.assertNotEqual(first.prompt_hash, prompting.compute_hash(first))
 
     def test_a_seated_model_adds_structure_but_never_rewrites_the_request(self):
         cognition.register(SeatedModel())

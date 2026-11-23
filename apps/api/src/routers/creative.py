@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field
 
 from apps.api.src.auth.dependencies import get_current_user, require_admin
 
-from services.comfy.src.adapters import (
+from services.comfy.src.client import (
     ADAPTER_REGISTRY,
     get_adapter,
     list_capabilities,
@@ -225,13 +225,12 @@ class ComfyConfigUpdateRequest(BaseModel):
 def get_comfy_runtime_status() -> Dict[str, Any]:
     import os
     import urllib.request
-    from services.comfy.src.client import comfy_client
-    from apps.api.src.creative import h3
+    from services.comfy.src.client import comfy_client, h3_describe, h3_health, h3_workflow_path
 
     comfy_url = comfy_client.base_url()
-    h3_info = h3.describe()
-    h3_health = h3.health() if comfy_url else {"configured": False, "reachable": False, "detail": "COMFY_BASE_URL is not set"}
-    online = bool(h3_health.get("reachable"))
+    h3_info = h3_describe()
+    h3_health_info = h3_health() if comfy_url else {"configured": False, "reachable": False, "detail": "COMFY_BASE_URL is not set"}
+    online = bool(h3_health_info.get("reachable"))
     cognition_endpoint = (os.getenv("OPENAI_BASE_URL") or os.getenv("COGNITION_BASE_URL") or "").strip().rstrip("/")
     cognition_online = False
     if cognition_endpoint:
@@ -259,13 +258,13 @@ def get_comfy_runtime_status() -> Dict[str, Any]:
         "openai_base_url": cognition_endpoint or None,
         "openai_model": os.getenv("OPENAI_MODEL", "OBLITERATUS/Qwen3.8-27B-OBLITERATED"),
         "h3": h3_info,
-        "h3_health": h3_health,
+        "h3_health": h3_health_info,
         "adapters": list(ADAPTER_REGISTRY.keys()),
         "workflows": {
             "sdxl_txt2img": "ready",
             "sdxl_img2img": "ready",
             "upscale_4x": "ready",
-            "minimax_h3_ref2va": "ready" if h3.workflow_path() else "missing"
+            "minimax_h3_ref2va": "ready" if h3_workflow_path() else "missing"
         }
     }
 

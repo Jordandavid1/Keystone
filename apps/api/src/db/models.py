@@ -170,7 +170,7 @@ class Message(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), server_default=sa_text("now()"))
 
     __table_args__ = (
-        CheckConstraint("role IN ('user','keystone')", name="ck_messages_role"),
+        CheckConstraint("role IN ('user','keystone','assistant','system')", name="ck_messages_role"),
         Index("ix_messages_session", "session_id", "created_at"),
     )
 

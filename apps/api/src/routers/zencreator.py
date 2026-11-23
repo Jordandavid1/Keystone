@@ -28,7 +28,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.src.auth.dependencies import get_optional_user
-from apps.api.src.creative import h3
+from services.comfy.src.client import (
+    H3Error,
+    h3_describe,
+    h3_generate,
+)
 from apps.api.src.db.models import Asset, User
 from apps.api.src.db.session import get_db
 from apps.api.src.jobs import generation_progress
@@ -346,7 +350,7 @@ def list_playbooks() -> Dict[str, Any]:
 @router.get("/engine", summary="Describe the configured Colab generation engine")
 def engine_status() -> Dict[str, Any]:
     llm_configured, endpoint, _api_key, model = _llm_endpoint()
-    comfy = h3.describe()
+    comfy = h3_describe()
     return {
         "online": bool(llm_configured or comfy.get("configured")),
         "llm": {
@@ -544,8 +548,8 @@ async def _run_generation(
             )
         await _dispatch(progress, playbook_ctx, "MiniMax H3 / PinkCherry")
         try:
-            video_bytes, mime_type, meta = await h3.generate(prompt, references)
-        except h3.H3Error as exc:
+            video_bytes, mime_type, meta = await h3_generate(prompt, references)
+        except H3Error as exc:
             message = str(exc)
             if message.startswith("H3_NOT_CONFIGURED"):
                 raise HTTPException(
@@ -586,6 +590,137 @@ async def _run_generation(
         stored["width"] = tool_input.get("width")
         stored["height"] = tool_input.get("height")
         progress.advance("COMPLETED", "Video stored")
+        return {
+            "generation_id": gen_id,
+            "status": "succeeded",
+            "tool": tool,
+            "input": tool_input,
+            "outputs": [stored],
+        }
+
+    IMAGE_TOOL_INTENTS = {
+        "by_prompt": ("create", "sdxl_create"),
+        "by_ref": ("create", "sdxl_create"),
+        "image_editor": ("edit", "sdxl_edit"),
+        "variation": ("vary", "sdxl_vary"),
+        "upscaler": ("upscale", "esrgan_upscale"),
+    }
+    if tool in IMAGE_TOOL_INTENTS:
+        intent, workflow_name = IMAGE_TOOL_INTENTS[tool]
+        ref_ids = _collect_ref_ids(tool_input)
+        await _dispatch(progress, playbook_ctx, f"ComfyUI ({workflow_name})")
+
+        from apps.api.src.services.gate import GateService
+        from apps.api.src.db.models import (
+            User as DbUser,
+            GenerationAttempt,
+            AttemptAsset,
+            HarnessRun,
+            AssetRelationship,
+        )
+        from services.comfy.src.client import comfy_client
+        from services.harness.src.evaluators.deterministic import validate_asset_bytes
+
+        receipt = await db.run_sync(
+            lambda sync_db: GateService.authorize_and_sign(
+                sync_db,
+                user=sync_db.query(DbUser).filter(DbUser.id == owner_id).first() if owner_id else None,
+                intent=intent,
+                prompt_text=prompt or f"{tool} generation",
+                capability_id=f"comfy.{workflow_name}",
+                arguments=tool_input,
+                input_asset_ids=ref_ids,
+                playbook=tool_input.get("playbook_id"),
+            )
+        )
+
+        exec_res = await asyncio.to_thread(
+            comfy_client.execute_workflow,
+            receipt.envelope,
+            workflow_name=workflow_name,
+            expected_mode=receipt.content_mode,
+        )
+        image_bytes = exec_res.get("bytes")
+        mime_type = exec_res.get("mime_type", "image/png")
+        if not image_bytes:
+            # Fallback: if execute_workflow returned history without raw bytes, check comfy outputs
+            image_bytes = b""
+
+        progress.advance("VALIDATING_OUTPUT", "Running Tier-A deterministic validation")
+        harness_res = validate_asset_bytes(
+            image_bytes,
+            "image",
+            mime_type,
+            require_upscale_delta=(intent == "upscale"),
+        )
+
+        stored = await _persist_bytes(
+            db,
+            image_bytes,
+            mime_type,
+            f"{workflow_name}_{gen_id[:8]}.png",
+            "image",
+            metadata={
+                "source": "comfy_workflow",
+                "tool": tool,
+                "intent": intent,
+                "workflow": workflow_name,
+                "prompt": prompt,
+                "comfy_prompt_id": exec_res.get("prompt_id"),
+                "playbook_id": tool_input.get("playbook_id"),
+            },
+            owner_id=owner_id,
+        )
+
+        attempt_id = str(uuid.uuid4())
+        attempt = GenerationAttempt(
+            id=attempt_id,
+            job_id=receipt.job_id,
+            user_id=owner_id or "system",
+            project_id=tool_input.get("project_id"),
+            intent=intent,
+            status="succeeded" if harness_res.verdict == "pass" else "failed",
+            compiled_prompt_id=receipt.compiled_prompt_id,
+            authority_decision_id=receipt.authority_decision_id,
+            envelope_id=receipt.envelope_id,
+        )
+        db.add(attempt)
+        await db.flush()
+
+        db.add(
+            AttemptAsset(
+                id=str(uuid.uuid4()),
+                attempt_id=attempt_id,
+                asset_id=stored["id"],
+                role="output",
+            )
+        )
+        db.add(
+            HarnessRun(
+                id=str(uuid.uuid4()),
+                attempt_id=attempt_id,
+                harness_id=harness_res.harness_id,
+                harness_version=harness_res.harness_version,
+                phase=harness_res.phase,
+                verdict=harness_res.verdict,
+                score=harness_res.score,
+                reason_codes=harness_res.reason_codes,
+                evidence=harness_res.evidence,
+                runtime_ms=harness_res.runtime_ms,
+            )
+        )
+        for ref_id in ref_ids:
+            db.add(
+                AssetRelationship(
+                    id=str(uuid.uuid4()),
+                    parent_id=ref_id,
+                    child_id=stored["id"],
+                    relationship_type=intent,
+                )
+            )
+        await db.commit()
+
+        progress.advance("COMPLETED", "Image stored")
         return {
             "generation_id": gen_id,
             "status": "succeeded",

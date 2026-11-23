@@ -46,7 +46,7 @@ async def plan_goal(request: PlanRequestModel) -> Dict[str, Any]:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result["error"]["message"])
 
     try:
-        from apps.api.src.keystone import prompting as keystone_prompting
+        from packages.prompt_engine import compiler as keystone_prompting
         compiled = await keystone_prompting.digest_and_compile_prompt(
             user_text=request.goal,
             reference_count=int(options.get("reference_count", 0)),

@@ -34,16 +34,13 @@ class AssetRepository(BaseRepository[Asset]):
 
         asset = Asset(
             id=str(id),
-            owner_id=self.tenant_id,
+            user_id=self.tenant_id,
             project_id=str(project_id) if project_id else None,
-            media_type=media_type,
+            asset_type=media_type,
             mime_type=mime_type,
-            storage_provider=storage_provider,
             storage_key=storage_key,
-            byte_size=byte_size,
-            status="available",
-            metadata_=metadata or {},
-            deleted_at=None
+            size_bytes=byte_size,
+            deleted_at=None,
         )
         self.session.add(asset)
         await self.session.flush()

@@ -18,7 +18,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from apps.api.src.server import app
-from services.comfy.src.adapters import (
+from services.comfy.src.client import (
     ADAPTER_REGISTRY,
     get_adapter,
     list_capabilities,

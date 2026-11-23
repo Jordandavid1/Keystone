@@ -16,8 +16,8 @@ import re
 import json
 import time
 import uuid
-import urllib.request
 import urllib.parse
+import httpx
 from typing import Any, Dict, List, Optional
 from datetime import datetime, timezone
 
@@ -60,7 +60,7 @@ class AgentTaskRequest(BaseModel):
 # Live Internet Search & Web Scraping Utility
 # ============================================================================
 
-def live_web_search(query: str, max_results: int = 5) -> List[Dict[str, str]]:
+async def live_web_search(query: str, max_results: int = 5) -> List[Dict[str, str]]:
     """
     Performs real-time web search for information, documentation, and creative research.
     Queries DuckDuckGo HTML without requiring proprietary API keys.
@@ -73,18 +73,16 @@ def live_web_search(query: str, max_results: int = 5) -> List[Dict[str, str]]:
     try:
         encoded_query = urllib.parse.quote_plus(clean_query)
         url = f"https://html.duckduckgo.com/html/?q={encoded_query}"
-        req = urllib.request.Request(
-            url,
-            headers={
-                "User-Agent": (
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                    "AppleWebKit/537.36 (KHTML, like Gecko) "
-                    "Chrome/124.0.0.0 Safari/537.36 Edg/124.0.0.0"
-                )
-            }
-        )
-        with urllib.request.urlopen(req, timeout=6) as resp:
-            html = resp.read().decode("utf-8", errors="ignore")
+        headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/124.0.0.0 Safari/537.36 Edg/124.0.0.0"
+            )
+        }
+        async with httpx.AsyncClient(timeout=6.0, follow_redirects=True) as client:
+            resp = await client.get(url, headers=headers)
+            html = resp.text
 
         matches = re.findall(
             r'<div class="result__body"[^>]*>.*?<a class="result__url"[^>]*href="([^"]*)"[^>]*>(.*?)</a>.*?<a class="result__snippet"[^>]*>(.*?)</a>',
@@ -143,7 +141,7 @@ def _is_ssrf_safe_url(target_url: str) -> Optional[str]:
     return None
 
 
-def live_url_scrape(target_url: str) -> Dict[str, Any]:
+async def live_url_scrape(target_url: str) -> Dict[str, Any]:
     """
     Extracts text tokens, headlines, and meta description from a target web page.
     """
@@ -157,18 +155,16 @@ def live_url_scrape(target_url: str) -> Dict[str, Any]:
             "status": "failed"
         }
     try:
-        req = urllib.request.Request(
-            target_url,
-            headers={
-                "User-Agent": (
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                    "AppleWebKit/537.36 (KHTML, like Gecko) "
-                    "Chrome/124.0.0.0 Safari/537.36 Edg/124.0.0.0"
-                )
-            }
-        )
-        with urllib.request.urlopen(req, timeout=8) as resp:
-            html = resp.read().decode("utf-8", errors="ignore")
+        headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/124.0.0.0 Safari/537.36 Edg/124.0.0.0"
+            )
+        }
+        async with httpx.AsyncClient(timeout=8.0, follow_redirects=True) as client:
+            resp = await client.get(target_url, headers=headers)
+            html = resp.text
 
         title_match = re.search(r'<title[^>]*>(.*?)</title>', html, re.IGNORECASE)
         page_title = title_match.group(1).strip() if title_match else target_url
@@ -199,7 +195,7 @@ class CognitionConfigRequest(BaseModel):
     openai_model: Optional[str] = Field(None, description="Served model alias on the vLLM endpoint")
 
 
-def _probe_live_cognition(active_endpoint: str, api_key: str) -> Dict[str, Any]:
+async def _probe_live_cognition(active_endpoint: str, api_key: str) -> Dict[str, Any]:
     """Probes the live OpenAI-compatible cognition endpoint (/models) for reachability and latency."""
     if not active_endpoint:
         return {"reachable": False, "latency_ms": 0.0, "models": [], "detail": "OPENAI_BASE_URL is not configured"}
@@ -209,14 +205,13 @@ def _probe_live_cognition(active_endpoint: str, api_key: str) -> Dict[str, Any]:
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
     try:
-        req = urllib.request.Request(models_url, headers=headers, method="GET")
-        with urllib.request.urlopen(req, timeout=4.0) as resp:
-            raw = resp.read().decode("utf-8", errors="replace")
+        async with httpx.AsyncClient(timeout=4.0) as client:
+            resp = await client.get(models_url, headers=headers)
             latency_ms = round((time.perf_counter() - t0) * 1000.0, 1)
-            payload = json.loads(raw) if raw.strip() else {}
+            payload = resp.json() if resp.text.strip() else {}
             models = [m.get("id") for m in payload.get("data", []) if isinstance(m, dict) and m.get("id")]
             return {
-                "reachable": (resp.status == 200),
+                "reachable": (resp.status_code == 200),
                 "latency_ms": latency_ms,
                 "models": models,
                 "detail": "Live cognition runtime responding",
@@ -231,7 +226,7 @@ def _probe_live_cognition(active_endpoint: str, api_key: str) -> Dict[str, Any]:
         }
 
 
-def _invoke_live_cognition_completion(
+async def _invoke_live_cognition_completion(
     active_endpoint: str,
     api_key: str,
     served_model: str,
@@ -264,14 +259,14 @@ def _invoke_live_cognition_completion(
         headers["Authorization"] = f"Bearer {api_key}"
 
     try:
-        vllm_req = urllib.request.Request(
-            f"{active_endpoint.rstrip('/')}/chat/completions",
-            data=json.dumps(vllm_payload).encode("utf-8"),
-            headers=headers,
-            method="POST",
-        )
-        with urllib.request.urlopen(vllm_req, timeout=45.0) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
+        async with httpx.AsyncClient(timeout=45.0) as client:
+            resp = await client.post(
+                f"{active_endpoint.rstrip('/')}/chat/completions",
+                json=vllm_payload,
+                headers=headers,
+            )
+            resp.raise_for_status()
+            data = resp.json()
             choices = data.get("choices", [])
             if not choices:
                 raise RuntimeError("Empty choices returned from cognition endpoint")
@@ -309,7 +304,7 @@ async def get_cognition_status() -> Dict[str, Any]:
     active_endpoint = connector.resolve_active_endpoint()
     api_key = connector.resolve_api_key()
     served_model = connector.resolve_served_model()
-    probe = _probe_live_cognition(active_endpoint, api_key)
+    probe = await _probe_live_cognition(active_endpoint, api_key)
 
     from services.comfy.src.client import comfy_base_url, is_configured as comfy_configured, ComfyUIClient
     comfy_url = comfy_base_url()
@@ -401,7 +396,7 @@ async def chat_with_cognition(
     internet_findings: List[Dict[str, Any]] = []
     created_assets: List[Dict[str, Any]] = []
 
-    from apps.api.src.keystone import prompting as keystone_prompting
+    from packages.prompt_engine import compiler as keystone_prompting
     from packages.prompt_engine.playbooks import PlaybookRegistry
     playbook_obj, _, _ = PlaybookRegistry.classify(last_user_msg)
     compiled_prompt_obj = await keystone_prompting.digest_and_compile_prompt(
@@ -426,7 +421,7 @@ async def chat_with_cognition(
             last_user_msg,
             flags=re.IGNORECASE
         ).strip() or last_user_msg
-        internet_findings = live_web_search(clean_q, max_results=3)
+        internet_findings = await live_web_search(clean_q, max_results=3)
 
     wants_gen = req.allow_generation or any(
         kw in msg_lower for kw in (
@@ -509,7 +504,7 @@ async def chat_with_cognition(
     for m in req.messages:
         vllm_messages.append({"role": m.role, "content": m.content})
 
-    live_res = _invoke_live_cognition_completion(
+    live_res = await _invoke_live_cognition_completion(
         active_endpoint=active_endpoint,
         api_key=api_key,
         served_model=served_model,
@@ -547,15 +542,18 @@ async def chat_with_cognition(
                 id=str(uuid.uuid4()),
                 session_id=req.session_id,
                 role="user",
-                content=last_user_msg
+                content=last_user_msg,
+                user_id=tenant_id,
             )
             await msg_repo.create_message(
                 id=str(uuid.uuid4()),
                 session_id=req.session_id,
                 role="assistant",
                 content=live_response_text,
-                metadata={"model": PINNED_CHECKPOINT, "latency_ms": latency_ms, "prompt_hash": compiled_prompt_obj.prompt_hash}
+                metadata={"model": PINNED_CHECKPOINT, "latency_ms": latency_ms, "prompt_hash": compiled_prompt_obj.prompt_hash},
+                user_id=tenant_id,
             )
+            await db.commit()
         except Exception as persist_err:
             session_persist_error = f"{type(persist_err).__name__}: {persist_err}"
 
@@ -603,7 +601,7 @@ async def execute_agent_task(
     internet_findings: List[Dict[str, Any]] = []
     created_assets: List[Dict[str, Any]] = []
 
-    from apps.api.src.keystone import prompting as keystone_prompting
+    from packages.prompt_engine import compiler as keystone_prompting
     from packages.prompt_engine.playbooks import PlaybookRegistry
     playbook_obj, _, matched_uc = PlaybookRegistry.classify(task_text)
     compiled_task_prompt = await keystone_prompting.digest_and_compile_prompt(
@@ -633,7 +631,7 @@ async def execute_agent_task(
 
     if wants_internet:
         if extracted_url:
-            scrape_res = live_url_scrape(extracted_url)
+            scrape_res = await live_url_scrape(extracted_url)
             if scrape_res.get("content_summary"):
                 internet_findings.append({
                     "title": scrape_res.get("title", extracted_url),
@@ -657,7 +655,7 @@ async def execute_agent_task(
             if not search_query:
                 search_query = task_text
 
-            findings = live_web_search(search_query, max_results=3)
+            findings = await live_web_search(search_query, max_results=3)
             internet_findings.extend(findings)
             steps_executed.append({
                 "step": 2,
@@ -761,7 +759,7 @@ async def execute_agent_task(
         ast_ctx = "\n".join(f"- Asset {a['id']} ({a['title']}): {a['download_url']}" for a in created_assets)
         agent_sys_prompt += f"\n\nRendered Studio Assets:\n{ast_ctx}"
 
-    live_res = _invoke_live_cognition_completion(
+    live_res = await _invoke_live_cognition_completion(
         active_endpoint=active_endpoint,
         api_key=api_key,
         served_model=served_model,

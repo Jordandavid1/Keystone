@@ -148,13 +148,13 @@ async def register_asset(
     return {
         "status": "ok",
         "id": asset.id,
-        "owner_id": asset.owner_id,
+        "owner_id": asset.user_id,
         "project_id": asset.project_id,
-        "media_type": asset.media_type,
+        "media_type": asset.asset_type,
         "mime_type": asset.mime_type,
-        "storage_provider": asset.storage_provider,
+        "storage_provider": getattr(asset, "storage_provider", storage.provider.__class__.__name__),
         "storage_key": asset.storage_key,
-        "byte_size": asset.byte_size,
+        "byte_size": asset.size_bytes,
         "metadata": asset.metadata_ or {},
         "download_url": download_url,
         "created_at": asset.created_at.isoformat() if asset.created_at else None
@@ -293,12 +293,9 @@ async def generate_asset(
         persisted_req = DBRequest(
             id=req_id,
             user_id=tenant_id,
-            request_text=req.prompt,
-            preferences={
-                "action_type": "generate",
-                "capability_id": "image.generation",
-            },
-            state="created",
+            project_id=req.project_id,
+            intent_hint=req.mode or "generate",
+            status="created",
         )
         persisted_dec = AuthorityDecision(
             id=dec_id,
@@ -322,13 +319,13 @@ async def generate_asset(
         persisted_job = Job(
             id=auto_job_id,
             user_id=tenant_id,
+            project_id=req.project_id,
             request_id=req_id,
-            authority_decision_id=dec_id,
             capability_id="image.generation",
             provider_id="comfyui",
             workflow_id="wf_default",
             workflow_version="1.0.0",
-            state="RUNNING",
+            status="RUNNING",
             priority=100,
         )
         db.add(persisted_req)
@@ -407,7 +404,7 @@ async def generate_asset(
     # KEYSTONE Prompt Authority + Embedded Cognition digest step:
     # Digests raw user prompt + reference count via KEYSTONE & seated Qwen model,
     # producing the finished positive_prompt that the downstream model ingests.
-    from apps.api.src.keystone import prompting as keystone_prompting
+    from packages.prompt_engine import compiler as keystone_prompting
     compiled_prompt_obj = await keystone_prompting.digest_and_compile_prompt(
         user_text=req.prompt,
         reference_count=1 if ref_bytes else 0,
@@ -430,7 +427,7 @@ async def generate_asset(
             result = await run_in_threadpool(
                 comfy_client.generate_image,
                 final_positive_prompt,
-                negative_prompt=req.negative_prompt or compiled_prompt_obj.negative_prompt or None,
+                negative_prompt=req.negative_prompt if req.negative_prompt is not None else None,
                 width=req.width,
                 height=req.height,
                 steps=req.steps,
@@ -499,7 +496,7 @@ async def generate_asset(
             byte_size=len(payload),
             storage_key=storage_key,
             project_id=req.project_id,
-            media_type="video" if is_video else (req.media_type or "image"),
+            media_type="video" if is_video else "image",
             storage_provider=storage.provider.__class__.__name__,
             metadata=metadata,
         )
@@ -523,13 +520,13 @@ async def generate_asset(
     return {
         "status": "ok",
         "id": asset.id,
-        "owner_id": asset.owner_id,
+        "owner_id": asset.user_id,
         "project_id": asset.project_id,
-        "media_type": asset.media_type,
+        "media_type": asset.asset_type,
         "mime_type": asset.mime_type,
-        "storage_provider": asset.storage_provider,
+        "storage_provider": getattr(asset, "storage_provider", storage.provider.__class__.__name__),
         "storage_key": asset.storage_key,
-        "byte_size": asset.byte_size,
+        "byte_size": asset.size_bytes,
         "metadata": metadata,
         "download_url": content_url(asset),
         "job_id": req.job_id,
@@ -561,6 +558,20 @@ async def upscale_asset(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Source asset media bytes not found")
 
     try:
+        from apps.api.src.services.gate import GateService
+        from apps.api.src.db.models import User as DbUser
+
+        receipt = await db.run_sync(
+            lambda sync_db: GateService.authorize_and_sign(
+                sync_db,
+                user=sync_db.query(DbUser).filter(DbUser.id == tenant_id).first(),
+                intent="upscale",
+                prompt_text=req.prompt or "Neural ESRGAN upscale",
+                capability_id="image.generation",
+                arguments={"scale_factor": req.scale_factor},
+                input_asset_ids=[asset_id],
+            )
+        )
         upscale_res = await run_in_threadpool(
             comfy_client.upscale_image,
             source_bytes,
@@ -615,20 +626,20 @@ async def upscale_asset(
             detail=f"LINEAGE_PERSIST_FAILED: {exc}",
         ) from exc
 
-    up_meta = upscaled_asset.metadata_ or {}
+    up_meta = getattr(upscaled_asset, "metadata_", None) or {}
     return {
         "status": "ok",
         "id": upscaled_asset.id,
         "filename": up_meta.get("filename", upscaled_asset.storage_key.split("/")[-1]),
-        "media_type": upscaled_asset.media_type,
+        "media_type": upscaled_asset.asset_type,
         "mime_type": upscaled_asset.mime_type,
-        "byte_size": upscaled_asset.byte_size,
+        "byte_size": upscaled_asset.size_bytes,
         "scale_factor": req.scale_factor,
         "width": upscale_res.get("width"),
         "height": upscale_res.get("height"),
         "source_asset_id": source_asset.id,
         "download_url": content_url(upscaled_asset),
-        "metadata": upscaled_asset.metadata_ or {},
+        "metadata": up_meta,
         "created_at": upscaled_asset.created_at.isoformat() if upscaled_asset.created_at else None
     }
 

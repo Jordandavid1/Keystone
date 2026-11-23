@@ -151,7 +151,7 @@ def verify_manifest_accounting(root_dir: Path) -> Dict[str, Any]:
     issues: List[str] = []
     manifest_candidates = [
         root_dir / "apps" / "api" / "src" / "creative" / "h3_manifest.py",
-        root_dir / "services" / "comfy" / "src" / "adapters.py",
+        root_dir / "services" / "comfy" / "src" / "client.py",
     ]
     present_manifests = [str(p.relative_to(root_dir)).replace("\\", "/") for p in manifest_candidates if p.exists()]
     if not present_manifests:

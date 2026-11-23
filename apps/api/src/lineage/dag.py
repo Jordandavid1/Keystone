@@ -162,7 +162,6 @@ class LineageDAG:
                 child_asset_id=edge_dict["child_id"],
                 relationship_type=edge_dict["relationship_type"],
                 job_id=edge_dict["job_id"],
-                metadata_={}
             )
             self.session.add(db_rel)
             await self.session.flush()
