@@ -41,6 +41,11 @@ export function usePipeline() {
             references: prior ? [prior] : [],
             playbook: s.composer.playbook,
             web: s.composer.web,
+            personaId: s.composer.personaId,
+            projectId: s.system.projectId,
+            sessionId: s.system.sessionId,
+            contentMode: s.system.contentMode,
+            preferences: s.system.preferences,
             extra: step.parameters || {},
           });
           const res = await executeGenerativeTool(step.tool, input);

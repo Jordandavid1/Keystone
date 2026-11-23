@@ -219,6 +219,7 @@ async def _persist_bytes(
         "width": width,
         "height": height,
         "duration_seconds": duration_seconds,
+        "mature": bool(mature),
         "created_at": time.time(),
     }
 
@@ -582,31 +583,23 @@ async def _authorize_through_gate(
     project_id: Optional[str],
     persona_id: Optional[str],
     playbook: Any,
+    session_id: Optional[str] = None,
 ):
-    from apps.api.src.db.models import Project, User as DbUser
     from apps.api.src.services.gate import GateService
 
-    def _run(sync_db):
-        db_user = sync_db.query(DbUser).filter(DbUser.id == effective_user_id).first()
-        db_project = (
-            sync_db.query(Project).filter(Project.id == project_id).first()
-            if project_id
-            else None
-        )
-        return GateService.authorize_and_sign(
-            sync_db,
-            user=db_user,
-            intent=intent,
-            prompt_text=prompt_text,
-            capability_id=capability_id,
-            arguments=arguments,
-            project=db_project,
-            persona_id=persona_id,
-            input_asset_ids=input_asset_ids,
-            playbook=playbook,
-        )
-
-    return await db.run_sync(_run)
+    return await GateService.authorize_async(
+        db,
+        user_id=effective_user_id,
+        intent=intent,
+        prompt_text=prompt_text,
+        capability_id=capability_id,
+        arguments=arguments,
+        project_id=project_id,
+        session_id=session_id,
+        persona_id=persona_id,
+        input_asset_ids=input_asset_ids,
+        playbook=playbook,
+    )
 
 
 def _as_uuid_or_none(value: Optional[str]) -> Optional[str]:
@@ -634,6 +627,7 @@ async def _persist_gate_audit_rows(
     started_at: datetime,
     seed: Optional[int] = None,
     metrics: Optional[Dict[str, Any]] = None,
+    mature: bool = False,
 ) -> None:
     from apps.api.src.db.models import (
         AssetRelationship,
@@ -642,6 +636,7 @@ async def _persist_gate_audit_rows(
         HarnessRun,
         Job,
     )
+    from apps.api.src.lineage.dag import LineageDAG
 
     safe_project_id = _as_uuid_or_none(project_id)
     safe_env_uuid = _as_uuid_or_none(receipt.envelope.envelope_id)
@@ -662,6 +657,7 @@ async def _persist_gate_audit_rows(
                 envelope_id=safe_env_uuid,
                 envelope=receipt.envelope.model_dump(mode="json"),
                 content_mode=receipt.content_mode,
+                persona_id=getattr(receipt, "persona_id", None),
                 outputs=[output_asset_id],
             )
         )
@@ -703,6 +699,7 @@ async def _persist_gate_audit_rows(
             runtime_ms=int(round(harness_res.runtime_ms or 0)),
         )
     )
+    effective_mature = bool(mature or getattr(receipt, "mature", False))
     seen_parents = set()
     for ref_id in parent_asset_ids:
         if ref_id and ref_id != output_asset_id and ref_id not in seen_parents:
@@ -714,8 +711,18 @@ async def _persist_gate_audit_rows(
                     child_asset_id=output_asset_id,
                     relationship_type=relationship_type,
                     job_id=receipt.job_id,
+                    mature=effective_mature,
                 )
             )
+    if getattr(receipt, "persona_id", None):
+        dag = LineageDAG(session=db)
+        await dag.persist_depicts_edge(
+            child_asset_id=output_asset_id,
+            persona_id=receipt.persona_id,
+            persona_version=getattr(receipt, "persona_version", None) or 1,
+            job_id=receipt.job_id,
+            mature=effective_mature,
+        )
     await db.commit()
 
 
@@ -765,6 +772,20 @@ async def _run_video_generation(
     else:
         scale_factor = 4 if int(raw_scale or 2) >= 4 else 2
 
+    from apps.api.src.services.gate import load_persona_reference_media
+
+    if canonical_tool in ("text_to_video", "image_to_video", "videogen", "video2video") and not prompt:
+        detail_map = {
+            "text_to_video": "text_to_video requires a prompt",
+            "image_to_video": "image_to_video requires a motion prompt",
+            "videogen": "videogen requires a prompt describing the motion and scene",
+            "video2video": "video2video requires a prompt describing the style or motion transfer",
+        }
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=detail_map[canonical_tool],
+        )
+
     ref_ids = _collect_ref_ids(tool_input)
     loaded_refs: List[Tuple[str, Asset, str, str, bytes]] = []
     for ref_id in ref_ids:
@@ -777,61 +798,14 @@ async def _run_video_generation(
         asset_obj, fname, mtype, payload = loaded
         loaded_refs.append((ref_id, asset_obj, fname, mtype, payload))
 
-    image_refs = [item for item in loaded_refs if (item[1].asset_type == "image" or item[3].startswith("image/"))]
-    video_refs = [item for item in loaded_refs if (item[1].asset_type == "video" or item[3].startswith("video/"))]
-    audio_refs = [item for item in loaded_refs if (item[1].asset_type == "audio" or item[3].startswith("audio/"))]
-
-    if canonical_tool == "text_to_video" and not prompt:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="text_to_video requires a prompt",
-        )
-    if canonical_tool == "image_to_video":
-        if not image_refs:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="image_to_video requires a reference image asset",
-            )
-        if not prompt:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="image_to_video requires a motion prompt",
-            )
-    if canonical_tool == "videogen":
-        if not loaded_refs:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="videogen requires a reference image. Upload or attach one before running.",
-            )
-        if not prompt:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="videogen requires a prompt describing the motion and scene",
-            )
-    if canonical_tool == "video2video":
-        if not video_refs:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="video2video requires a source video asset",
-            )
-        if not prompt:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="video2video requires a prompt describing the style or motion transfer",
-            )
-    if canonical_tool in ("extend", "video_upscaler") and not video_refs:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"{canonical_tool} requires a source video asset",
-        )
-
     effective_prompt = prompt
     if not effective_prompt and canonical_tool == "extend":
         effective_prompt = "Continue the shot seamlessly with natural motion"
     elif not effective_prompt and canonical_tool == "video_upscaler":
         effective_prompt = "Neural ESRGAN video super-resolution upscale"
 
-    compiled_prompt = compile_video_prompt(
+    initial_primary_id = ref_ids[0] if ref_ids else None
+    pre_compiled_prompt = compile_video_prompt(
         effective_prompt,
         camera_motion=camera_motion,
         motion_speed=motion_speed,
@@ -840,16 +814,10 @@ async def _run_video_generation(
         grade=grade,
         lut=lut,
     )
-
-    primary_asset_id = (
-        video_refs[0][0]
-        if canonical_tool in ("video2video", "extend", "video_upscaler") and video_refs
-        else (image_refs[0][0] if image_refs else (loaded_refs[0][0] if loaded_refs else None))
-    )
     gate_args = _build_gate_arguments(
         tool_input,
         capability_id,
-        primary_asset_id,
+        initial_primary_id,
         aspect_ratio,
         duration,
         scale_factor,
@@ -858,17 +826,79 @@ async def _run_video_generation(
     await _dispatch(progress, playbook_ctx, f"ComfyUI ({variant})")
     started_at = datetime.now(timezone.utc)
 
+    persona_param = tool_input.get("as") or tool_input.get("persona_id")
+    # If i2v requires input_asset_id at AuthorityEngine and persona has refs, attach persona ref ID first if needed
     receipt = await _authorize_through_gate(
         db,
         effective_user_id,
         intent=intent,
-        prompt_text=compiled_prompt,
+        prompt_text=effective_prompt,
         capability_id=capability_id,
         arguments=gate_args,
         input_asset_ids=ref_ids,
         project_id=tool_input.get("project_id"),
-        persona_id=tool_input.get("as") or tool_input.get("persona_id"),
+        session_id=tool_input.get("session_id"),
+        persona_id=persona_param,
         playbook=tool_input.get("playbook_id"),
+    )
+
+    persona_img_refs: List[Tuple[str, Asset, str, str, bytes]] = []
+    if receipt.persona_reference_assets:
+        persona_loaded = await load_persona_reference_media(
+            db,
+            effective_user_id,
+            receipt.persona_reference_assets,
+            media_kind="image",
+        )
+        existing_ref_set = set(ref_ids)
+        for p_asset, p_fname, p_mime, p_bytes in persona_loaded:
+            p_id = str(p_asset.id)
+            item = (p_id, p_asset, p_fname, p_mime, p_bytes)
+            persona_img_refs.append(item)
+            if p_id not in existing_ref_set:
+                existing_ref_set.add(p_id)
+                ref_ids.append(p_id)
+                loaded_refs.append(item)
+
+    image_refs = [item for item in loaded_refs if (item[1].asset_type == "image" or item[3].startswith("image/"))]
+    video_refs = [item for item in loaded_refs if (item[1].asset_type == "video" or item[3].startswith("video/"))]
+    audio_refs = [item for item in loaded_refs if (item[1].asset_type == "audio" or item[3].startswith("audio/"))]
+
+    if canonical_tool == "image_to_video" and not image_refs:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="image_to_video requires a reference image asset",
+        )
+    if canonical_tool == "videogen" and not loaded_refs:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="videogen requires a reference image. Upload or attach one before running.",
+        )
+    if canonical_tool == "video2video" and not video_refs:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="video2video requires a source video asset",
+        )
+    if canonical_tool in ("extend", "video_upscaler") and not video_refs:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"{canonical_tool} requires a source video asset",
+        )
+
+    compiled_prompt = compile_video_prompt(
+        receipt.compiled_prompt or effective_prompt,
+        camera_motion=camera_motion,
+        motion_speed=motion_speed,
+        duration=duration,
+        aspect_ratio=aspect_ratio,
+        grade=grade,
+        lut=lut,
+    ) or pre_compiled_prompt
+
+    effective_mature = bool(
+        receipt.mature
+        or receipt.persona_mature
+        or any(getattr(item[1], "mature", False) for item in loaded_refs)
     )
 
     try:
@@ -882,6 +912,7 @@ async def _run_video_generation(
                 src_path.write_bytes(source_video_bytes)
 
                 last_frame_bytes = await asyncio.to_thread(extract_last_frame, src_path)
+                persona_second = persona_img_refs[0] if persona_img_refs else None
                 exec_res = await asyncio.to_thread(
                     comfy_client.execute_video_workflow,
                     receipt.envelope,
@@ -890,6 +921,8 @@ async def _run_video_generation(
                     expected_mode=receipt.content_mode,
                     ref_image_bytes=last_frame_bytes,
                     ref_image_filename="last_frame.png",
+                    second_image_bytes=persona_second[4] if persona_second else None,
+                    second_image_filename=persona_second[2] if persona_second else None,
                     camera_motion=camera_motion,
                     motion_speed=motion_speed,
                     duration=duration,
@@ -989,13 +1022,15 @@ async def _run_video_generation(
             "comfy_prompt_id": exec_res.get("prompt_id"),
             "envelope_id": receipt.envelope.envelope_id,
             "playbook_id": tool_input.get("playbook_id"),
+            "persona_id": receipt.persona_id,
+            "persona_version": receipt.persona_version,
         },
         owner_id=effective_user_id,
         project_id=tool_input.get("project_id"),
         width=out_w,
         height=out_h,
         duration_seconds=out_dur,
-        mature=receipt.mature,
+        mature=effective_mature,
     )
 
     await _persist_gate_audit_rows(
@@ -1019,6 +1054,7 @@ async def _run_video_generation(
             "duration": out_dur,
             "grade_applied": exec_res.get("grade_applied", False),
         },
+        mature=effective_mature,
     )
 
     progress.advance("COMPLETED", "Video stored")
@@ -1030,6 +1066,9 @@ async def _run_video_generation(
         "outputs": [stored],
         "envelope_id": receipt.envelope.envelope_id,
         "comfy_prompt_id": exec_res.get("prompt_id"),
+        "persona_id": receipt.persona_id,
+        "persona_version": receipt.persona_version,
+        "mature": effective_mature,
     }
 
 
@@ -1061,6 +1100,20 @@ async def _run_generation(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="run_any_llm requires a prompt",
             )
+        effective_user_id = owner_id or await _ensure_studio_user(db)
+        receipt = await _authorize_through_gate(
+            db,
+            effective_user_id,
+            intent="analyze",
+            prompt_text=prompt,
+            capability_id="cognition.reasoning",
+            arguments={"max_tokens": int(tool_input.get("max_tokens") or 2048)},
+            input_asset_ids=[],
+            project_id=tool_input.get("project_id"),
+            session_id=tool_input.get("session_id"),
+            persona_id=tool_input.get("as") or tool_input.get("persona_id"),
+            playbook=tool_input.get("playbook_id"),
+        )
         default_system = (
             "You are KEYSTONE Creative Prompt Cognition. Expand user ideas into rich cinematic "
             "details with camera, lighting, and composition specifics."
@@ -1068,6 +1121,8 @@ async def _run_generation(
         system_prompt = str(tool_input.get("system_prompt") or default_system)
         if playbook_ctx:
             system_prompt = f"{system_prompt}\n\nAttached playbook context:\n{playbook_ctx}"
+        if receipt.persona_sheet:
+            system_prompt = f"{system_prompt}\n\n[PERSONA SHEET]\n{receipt.persona_sheet}"
         await _dispatch(progress, playbook_ctx, "the language model")
         text = await asyncio.to_thread(
             _call_llm,
@@ -1090,6 +1145,9 @@ async def _run_generation(
             "input": tool_input,
             "outputs": [],
             "text": text,
+            "envelope_id": receipt.envelope.envelope_id,
+            "persona_id": receipt.persona_id,
+            "persona_version": receipt.persona_version,
         }
 
     if canonical_tool not in VIDEO_TOOL_SPECS and canonical_tool not in IMAGE_TOOL_SPECS:
@@ -1114,18 +1172,22 @@ async def _run_generation(
         )
 
     if canonical_tool in IMAGE_TOOL_SPECS:
+        from apps.api.src.services.gate import load_persona_reference_media
+
         intent, workflow_name, capability_id, relationship_type = IMAGE_TOOL_SPECS[canonical_tool]
         ref_ids = _collect_ref_ids(tool_input)
         ref_bytes: Optional[bytes] = None
         ref_filename: Optional[str] = None
+        ref_mature = False
         if ref_ids:
-            loaded = await _load_reference_bytes(db, ref_ids[0], effective_user_id)
-            if loaded is None:
+            loaded_ref_asset = await _load_asset_with_bytes(db, ref_ids[0], effective_user_id)
+            if loaded_ref_asset is None:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=f"Reference asset '{ref_ids[0]}' was not found in studio storage",
                 )
-            ref_filename, _ref_mime, ref_bytes = loaded
+            ref_asset_obj, ref_filename, _ref_mime, ref_bytes = loaded_ref_asset
+            ref_mature = bool(getattr(ref_asset_obj, "mature", False))
 
         if canonical_tool in ("image_editor", "upscaler") and not ref_bytes:
             raise HTTPException(
@@ -1164,9 +1226,28 @@ async def _run_generation(
             arguments=gate_args,
             input_asset_ids=ref_ids,
             project_id=tool_input.get("project_id"),
+            session_id=tool_input.get("session_id"),
             persona_id=tool_input.get("as") or tool_input.get("persona_id"),
             playbook=tool_input.get("playbook_id"),
         )
+
+        if ref_bytes is None and receipt.persona_reference_assets:
+            persona_loaded = await load_persona_reference_media(
+                db,
+                effective_user_id,
+                receipt.persona_reference_assets,
+                media_kind="image",
+            )
+            if persona_loaded:
+                p_asset, p_fname, _p_mime, p_bytes = persona_loaded[0]
+                ref_bytes = p_bytes
+                ref_filename = p_fname
+                ref_mature = ref_mature or bool(getattr(p_asset, "mature", False))
+                if str(p_asset.id) not in ref_ids:
+                    ref_ids.append(str(p_asset.id))
+
+        effective_mature = bool(receipt.mature or receipt.persona_mature or ref_mature)
+        compiled_image_prompt = receipt.compiled_prompt or (prompt or f"{tool} generation")
 
         src_dims: Optional[Tuple[int, int]] = None
         if ref_bytes:
@@ -1196,7 +1277,11 @@ async def _run_generation(
             except ComfyUIError as exc:
                 _raise_comfy_http_error(exc)
 
-        effective_wf = "sdxl_edit" if (canonical_tool == "by_ref" and uploaded_name) else workflow_name
+        effective_wf = (
+            "sdxl_edit"
+            if (canonical_tool in ("by_ref", "by_prompt") and uploaded_name)
+            else workflow_name
+        )
         out_w, out_h = resolve_aspect_dimensions(aspect_ratio, tool_input.get("width"), tool_input.get("height"))
 
         try:
@@ -1206,7 +1291,7 @@ async def _run_generation(
                 workflow_name=effective_wf,
                 expected_mode=receipt.content_mode,
                 parameters={
-                    "prompt": prompt or f"{tool} generation",
+                    "prompt": compiled_image_prompt,
                     "negative_prompt": tool_input.get("negative_prompt"),
                     "image_name": uploaded_name,
                     "width": out_w,
@@ -1245,15 +1330,17 @@ async def _run_generation(
                 "tool": tool,
                 "intent": intent,
                 "workflow": effective_wf,
-                "prompt": prompt,
+                "prompt": compiled_image_prompt,
                 "comfy_prompt_id": exec_res.get("prompt_id"),
                 "playbook_id": tool_input.get("playbook_id"),
+                "persona_id": receipt.persona_id,
+                "persona_version": receipt.persona_version,
             },
             owner_id=effective_user_id,
             project_id=tool_input.get("project_id"),
             width=out_w,
             height=out_h,
-            mature=receipt.mature,
+            mature=effective_mature,
         )
 
         await _persist_gate_audit_rows(
@@ -1263,13 +1350,14 @@ async def _run_generation(
             project_id=tool_input.get("project_id"),
             capability_id=capability_id,
             workflow_name=effective_wf,
-            compiled_prompt=prompt or f"{tool} generation",
+            compiled_prompt=compiled_image_prompt,
             output_asset_id=stored["asset_id"],
             harness_res=harness_res,
             parent_asset_ids=ref_ids,
             relationship_type=relationship_type,
             started_at=started_at,
             seed=tool_input.get("seed"),
+            mature=effective_mature,
         )
 
         progress.advance("COMPLETED", "Image stored")
@@ -1280,6 +1368,9 @@ async def _run_generation(
             "input": tool_input,
             "outputs": [stored],
             "envelope_id": receipt.envelope.envelope_id,
+            "persona_id": receipt.persona_id,
+            "persona_version": receipt.persona_version,
+            "mature": effective_mature,
         }
 
     raise HTTPException(

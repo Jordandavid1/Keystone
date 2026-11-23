@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AudioLines, Film, ImageOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { StudioAsset } from '@/lib/types';
@@ -10,11 +10,15 @@ export function AssetThumb({ asset, className, fit = 'cover' }: { asset: StudioA
   const [broken, setBroken] = useState(false);
   const src = asset.previewUrl || asset.url;
 
+  useEffect(() => {
+    setBroken(false);
+  }, [asset.id, src]);
+
   if (broken || !src) {
     return (
       <div className={cn('flex flex-col items-center justify-center gap-1 bg-ks-raised text-micro text-ks-ink-3', className)}>
         <ImageOff className="size-4" />
-        <span>Can't load</span>
+        <span>Can&apos;t load</span>
       </div>
     );
   }
@@ -29,6 +33,7 @@ export function AssetThumb({ asset, className, fit = 'cover' }: { asset: StudioA
     return (
       <div className={cn('relative overflow-hidden bg-black', className)}>
         <video
+          key={asset.id}
           src={asset.url}
           preload="metadata"
           muted
@@ -43,6 +48,7 @@ export function AssetThumb({ asset, className, fit = 'cover' }: { asset: StudioA
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
+      key={asset.id}
       src={src}
       alt={asset.title}
       loading="lazy"

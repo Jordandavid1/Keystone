@@ -8,7 +8,7 @@ explicitly as their target milestones land:
 
   - bible_sync           : advisory at O0.5 -> BLOCKING from O2 (Bible v2 landing)
   - license_policy       : advisory at O0.5 -> BLOCKING from O17 (housekeeping)
-  - no_duplicate_engines : advisory until consolidation PRs (1 compiler, 1 Comfy client, 1 web UI)
+  - no_duplicate_engines : advisory until PR6 -> BLOCKING from PR6 (1 compiler, 1 Comfy client, 1 web UI)
   - manifest_accounting  : advisory until PR8 (quantization sanctioned; flips blocking once local Qwen-embedding registers in CapabilityManifest)
   - banned_strings       : BLOCKING (zero placeholders / sample inputs / silent fallbacks)
   - change_control       : BLOCKING (§37 ADR traceability)
@@ -32,11 +32,12 @@ if hasattr(sys.stdout, "reconfigure"):
     except Exception:
         pass
 
-# Checks enforced as blocking right now (O17: bible_sync + license_policy blocking).
+# Checks enforced as blocking right now (O17 + PR6: no_duplicate_engines blocking).
 # Checks not in this set run in advisory (warn-only) mode unless --strict is passed.
 BLOCKING_CHECKS: Set[str] = {
     "bible_sync",
     "license_policy",
+    "no_duplicate_engines",
     "banned_strings",
     "change_control",
     "npm_test_identity",
@@ -117,21 +118,25 @@ def verify_no_duplicate_engines(root_dir: Path) -> Dict[str, Any]:
             }
         )
 
-    web_uis = [
+    legacy_web_uis = [
         p
         for p in (
-            "apps/web/app/page.tsx",
             "apps/web/index.html",
-            "apps/web/legacy/index.html",
+            "apps/web/app.js",
+            "apps/web/styles.css",
+            "apps/web/legacy",
         )
         if (root_dir / p).exists()
     ]
-    if len(web_uis) > 1:
+    if legacy_web_uis:
+        active_web_uis = [
+            p for p in ("apps/web/app/page.tsx",) if (root_dir / p).exists()
+        ] + legacy_web_uis
         findings.append(
             {
                 "category": "duplicate_web_uis",
-                "paths": web_uis,
-                "detail": "Legacy HTML SPA / apps/web/legacy still present alongside Next.js Studio (retire after §25.9 Parity Ledger).",
+                "paths": active_web_uis,
+                "detail": "Legacy HTML SPA / apps/web/legacy still present alongside Next.js Studio (retired in PR6).",
             }
         )
 

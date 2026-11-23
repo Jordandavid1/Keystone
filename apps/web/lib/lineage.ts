@@ -9,6 +9,7 @@ export interface LineageNode {
 export interface LineageEdge {
   from: string;
   to: string;
+  relationshipType?: string;
 }
 
 export interface LineageGraph {
@@ -18,16 +19,32 @@ export interface LineageGraph {
   rows: number;
 }
 
-/** Depth-column layout of the asset DAG built from each asset's parentId. */
-export function buildLineage(assets: StudioAsset[]): LineageGraph {
+/** Depth-column layout of the asset DAG built from each asset's parentId and hydrated server edges. */
+export function buildLineage(assets: StudioAsset[], extraEdges: LineageEdge[] = []): LineageGraph {
   const byId = new Map(assets.map((a) => [a.id, a]));
+  const parentByChild = new Map<string, string>();
+  const edgeMap = new Map<string, LineageEdge>();
+
+  for (const a of assets) {
+    if (a.parentId && byId.has(a.parentId) && a.parentId !== a.id) {
+      parentByChild.set(a.id, a.parentId);
+      edgeMap.set(`${a.parentId}->${a.id}`, { from: a.parentId, to: a.id });
+    }
+  }
+  for (const e of extraEdges) {
+    if (e.from && e.to && e.from !== e.to && byId.has(e.from) && byId.has(e.to)) {
+      if (!parentByChild.has(e.to)) parentByChild.set(e.to, e.from);
+      edgeMap.set(`${e.from}->${e.to}`, e);
+    }
+  }
+
   const depthCache = new Map<string, number>();
 
-  const depthOf = (asset: StudioAsset, guard = 0): number => {
-    if (depthCache.has(asset.id)) return depthCache.get(asset.id)!;
-    const parent = asset.parentId ? byId.get(asset.parentId) : undefined;
-    const d = parent && guard < 64 ? depthOf(parent, guard + 1) + 1 : 0;
-    depthCache.set(asset.id, d);
+  const depthOf = (assetId: string, guard = 0): number => {
+    if (depthCache.has(assetId)) return depthCache.get(assetId)!;
+    const pId = parentByChild.get(assetId);
+    const d = pId && byId.has(pId) && guard < 64 ? depthOf(pId, guard + 1) + 1 : 0;
+    depthCache.set(assetId, d);
     return d;
   };
 
@@ -35,16 +52,13 @@ export function buildLineage(assets: StudioAsset[]): LineageGraph {
   const ordered = [...assets].sort((a, b) => a.createdAt - b.createdAt);
   const rowsPerColumn = new Map<number, number>();
   const nodes: LineageNode[] = ordered.map((asset) => {
-    const depth = depthOf(asset);
+    const depth = depthOf(asset.id);
     const row = rowsPerColumn.get(depth) || 0;
     rowsPerColumn.set(depth, row + 1);
     return { asset, depth, row };
   });
 
-  const edges: LineageEdge[] = ordered
-    .filter((a) => a.parentId && byId.has(a.parentId))
-    .map((a) => ({ from: a.parentId as string, to: a.id }));
-
+  const edges = Array.from(edgeMap.values());
   const columns = nodes.reduce((m, n) => Math.max(m, n.depth + 1), 0);
   const rows = Array.from(rowsPerColumn.values()).reduce((m, r) => Math.max(m, r), 0);
   return { nodes, edges, columns, rows };

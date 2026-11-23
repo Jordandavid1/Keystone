@@ -411,6 +411,16 @@ class H3PromptCompiler:
         constraints = [item.strip() for item in intent.constraints if item.strip()]
         if constraints:
             extras.append("Constraints: " + "; ".join(constraints))
+        persona_sheet = intent.metadata.get("persona_sheet")
+        if persona_sheet:
+            sheet_str = json.dumps(persona_sheet, sort_keys=True) if isinstance(persona_sheet, dict) else str(persona_sheet)
+            if sheet_str.strip():
+                extras.append(f"Persona: {sheet_str.strip()}")
+        memory_ctx = intent.metadata.get("memory_context")
+        if memory_ctx:
+            mem_str = "; ".join(str(m) for m in memory_ctx) if isinstance(memory_ctx, (list, tuple)) else str(memory_ctx)
+            if mem_str.strip():
+                extras.append(f"Memory Context: {mem_str.strip()}")
         if extras:
             blocks.append("\n".join(extras))
         positive = "\n\n".join(blocks)
@@ -456,6 +466,8 @@ async def compile_for_generation(
     user_text: str,
     intent_hint: Optional[str],
     reference_count: int,
+    memory_context: Optional[Union[str, List[str]]] = None,
+    persona_sheet: Optional[Union[str, Dict[str, Any]]] = None,
 ) -> Any:
     """Compile the prompt the H3 worker will receive for one job."""
     from apps.api.src.creative import h3_manifest
@@ -465,7 +477,14 @@ async def compile_for_generation(
     manifest = h3_manifest.manifest()
     intent = KeystonePromptIntent(
         objective=user_text,
-        metadata={"intent_hint": intent_hint, "cognition": {"status": "not_connected"}},
+        metadata={
+            "intent_hint": intent_hint,
+            "cognition": {"status": "not_connected"},
+            "memory_context": memory_context,
+            "memory_context_used": bool(memory_context),
+            "persona_sheet": persona_sheet,
+            "persona_injected": bool(persona_sheet),
+        },
     )
 
     provider = cognition.current()
@@ -494,6 +513,10 @@ async def compile_for_generation(
                             "observations": result.observations,
                             "proposed_objective": proposed.objective,
                         },
+                        "memory_context": memory_context,
+                        "memory_context_used": bool(memory_context),
+                        "persona_sheet": persona_sheet,
+                        "persona_injected": bool(persona_sheet),
                     },
                 }
             )
@@ -528,7 +551,14 @@ async def digest_and_compile_prompt(
 
     req_id = job_id or f"job-{uuid.uuid4().hex[:8]}"
     if cognition.current() is not None:
-        return await compile_for_generation(req_id, user_text, intent_hint, reference_count)
+        return await compile_for_generation(
+            req_id,
+            user_text,
+            intent_hint,
+            reference_count,
+            memory_context=memory_context,
+            persona_sheet=persona_sheet,
+        )
 
     manifest = h3_manifest.manifest()
     intent = KeystonePromptIntent(
@@ -536,7 +566,9 @@ async def digest_and_compile_prompt(
         metadata={
             "intent_hint": intent_hint,
             "cognition": {"status": "not_connected"},
+            "memory_context": memory_context,
             "memory_context_used": bool(memory_context),
+            "persona_sheet": persona_sheet,
             "persona_injected": bool(persona_sheet),
         },
     )
@@ -569,7 +601,9 @@ async def digest_and_compile_prompt(
                             "observations": result.observations,
                             "proposed_objective": proposed.objective,
                         },
+                        "memory_context": memory_context,
                         "memory_context_used": bool(memory_context),
+                        "persona_sheet": persona_sheet,
                         "persona_injected": bool(persona_sheet),
                     },
                 }
@@ -583,7 +617,9 @@ async def digest_and_compile_prompt(
                         "status": "error",
                         "error": f"{type(exc).__name__}: {exc}",
                     },
+                    "memory_context": memory_context,
                     "memory_context_used": bool(memory_context),
+                    "persona_sheet": persona_sheet,
                     "persona_injected": bool(persona_sheet),
                 },
             )

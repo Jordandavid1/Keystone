@@ -17,10 +17,95 @@ export type GenerativeToolId =
   | 'videogen'         // Image-to-Video Animation
   | 'text_to_video'    // Direct Text-to-Video
   | 'video2video'      // Video Motion & Style Transfer
+  | 'extend'           // Video Shot Extension
   | 'lipsync'          // Talking Head & Audio LipSync
   | 'video_upscaler'   // AI Video Super-Resolution
   | 'video_merger'     // Multi-Clip Video Sequencer & Transitions
   | 'run_any_llm';     // Uncensored LLM Cognition & Brainstorming
+
+export type ContentMode = 'sfw' | 'unrestricted';
+export type EvalBudget = 'minimal' | 'standard' | 'thorough';
+export type OutputFormatPref = 'auto' | 'png' | 'webp' | 'mp4';
+
+export interface StudioPreferences {
+  qualityTier: QualityTier;
+  evalBudget: EvalBudget;
+  defaultContentMode: ContentMode;
+  defaultSeed: number | null;
+  outputPrefs: {
+    framerate: number;
+    format: OutputFormatPref;
+    c2paBadge: boolean;
+  };
+}
+
+export interface AccountInfo {
+  id: string;
+  email: string;
+  display_name?: string | null;
+  role?: string;
+  content_mode: ContentMode;
+  age_verified: boolean;
+  age_verified_at?: string | null;
+  age_verification_method?: string | null;
+}
+
+export interface Persona {
+  id: string;
+  version?: number;
+  parent_persona_id?: string | null;
+  project_id?: string | null;
+  name: string;
+  description?: string | null;
+  voice_id?: string | null;
+  voice_name?: string | null;
+  voice_settings?: Record<string, any>;
+  personality_traits?: string[];
+  system_prompt?: string | null;
+  avatar_url?: string | null;
+  avatar_asset_id?: string | null;
+  reference_assets?: string[];
+  identity_adapter?: string;
+  mature?: boolean;
+  created_at?: string | null;
+}
+
+export interface SessionSummary {
+  id: string;
+  user_id?: string;
+  project_id?: string | null;
+  title?: string | null;
+  content_mode?: ContentMode | null;
+  created_at?: string | null;
+}
+
+export interface SessionMessage {
+  id: string;
+  session_id: string;
+  role: 'user' | 'keystone' | 'assistant' | 'system';
+  content: string;
+  metadata?: Record<string, any> | null;
+  created_at?: string | null;
+}
+
+export interface InternetFinding {
+  title: string;
+  url: string;
+  snippet: string;
+}
+
+export interface RecipeSummary {
+  id: string;
+  project_id?: string | null;
+  persona_id?: string | null;
+  mode?: ContentMode;
+  seed?: number;
+  passing_runs?: number;
+  promoted_at?: string | null;
+  scores?: Record<string, any>;
+  compiled_prompt?: Record<string, any> | string;
+  created_at?: string | null;
+}
 
 export type CanvasViewMode = 'single' | 'compare' | 'video' | 'variations' | 'lineage' | 'pipeline' | 'analysis';
 
@@ -55,6 +140,11 @@ export interface StudioAsset {
   toolUsed?: GenerativeToolId | string;
   prompt?: string;
   parentId?: string | null;
+  projectId?: string | null;
+  mature?: boolean;
+  personaId?: string | null;
+  personaVersion?: number | null;
+  c2paManifest?: Record<string, any> | null;
   createdAt: number;
 }
 
@@ -134,6 +224,10 @@ export interface Generation {
   compiledPrompt: string;
   referenceIds: string[];
   playbookId?: string | null;
+  personaId?: string | null;
+  projectId?: string | null;
+  sessionId?: string | null;
+  contentMode?: ContentMode;
   status: RunStatus;
   jobState: JobState;
   startedAt: number;

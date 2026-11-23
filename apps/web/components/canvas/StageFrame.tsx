@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
-import { AudioLines, ImageOff } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { AudioLines, ImageOff, RefreshCw, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { fetchAsset } from '@/lib/api';
 import { LookState, StudioAsset } from '@/lib/types';
+import { Button } from '@/components/ui/button';
 import { VideoTransport } from './VideoTransport';
 
 export function lookFilter(look: LookState): string | undefined {
@@ -32,7 +34,6 @@ function Guides() {
 }
 
 function Matte({ ratio }: { ratio: number }) {
-  // Letterbox/pillarbox bars computed from the frame's own box via CSS aspect-ratio.
   return (
     <div className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden rounded-frame" aria-hidden="true">
       <div
@@ -51,6 +52,7 @@ export function StageFrame({
   guides,
   matte,
   fps,
+  showC2paBadge = false,
 }: {
   asset: StudioAsset;
   look: LookState;
@@ -58,20 +60,66 @@ export function StageFrame({
   guides: boolean;
   matte: string;
   fps: number;
+  showC2paBadge?: boolean;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [broken, setBroken] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+  const [retryError, setRetryError] = useState<string | null>(null);
+  const [freshUrl, setFreshUrl] = useState<string | null>(null);
+  const [retryNonce, setRetryNonce] = useState(0);
+
+  // Reset broken/retry state cleanly whenever the selected asset or source URL changes.
+  useEffect(() => {
+    setBroken(false);
+    setRetrying(false);
+    setRetryError(null);
+    setFreshUrl(null);
+    setRetryNonce(0);
+  }, [asset.id, asset.url]);
+
+  const activeUrl = freshUrl || asset.url;
   const filter = lookFilter(look);
   const matteRatio = MATTE_RATIO[matte] || null;
 
+  const handleRetry = async () => {
+    setRetrying(true);
+    setRetryError(null);
+    try {
+      const latest = await fetchAsset(asset.id);
+      if (latest?.url) {
+        setFreshUrl(latest.url);
+      }
+      setBroken(false);
+      setRetryNonce((n) => n + 1);
+    } catch (err: any) {
+      // Allow retrying local/blob URLs even if server refresh failed.
+      if (activeUrl.startsWith('blob:') || activeUrl.startsWith('data:')) {
+        setBroken(false);
+        setRetryNonce((n) => n + 1);
+      } else {
+        setRetryError(err?.message || 'Could not refresh asset URL.');
+      }
+    } finally {
+      setRetrying(false);
+    }
+  };
+
   if (broken) {
     return (
-      <div className="flex size-full flex-col items-center justify-center gap-2 text-center" role="alert">
+      <div className="flex size-full flex-col items-center justify-center gap-3 p-6 text-center" role="alert">
         <ImageOff className="size-6 text-ks-ink-3" />
-        <p className="text-lead text-ks-ink">This asset couldn't be loaded.</p>
+        <p className="text-lead text-ks-ink">This asset couldn&apos;t be loaded.</p>
         <p className="max-w-[48ch] text-meta text-ks-ink-3">
-          Its signed link may have expired. Reload the studio to fetch a fresh one, or download it from the inspector.
+          Its signed link may have expired or the asset is still finalizing. Retry to request a fresh signed URL.
         </p>
+        {retryError && <p className="max-w-[48ch] text-meta text-ks-deny">{retryError}</p>}
+        <div className="mt-1 flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => void handleRetry()} disabled={retrying}>
+            <RefreshCw className={cn('size-3.5', retrying && 'animate-spin')} />
+            {retrying ? 'Retrying…' : 'Retry'}
+          </Button>
+        </div>
       </div>
     );
   }
@@ -82,7 +130,7 @@ export function StageFrame({
         <div className="flex w-full max-w-[560px] flex-col items-center gap-4 rounded-panel border border-ks-line bg-ks-raised/60 p-8">
           <AudioLines className="size-8 text-ks-ink-2" />
           <p className="text-lead text-ks-ink">{asset.title}</p>
-          <audio src={asset.url} controls className="w-full" onError={() => setBroken(true)} />
+          <audio key={`${asset.id}-${retryNonce}`} src={activeUrl} controls className="w-full" onError={() => setBroken(true)} />
         </div>
       </div>
     );
@@ -96,9 +144,9 @@ export function StageFrame({
         <div className="relative max-h-full max-w-full animate-in fade-in-0 zoom-in-[0.985] duration-settle">
           {asset.type === 'video' ? (
             <video
-              key={asset.id}
+              key={`${asset.id}-${retryNonce}`}
               ref={videoRef}
-              src={asset.url}
+              src={activeUrl}
               playsInline
               preload="auto"
               onError={() => setBroken(true)}
@@ -108,8 +156,8 @@ export function StageFrame({
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              key={asset.id}
-              src={asset.url}
+              key={`${asset.id}-${retryNonce}`}
+              src={activeUrl}
               alt={asset.title}
               onError={() => setBroken(true)}
               className="block max-h-[calc(100dvh-var(--ks-reserved,300px))] max-w-full origin-center rounded-frame object-contain shadow-frame transition-transform duration-base ease-shutter"
@@ -118,6 +166,20 @@ export function StageFrame({
           )}
           {guides && <Guides />}
           {matteRatio && <Matte ratio={matteRatio} />}
+          {(asset.mature || (showC2paBadge && asset.c2paManifest)) && (
+            <div className="pointer-events-none absolute left-2.5 top-2.5 flex items-center gap-1.5">
+              {asset.mature && (
+                <span className="rounded-full border border-ks-hold/50 bg-black/70 px-2 py-0.5 text-micro font-medium text-ks-hold backdrop-blur">
+                  Mature 18+
+                </span>
+              )}
+              {showC2paBadge && asset.c2paManifest && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-ks-verified/40 bg-black/70 px-2 py-0.5 text-micro font-medium text-ks-verified backdrop-blur">
+                  <ShieldCheck className="size-3" /> C2PA
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </div>
       {asset.type === 'video' && <VideoTransport key={asset.id} videos={[videoRef]} fps={fps} />}

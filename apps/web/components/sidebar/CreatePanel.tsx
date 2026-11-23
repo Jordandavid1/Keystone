@@ -16,11 +16,12 @@ function useCaseText(useCase: any): string {
   return useCase?.prompt || useCase?.description || useCase?.title || useCase?.name || JSON.stringify(useCase);
 }
 
-/** Create panel — Domain Playbooks (attach context, never auto-run) and the persona cast. */
+/** Create panel — Domain Playbooks (attach context, never auto-run) and the persona cast (`as`). */
 export function CreatePanel() {
   const { state, dispatch } = useStudio();
   const { playbooks, playbooksError, playbooksLoaded, personas, personasError, session } = state.system;
   const attached = state.composer.playbook;
+  const activePersonaId = state.composer.personaId;
 
   return (
     <div className="flex flex-col gap-4 pb-6">
@@ -71,7 +72,7 @@ export function CreatePanel() {
           {(attached.path || []).length > 0 && (
             <details className="mt-3 text-meta text-ks-ink-2">
               <summary className="cursor-pointer text-ks-ink-2 hover:text-ks-ink">How this playbook works</summary>
-              <ol className="mt-2 space-y-1.5 pl-4 list-decimal">
+              <ol className="mt-2 list-decimal space-y-1.5 pl-4">
                 {(attached.path || []).map((step, idx) => (
                   <li key={step.title || idx}>
                     <span className="text-ks-ink">{step.title}</span> — {step.objective}
@@ -87,7 +88,7 @@ export function CreatePanel() {
         {!playbooksLoaded ? (
           <PanelNote>Loading playbooks…</PanelNote>
         ) : playbooksError ? (
-          <PanelNote tone="error">Playbooks didn't load: {playbooksError}</PanelNote>
+          <PanelNote tone="error">Playbooks didn&apos;t load: {playbooksError}</PanelNote>
         ) : playbooks.length === 0 ? (
           <PanelNote>The studio API returned no playbooks.</PanelNote>
         ) : (
@@ -128,26 +129,38 @@ export function CreatePanel() {
       {session.status !== 'signed_in' ? (
         <SignedOutNote what="your personas" compact />
       ) : personasError ? (
-        <PanelNote tone="error">Personas didn't load: {personasError}</PanelNote>
+        <PanelNote tone="error">Personas didn&apos;t load: {personasError}</PanelNote>
       ) : personas.length === 0 ? (
         <PanelNote>No personas yet. Create one to keep a character and voice consistent across runs.</PanelNote>
       ) : (
         <div className="flex flex-col px-2">
-          {personas.map((p) => (
-            <button
-              key={p.id}
-              onClick={() => dispatch({ type: 'OPEN_MODAL', modal: 'personas' })}
-              className="flex items-center gap-2.5 rounded-control px-2 py-1.5 text-left hover:bg-ks-lift"
-            >
-              <span className="flex size-7 items-center justify-center rounded-full bg-ks-lift text-meta font-semibold text-ks-ink">
-                {p.name.slice(0, 1).toUpperCase()}
-              </span>
-              <span className="min-w-0">
-                <span className="block truncate text-body text-ks-ink">{p.name}</span>
-                <span className="block truncate text-meta text-ks-ink-3">{p.voice_name || 'No voice assigned'}</span>
-              </span>
-            </button>
-          ))}
+          {personas.map((p) => {
+            const active = activePersonaId === p.id;
+            return (
+              <button
+                key={p.id}
+                onClick={() => dispatch({ type: 'SET_PERSONA', personaId: active ? null : p.id })}
+                aria-pressed={active}
+                className={cn(
+                  'flex items-center gap-2.5 rounded-control px-2 py-1.5 text-left transition-colors hover:bg-ks-lift',
+                  active && 'bg-ks-lift',
+                )}
+              >
+                <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-ks-raised text-meta font-semibold text-ks-ink">
+                  {(p.name || '?').slice(0, 1).toUpperCase()}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-1.5 text-body text-ks-ink">
+                    <span className="truncate">{p.name}</span>
+                    {p.version ? <span className="text-micro text-ks-ink-3">v{p.version}</span> : null}
+                    {p.mature ? <span className="text-micro text-ks-hold">18+</span> : null}
+                  </span>
+                  <span className="block truncate text-meta text-ks-ink-3">{p.voice_name || 'No voice bound'}</span>
+                </span>
+                {active && <Check className="size-3.5 shrink-0 text-ks-indigo" aria-hidden="true" />}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

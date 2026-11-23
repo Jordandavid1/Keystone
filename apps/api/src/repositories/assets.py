@@ -25,7 +25,8 @@ class AssetRepository(BaseRepository[Asset]):
         project_id: Optional[str | uuid.UUID] = None,
         media_type: str = "image",
         storage_provider: str = "local",
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
+        mature: bool = False,
     ) -> Asset:
         if not mime_type or byte_size <= 0 or not storage_key:
             raise ValueError("INVALID_ASSET_PARAMS")
@@ -37,9 +38,11 @@ class AssetRepository(BaseRepository[Asset]):
             user_id=self.tenant_id,
             project_id=str(project_id) if project_id else None,
             asset_type=media_type,
+            filename=filename,
             mime_type=mime_type,
             storage_key=storage_key,
             size_bytes=byte_size,
+            mature=bool(mature),
             deleted_at=None,
         )
         self.session.add(asset)

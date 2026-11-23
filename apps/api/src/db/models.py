@@ -226,6 +226,7 @@ class AssetRelationship(Base):
     job_id: Mapped[Optional[str]] = mapped_column(sa.UUID(as_uuid=False), ForeignKey("jobs.id"), nullable=True)
     persona_id: Mapped[Optional[str]] = mapped_column(sa.UUID(as_uuid=False), nullable=True)
     persona_version: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    mature: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=sa_text("false"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), server_default=sa_text("now()"))
 
     __table_args__ = (
@@ -582,6 +583,9 @@ class Persona(Base):
     id: Mapped[str] = mapped_column(sa.UUID(as_uuid=False), primary_key=True)
     version: Mapped[int] = mapped_column(Integer, primary_key=True, default=1, server_default="1")
     user_id: Mapped[str] = mapped_column(sa.UUID(as_uuid=False), ForeignKey("users.id"), nullable=False)
+    project_id: Mapped[Optional[str]] = mapped_column(sa.UUID(as_uuid=False), ForeignKey("projects.id"), nullable=True)
+    parent_persona_id: Mapped[Optional[str]] = mapped_column(sa.UUID(as_uuid=False), nullable=True)
+    avatar_asset_id: Mapped[Optional[str]] = mapped_column(sa.UUID(as_uuid=False), ForeignKey("assets.id"), nullable=True)
     name: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     traits: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True)
@@ -591,11 +595,18 @@ class Persona(Base):
     voice: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True)
     mature: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=sa_text("false"))
     is_current: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default=sa_text("true"))
+    deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), server_default=sa_text("now()"))
 
     __table_args__ = (
         CheckConstraint("identity_adapter IN ('reference_set','ip')", name="ck_personas_identity_adapter"),
-        Index("ix_personas_current", "id", unique=True, postgresql_where=sa_text("is_current")),
+        Index(
+            "ix_personas_current",
+            "id",
+            unique=True,
+            postgresql_where=sa_text("is_current"),
+            sqlite_where=sa_text("is_current"),
+        ),
         Index("ix_personas_user", "user_id", "created_at"),
     )
 

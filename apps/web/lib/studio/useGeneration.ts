@@ -1,7 +1,15 @@
 'use client';
 
 import { useCallback, useRef } from 'react';
-import { ApiError, GenerationJob, executeGenerativeTool, fetchCreditLedger, fetchGenerationJob, uploadMediaFile } from '../api';
+import {
+  ApiError,
+  GenerationJob,
+  analyzeWithCognition,
+  executeGenerativeTool,
+  fetchCreditLedger,
+  fetchGenerationJob,
+  uploadMediaFile,
+} from '../api';
 import { INTENT_BY_ID, buildInput, compilePrompt, estimateCredits, routeIntent } from '../intents';
 import { normalizeJobState } from '../progress';
 import { TOOLS_CATALOG } from '../toolsCatalog';
@@ -13,7 +21,6 @@ const POLL_MS = 500;
 
 function newJobId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
-  // RFC 4122 v4 from getRandomValues for browsers without randomUUID (older Safari, http origins).
   const b = crypto.getRandomValues(new Uint8Array(16));
   b[6] = (b[6] & 0x0f) | 0x40;
   b[8] = (b[8] & 0x3f) | 0x80;
@@ -42,7 +49,7 @@ function titleFrom(prompt: string, fallback: string): string {
 
 export interface RunOptions {
   intent?: Intent;
-  /** Set by context-bar verbs (upscale, variation) that name the capability directly. */
+  /** Set by context-bar verbs (upscale, variation, extend) that name the capability directly. */
   capability?: GenerativeToolId;
   references?: StudioAsset[];
   prompt?: string;
@@ -59,6 +66,43 @@ export function useGeneration() {
     async (run: Generation) => {
       const jobId = newJobId();
       dispatch({ type: 'RUN_STARTED', run: { ...run, jobId, progress: 'pending', status: 'queued', jobState: 'CREATED', stepNote: null, failedAt: null } });
+
+      // Dedicated multimodal vision inspection endpoint for the Analyze intent.
+      if (run.intent === 'analyze') {
+        try {
+          dispatch({
+            type: 'RUN_UPDATED',
+            id: run.id,
+            patch: { progress: 'unavailable', status: 'processing', jobState: 'RUNNING', stepNote: 'Inspecting asset with KEYSTONE vision core' },
+          });
+          const res = await analyzeWithCognition({
+            asset_id: run.referenceIds[0] || null,
+            prompt: run.compiledPrompt || run.prompt,
+            session_id: run.sessionId ?? null,
+            project_id: run.projectId ?? null,
+            playbook_id: run.playbookId ?? null,
+            as: run.personaId ?? null,
+            persona_id: run.personaId ?? null,
+          });
+          const text = (res.analysis || res.text || '').trim();
+          if (!text) {
+            throw new Error(res.error || 'Vision analysis returned an empty response.');
+          }
+          dispatch({
+            type: 'RUN_UPDATED',
+            id: run.id,
+            patch: { status: 'succeeded', jobState: 'COMPLETED', finishedAt: Date.now(), text, stepNote: null },
+          });
+          dispatch({ type: 'SHOW_ANALYSIS', runId: run.id });
+        } catch (err) {
+          dispatch({
+            type: 'RUN_UPDATED',
+            id: run.id,
+            patch: { status: 'failed', jobState: 'FAILED', finishedAt: Date.now(), error: message(err), failedAt: 'RUNNING', stepNote: null },
+          });
+        }
+        return;
+      }
 
       // Read real staged progress while the (synchronous) generate request is in flight.
       let settled = false;
@@ -86,9 +130,7 @@ export function useGeneration() {
           try {
             apply(await fetchGenerationJob(jobId));
             misses = 0;
-          } catch (err) {
-            // 404 before the server registers the id is normal for the first poll or two.
-            // A server that never knows the id doesn't support live progress.
+          } catch {
             misses += 1;
             if (misses >= 6 && !lastSeen) {
               dispatch({ type: 'RUN_UPDATED', id: run.id, patch: { progress: 'unavailable', status: 'processing', jobState: 'RUNNING' } });
@@ -116,6 +158,9 @@ export function useGeneration() {
             ...o,
             title: titleFrom(run.prompt, run.label) + (all.length > 1 ? ` (${idx + 1})` : ''),
             parentId: o.parentId || parentId,
+            projectId: o.projectId ?? run.projectId ?? null,
+            personaId: o.personaId ?? run.personaId ?? null,
+            mature: o.mature ?? run.contentMode === 'unrestricted',
             prompt: run.prompt,
           }));
 
@@ -149,7 +194,6 @@ export function useGeneration() {
       } catch (err) {
         settled = true;
         await poll;
-        // Ask the server where the job stopped, so the track shows the real stage.
         let failedAt: JobState | null = null;
         const failedJobId = (err instanceof ApiError && err.jobId) || jobId;
         try {
@@ -177,7 +221,10 @@ export function useGeneration() {
       const s = stateRef.current;
       const intent = opts.intent || s.composer.intent;
       const prompt = opts.prompt ?? s.composer.prompt;
-      const references = opts.references ?? s.composer.references;
+      const selectedAsset = selectSelected(s);
+      const references =
+        opts.references ??
+        (intent === 'analyze' && !s.composer.references.length && selectedAsset ? [selectedAsset] : s.composer.references);
       const routed = routeIntent({ intent, prompt, references, engine: s.system.engine });
       const capability = opts.capability || routed.capability;
       const problems = opts.capability ? [] : routed.problems;
@@ -197,6 +244,11 @@ export function useGeneration() {
         references,
         playbook: s.composer.playbook,
         web: s.composer.web,
+        personaId: s.composer.personaId,
+        projectId: s.system.projectId,
+        sessionId: s.system.sessionId,
+        contentMode: s.system.contentMode,
+        preferences: s.system.preferences,
         extra: opts.extra,
       });
       const label = opts.label || INTENT_BY_ID[intent].verb;
@@ -209,6 +261,10 @@ export function useGeneration() {
         compiledPrompt,
         referenceIds: references.map((r) => r.id),
         playbookId: s.composer.playbook?.id || null,
+        personaId: s.composer.personaId,
+        projectId: s.system.projectId,
+        sessionId: s.system.sessionId,
+        contentMode: s.system.contentMode,
         status: 'queued',
         jobState: 'VALIDATING',
         startedAt: Date.now(),
@@ -246,7 +302,7 @@ export function useGeneration() {
       const asset = selectSelected(stateRef.current);
       if (!asset) return;
       const capability: GenerativeToolId = asset.type === 'video' ? 'video_upscaler' : 'upscaler';
-      const extra = capability === 'upscaler' ? { target_resolution: factor === 4 ? '4k' : '2k' } : { scale: factor };
+      const extra = capability === 'upscaler' ? { target_resolution: factor === 4 ? '4k' : '2k', scale_factor: factor } : { scale: factor, scale_factor: factor };
       void run({
         intent: 'edit',
         capability,
@@ -271,10 +327,22 @@ export function useGeneration() {
     });
   }, [run]);
 
+  const extend = useCallback(() => {
+    const asset = selectSelected(stateRef.current);
+    if (!asset || asset.type !== 'video') return;
+    void run({
+      intent: 'animate',
+      capability: 'extend',
+      references: [asset],
+      prompt: stateRef.current.composer.prompt.trim() || asset.prompt || 'Continue the shot seamlessly with natural motion',
+      label: 'Extend',
+    });
+  }, [run]);
+
   const upload = useCallback(
     async (file: File, attach: boolean) => {
       try {
-        const asset = await uploadMediaFile(file);
+        const asset = await uploadMediaFile(file, stateRef.current.system.projectId);
         dispatch({ type: 'ASSETS_ADDED', assets: [asset] });
         if (attach) dispatch({ type: 'ADD_REFERENCE', asset });
       } catch (err) {
@@ -284,5 +352,5 @@ export function useGeneration() {
     [dispatch],
   );
 
-  return { run, retry, upscale, variation, upload, catalog: TOOLS_CATALOG };
+  return { run, retry, upscale, variation, extend, upload, catalog: TOOLS_CATALOG };
 }

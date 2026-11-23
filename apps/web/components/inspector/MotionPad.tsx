@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Plane, RotateCw, ZoomIn, ZoomOut } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Film, Plane, RotateCw, ZoomIn, ZoomOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MotionPreset } from '@/lib/types';
 
@@ -26,10 +26,24 @@ const DEPTH: { id: MotionPreset; label: string; icon: React.ElementType }[] = [
 ];
 
 /**
- * Tactile camera-motion pad (Higgsfield pattern): directions sit where they point,
- * so choosing a move is spatial rather than reading a list. Arrow keys move between cells.
+ * Tactile camera-motion pad (Higgsfield pattern): binds camera_motion & motion_speed
+ * to studio controls and optionally dispatches directly to backend animate endpoints.
  */
-export function MotionPad({ value, onChange }: { value: MotionPreset; onChange: (v: MotionPreset) => void }) {
+export function MotionPad({
+  value,
+  onChange,
+  speed = 1,
+  onAnimate,
+  canAnimate = false,
+  busy = false,
+}: {
+  value: MotionPreset;
+  onChange: (v: MotionPreset) => void;
+  speed?: number;
+  onAnimate?: (params: { camera_motion: MotionPreset; motion_speed: number }) => void;
+  canAnimate?: boolean;
+  busy?: boolean;
+}) {
   const cells = PAD;
   const move = (from: number, dx: number, dy: number) => {
     let i = from;
@@ -96,7 +110,22 @@ export function MotionPad({ value, onChange }: { value: MotionPreset; onChange: 
           </button>
         ))}
       </div>
-      <p className="mt-2 text-meta text-ks-ink-2">{selected ? selected.label : 'Choose a move'}</p>
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <p className="text-meta text-ks-ink-2">
+          {selected ? selected.label : 'Choose a move'} · <span className="ks-num text-ks-ink-3">{speed.toFixed(1)}×</span>
+        </p>
+        {onAnimate && (
+          <button
+            type="button"
+            disabled={busy || !canAnimate}
+            onClick={() => onAnimate({ camera_motion: value, motion_speed: speed })}
+            className="inline-flex h-7 items-center gap-1.5 rounded-control bg-ks-lift px-2.5 text-meta font-medium text-ks-ink ring-1 ring-inset ring-ks-line-strong transition-colors hover:bg-ks-indigo/25 disabled:pointer-events-none disabled:opacity-40"
+          >
+            <Film className="size-3" />
+            Animate move
+          </button>
+        )}
+      </div>
     </div>
   );
 }

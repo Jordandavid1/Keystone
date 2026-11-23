@@ -11,22 +11,33 @@ Provides:
 
 from __future__ import annotations
 
+import base64
 import os
 import re
 import json
+import tempfile
 import time
 import uuid
 import urllib.parse
 import httpx
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.src.auth.dependencies import get_current_tenant_id
+from apps.api.src.db.models import Asset
 from apps.api.src.db.session import get_db
+from apps.api.src.lineage.dag import LineageDAG
+from apps.api.src.services.gate import (
+    GateService,
+    ensure_job_for_receipt,
+    load_persona_reference_media,
+)
 from services.cognition.src.client import CognitionConnector, PINNED_CHECKPOINT
 
 router = APIRouter(prefix="/v1/cognition", tags=["Cognition Agent & LLM Chat"])
@@ -39,9 +50,14 @@ class ChatMessage(BaseModel):
 
 
 class ChatRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     messages: List[ChatMessage] = Field(..., min_length=1, description="Conversation history")
     project_id: Optional[str] = None
     session_id: Optional[str] = None
+    as_persona: Optional[str] = Field(None, alias="as", description="Optional persona ID")
+    persona_id: Optional[str] = Field(None, description="Optional persona ID (alias for `as`)")
+    playbook_id: Optional[Any] = None
     temperature: Optional[float] = Field(0.7, ge=0.0, le=2.0)
     max_tokens: Optional[int] = Field(2048, ge=64, le=4096)
     web_search: Optional[bool] = Field(False, description="Enable real-time internet search and source citations")
@@ -49,11 +65,30 @@ class ChatRequest(BaseModel):
 
 
 class AgentTaskRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     task: str = Field(..., min_length=1, description="Directive or task for the autonomous agent")
     project_id: Optional[str] = None
     session_id: Optional[str] = None
+    as_persona: Optional[str] = Field(None, alias="as", description="Optional persona ID")
+    persona_id: Optional[str] = Field(None, description="Optional persona ID (alias for `as`)")
+    playbook_id: Optional[Any] = None
     allow_internet: Optional[bool] = Field(True, description="Permit live web lookup & scraping")
     allow_generation: Optional[bool] = Field(True, description="Permit autonomous studio image/video/speech generation")
+
+
+class AnalyzeRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    asset_id: Optional[str] = Field(None, description="Asset ID to inspect with Qwen-VL")
+    prompt: str = Field("Inspect and describe this asset in detail.", min_length=1, description="Inspection prompt")
+    project_id: Optional[str] = None
+    session_id: Optional[str] = None
+    as_persona: Optional[str] = Field(None, alias="as", description="Optional persona ID")
+    persona_id: Optional[str] = Field(None, description="Optional persona ID (alias for `as`)")
+    playbook_id: Optional[Any] = None
+    temperature: Optional[float] = Field(0.3, ge=0.0, le=2.0)
+    max_tokens: Optional[int] = Field(1024, ge=64, le=4096)
 
 
 # ============================================================================
@@ -230,7 +265,7 @@ async def _invoke_live_cognition_completion(
     active_endpoint: str,
     api_key: str,
     served_model: str,
-    messages: List[Dict[str, str]],
+    messages: List[Dict[str, Any]],
     temperature: float = 0.7,
     max_tokens: int = 2048,
 ) -> Dict[str, Any]:
@@ -368,6 +403,121 @@ async def configure_cognition_endpoint(req: CognitionConfigRequest) -> Dict[str,
     return await get_cognition_status()
 
 
+async def _render_cognition_asset(
+    db: AsyncSession,
+    *,
+    tenant_id: str,
+    receipt: Any,
+    prompt: str,
+    project_id: Optional[str],
+    title: str,
+    filename_prefix: str,
+    steps: int = 25,
+    cfg: float = 7.0,
+    extra_meta: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    from apps.api.src.repositories.assets import AssetRepository
+    from apps.api.src.routers.assets import content_url
+    from apps.api.src.storage import AssetStorageService, generate_storage_key
+    from services.comfy.src.client import ComfyUIClient
+
+    gen_prompt = prompt
+    if receipt.persona_descriptors and receipt.persona_descriptors not in gen_prompt:
+        gen_prompt = f"{gen_prompt}\n\n[Persona: {receipt.persona_descriptors}]"
+
+    ref_bytes: Optional[bytes] = None
+    ref_filename: Optional[str] = None
+    ref_mature = False
+    if receipt.persona_reference_assets:
+        loaded = await load_persona_reference_media(
+            db,
+            tenant_id,
+            receipt.persona_reference_assets,
+            media_kind="image",
+        )
+        if loaded:
+            p_asset, p_fname, _p_mime, p_bytes = loaded[0]
+            ref_bytes = p_bytes
+            ref_filename = p_fname
+            ref_mature = bool(getattr(p_asset, "mature", False))
+
+    comfy = ComfyUIClient()
+    render_res = comfy.generate_image(
+        prompt=gen_prompt,
+        width=1024,
+        height=576,
+        steps=steps,
+        cfg=cfg,
+        reference_image_bytes=ref_bytes,
+        reference_filename=ref_filename,
+        mode="img2img" if ref_bytes else "text2image",
+    )
+
+    effective_mature = bool(receipt.mature or receipt.persona_mature or ref_mature)
+    asset_id = str(uuid.uuid4())
+    fname = f"{filename_prefix}_{asset_id[:8]}.png"
+    storage_key = generate_storage_key(tenant_id, asset_id, fname)
+    storage = AssetStorageService()
+    await storage.provider.put_object(storage_key, render_res["bytes"], render_res["mime_type"])
+
+    meta: Dict[str, Any] = {
+        "title": title,
+        "prompt": gen_prompt,
+        "model": PINNED_CHECKPOINT,
+        "persona_id": receipt.persona_id,
+        "persona_version": receipt.persona_version,
+    }
+    if extra_meta:
+        meta.update(extra_meta)
+
+    asset_repo = AssetRepository(db, tenant_id=tenant_id)
+    new_asset = await asset_repo.create_asset(
+        id=asset_id,
+        filename=fname,
+        mime_type=render_res["mime_type"],
+        byte_size=len(render_res["bytes"]),
+        storage_key=storage_key,
+        project_id=project_id,
+        media_type="image",
+        storage_provider="local",
+        mature=effective_mature,
+        metadata=meta,
+    )
+    if receipt.persona_id:
+        await ensure_job_for_receipt(
+            db,
+            receipt=receipt,
+            user_id=tenant_id,
+            project_id=project_id,
+            capability_id="image.generation",
+            provider_id="comfyui",
+            workflow_id="cognition_render",
+            output_asset_id=new_asset.id,
+            status_value="COMPLETED",
+        )
+        dag = LineageDAG(session=db)
+        await dag.persist_depicts_edge(
+            child_asset_id=new_asset.id,
+            persona_id=receipt.persona_id,
+            persona_version=receipt.persona_version or 1,
+            job_id=receipt.job_id,
+            mature=effective_mature,
+        )
+    await db.commit()
+
+    return {
+        "id": new_asset.id,
+        "title": title,
+        "download_url": content_url(new_asset),
+        "media_type": "image",
+        "width": render_res.get("width", 1024),
+        "height": render_res.get("height", 576),
+        "mature": effective_mature,
+        "persona_id": receipt.persona_id,
+        "persona_version": receipt.persona_version,
+    }
+
+
 @router.post("/chat", summary="Speak directly with loaded Qwen 27B LLM")
 async def chat_with_cognition(
     req: ChatRequest,
@@ -376,7 +526,7 @@ async def chat_with_cognition(
 ) -> Dict[str, Any]:
     """
     Interactive multi-turn conversation with OBLITERATUS/Qwen3.8-27B-OBLITERATED.
-    Routes to live vLLM/Modal/Kaggle worker or raises explicit error when unreachable.
+    Routes through the Gate (with optional `as: persona_id` sheet injection) to live vLLM/worker.
     """
     start_time = time.time()
     last_user_msg = next((m.content for m in reversed(req.messages) if m.role == "user"), "")
@@ -385,6 +535,20 @@ async def chat_with_cognition(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="EMPTY_MESSAGE: At least one user message with content is required."
         )
+
+    target_persona_id = req.as_persona or req.persona_id
+    receipt = await GateService.authorize_async(
+        db,
+        user_id=tenant_id,
+        intent="chat",
+        prompt_text=last_user_msg,
+        capability_id="cognition.reasoning",
+        arguments={"temperature": req.temperature, "max_tokens": req.max_tokens},
+        project_id=req.project_id,
+        session_id=req.session_id,
+        persona_id=target_persona_id,
+        playbook=req.playbook_id,
+    )
 
     connector = CognitionConnector()
     active_endpoint = connector.resolve_active_endpoint()
@@ -401,8 +565,9 @@ async def chat_with_cognition(
     playbook_obj, _, _ = PlaybookRegistry.classify(last_user_msg)
     compiled_prompt_obj = await keystone_prompting.digest_and_compile_prompt(
         user_text=last_user_msg,
-        reference_count=0,
+        reference_count=len(receipt.persona_reference_assets),
         intent_hint="chat",
+        persona_sheet=receipt.persona_sheet,
     )
 
     msg_lower = last_user_msg.lower()
@@ -433,65 +598,45 @@ async def chat_with_cognition(
     generation_error: Optional[str] = None
     if wants_gen:
         try:
-            from services.comfy.src.client import ComfyUIClient
-            from apps.api.src.repositories.assets import AssetRepository
-            from apps.api.src.storage import AssetStorageService, generate_storage_key
-
             gen_prompt = compiled_prompt_obj.positive_prompt
             if internet_findings:
                 gen_prompt = f"{gen_prompt}\nContext: Inspired by {internet_findings[0]['title']}: {internet_findings[0]['snippet'][:60]}"
-
-            comfy = ComfyUIClient()
-            render_res = comfy.generate_image(
-                prompt=gen_prompt,
-                width=1024,
-                height=576,
-                steps=25,
-                cfg=7.0,
-                mode="text2image"
-            )
-
-            asset_id = str(uuid.uuid4())
-            storage_key = generate_storage_key(tenant_id, asset_id, f"chat_render_{asset_id[:8]}.png")
-            storage = AssetStorageService()
-            await storage.provider.put_object(storage_key, render_res["bytes"], render_res["mime_type"])
-
-            asset_repo = AssetRepository(db, tenant_id=tenant_id)
-            new_asset = await asset_repo.create_asset(
-                id=asset_id,
-                filename=f"chat_render_{asset_id[:8]}.png",
-                mime_type=render_res["mime_type"],
-                byte_size=len(render_res["bytes"]),
-                storage_key=storage_key,
+            gen_receipt = await GateService.authorize_async(
+                db,
+                user_id=tenant_id,
+                intent="generate",
+                prompt_text=last_user_msg,
+                capability_id="image.generation",
+                arguments={"prompt": gen_prompt},
                 project_id=req.project_id,
-                media_type="image",
-                storage_provider="local",
-                metadata={
-                    "title": f"Chat Render — {last_user_msg[:24]}",
-                    "prompt": gen_prompt,
-                    "model": PINNED_CHECKPOINT
-                }
+                session_id=req.session_id,
+                persona_id=target_persona_id,
+                playbook=req.playbook_id,
             )
-
-            from apps.api.src.routers.assets import content_url
-            created_assets.append({
-                "id": new_asset.id,
-                "title": f"Render — {last_user_msg[:24]}",
-                "download_url": content_url(new_asset),
-                "media_type": "image",
-                "width": render_res.get("width", 1024),
-                "height": render_res.get("height", 576)
-            })
+            created_assets.append(
+                await _render_cognition_asset(
+                    db,
+                    tenant_id=tenant_id,
+                    receipt=gen_receipt,
+                    prompt=gen_prompt,
+                    project_id=req.project_id,
+                    title=f"Render — {last_user_msg[:24]}",
+                    filename_prefix="chat_render",
+                    steps=25,
+                    cfg=7.0,
+                )
+            )
         except Exception as gen_err:
             generation_error = f"{type(gen_err).__name__}: {gen_err}"
 
-    # Execute live vLLM completion with KEYSTONE Prompt Engine framing + Auth header (zero simulated fallbacks)
+    # Execute live vLLM completion with Gate-compiled mode/persona system framing
     sys_prompt = (
+        f"{receipt.compiled_prompt}\n\n"
         f"You are KEYSTONE — the authoritative Prompt Engine with `{PINNED_CHECKPOINT}` "
         f"living inside you (active domain mode: '{playbook_obj.label}', bound skills: {', '.join(playbook_obj.bound_skills)}). "
-        "You digest the user's intent and spit out finished, production-ready prompts for "
+        "You digest the user's intent and produce finished, production-ready prompts for "
         "MiniMax H3 Ref2VA (<Picture 1>, <Picture 2>, camera, motion, lighting, audio) and "
-        "diffusion models, while conversing directly without moralizing refusals.\n\n"
+        "diffusion models.\n\n"
         f"KEYSTONE Compiled Prompt Digest for current turn:\n{compiled_prompt_obj.positive_prompt}"
     )
     if generation_error:
@@ -500,7 +645,7 @@ async def chat_with_cognition(
         web_context = "\n".join(f"- {f['title']}: {f['snippet']} ({f['url']})" for f in internet_findings)
         sys_prompt += f"\n\nLive Web Intelligence Context:\n{web_context}"
 
-    vllm_messages = [{"role": "system", "content": sys_prompt}]
+    vllm_messages: List[Dict[str, Any]] = [{"role": "system", "content": sys_prompt}]
     for m in req.messages:
         vllm_messages.append({"role": m.role, "content": m.content})
 
@@ -522,19 +667,6 @@ async def chat_with_cognition(
 
     session_persist_error: Optional[str] = None
     if req.session_id:
-        from sqlalchemy import select as _sa_select
-        from apps.api.src.db.models import Session as _DbSession
-        sess_res = await db.execute(
-            _sa_select(_DbSession).where(
-                _DbSession.id == req.session_id,
-                _DbSession.user_id == tenant_id,
-            )
-        )
-        if sess_res.scalar_one_or_none() is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Session not found",
-            )
         try:
             from apps.api.src.repositories.sessions import MessageRepository
             msg_repo = MessageRepository(db)
@@ -567,6 +699,9 @@ async def chat_with_cognition(
         },
         "compiled_prompt": compiled_prompt_obj.positive_prompt,
         "prompt_hash": compiled_prompt_obj.prompt_hash,
+        "content_mode": receipt.content_mode,
+        "envelope_id": receipt.envelope.envelope_id,
+        "persona": receipt.persona_summary,
         "internet_findings": internet_findings,
         "created_assets": created_assets,
         "generation_error": generation_error,
@@ -588,11 +723,7 @@ async def execute_agent_task(
     db: AsyncSession = Depends(get_db)
 ) -> Dict[str, Any]:
     """
-    Autonomous multi-step agent task execution:
-    1. Interprets user prompt via KEYSTONE Prompt Engine & Domain Playbooks.
-    2. Performs real-time internet search or URL scraping if requested.
-    3. Triggers live ComfyUI image/video generation when requested and configured.
-    4. Synthesizes final report in real time via the live KEYSTONE Cognition runtime.
+    Autonomous multi-step agent task execution routed through the Gate with optional `as: persona_id`.
     """
     start_time = time.time()
     task_id = f"task_{uuid.uuid4().hex[:10]}"
@@ -601,13 +732,28 @@ async def execute_agent_task(
     internet_findings: List[Dict[str, Any]] = []
     created_assets: List[Dict[str, Any]] = []
 
+    target_persona_id = req.as_persona or req.persona_id
+    receipt = await GateService.authorize_async(
+        db,
+        user_id=tenant_id,
+        intent="agent_task",
+        prompt_text=task_text,
+        capability_id="cognition.reasoning",
+        arguments={"allow_internet": req.allow_internet, "allow_generation": req.allow_generation},
+        project_id=req.project_id,
+        session_id=req.session_id,
+        persona_id=target_persona_id,
+        playbook=req.playbook_id,
+    )
+
     from packages.prompt_engine import compiler as keystone_prompting
     from packages.prompt_engine.playbooks import PlaybookRegistry
-    playbook_obj, _, matched_uc = PlaybookRegistry.classify(task_text)
+    playbook_obj, _, _matched_uc = PlaybookRegistry.classify(task_text)
     compiled_task_prompt = await keystone_prompting.digest_and_compile_prompt(
         user_text=task_text,
-        reference_count=0,
+        reference_count=len(receipt.persona_reference_assets),
         intent_hint="agent",
+        persona_sheet=receipt.persona_sheet,
     )
 
     steps_executed.append({
@@ -673,65 +819,44 @@ async def execute_agent_task(
 
     if wants_generation:
         try:
-            from services.comfy.src.client import ComfyUIClient
-            from apps.api.src.repositories.assets import AssetRepository
-            from apps.api.src.routers.assets import content_url
-            from apps.api.src.storage import AssetStorageService, generate_storage_key
-
             gen_prompt = compiled_task_prompt.positive_prompt
             if internet_findings:
                 context_hint = f"\nWeb Context: {internet_findings[0]['title']} — {internet_findings[0]['snippet'][:80]}"
                 gen_prompt = f"{gen_prompt}{context_hint}"
-
-            comfy = ComfyUIClient()
-            render_res = comfy.generate_image(
+            gen_receipt = await GateService.authorize_async(
+                db,
+                user_id=tenant_id,
+                intent="generate",
+                prompt_text=task_text,
+                capability_id="image.generation",
+                arguments={"prompt": gen_prompt},
+                project_id=req.project_id,
+                session_id=req.session_id,
+                persona_id=target_persona_id,
+                playbook=req.playbook_id,
+            )
+            rendered = await _render_cognition_asset(
+                db,
+                tenant_id=tenant_id,
+                receipt=gen_receipt,
                 prompt=gen_prompt,
-                width=1024,
-                height=576,
+                project_id=req.project_id,
+                title=f"Agent Output — {task_text[:24]}...",
+                filename_prefix="agent_render",
                 steps=30,
                 cfg=7.5,
-                mode="text2image"
-            )
-
-            asset_id = str(uuid.uuid4())
-            storage_key = generate_storage_key(tenant_id, asset_id, f"agent_render_{asset_id[:8]}.png")
-            storage = AssetStorageService()
-            await storage.provider.put_object(storage_key, render_res["bytes"], render_res["mime_type"])
-
-            asset_repo = AssetRepository(db, tenant_id=tenant_id)
-            new_asset = await asset_repo.create_asset(
-                id=asset_id,
-                filename=f"agent_render_{asset_id[:8]}.png",
-                mime_type=render_res["mime_type"],
-                byte_size=len(render_res["bytes"]),
-                storage_key=storage_key,
-                project_id=req.project_id,
-                media_type="image",
-                storage_provider="local",
-                metadata={
-                    "title": f"Agent Render — {task_text[:28]}...",
-                    "prompt": gen_prompt,
+                extra_meta={
                     "prompt_hash": compiled_task_prompt.prompt_hash,
                     "agent_task_id": task_id,
-                    "model": PINNED_CHECKPOINT
-                }
+                },
             )
-
-            created_assets.append({
-                "id": new_asset.id,
-                "title": f"Agent Output — {task_text[:24]}...",
-                "download_url": content_url(new_asset),
-                "media_type": "image",
-                "width": 1024,
-                "height": 576
-            })
-
+            created_assets.append(rendered)
             steps_executed.append({
                 "step": 3,
                 "name": "Autonomous Asset Generation",
                 "tool": "comfyui.render",
                 "status": "completed",
-                "details": f"Generated 1024x576 image asset {new_asset.id[:8]} via live ComfyUI engine"
+                "details": f"Generated 1024x576 image asset {rendered['id'][:8]} via live ComfyUI engine"
             })
         except Exception as gen_err:
             steps_executed.append({
@@ -748,6 +873,7 @@ async def execute_agent_task(
     served_model = connector.resolve_served_model()
 
     agent_sys_prompt = (
+        f"{receipt.compiled_prompt}\n\n"
         f"You are KEYSTONE Autonomous Agent powered by `{PINNED_CHECKPOINT}` "
         f"(active playbook: '{playbook_obj.label}', bound skills: {', '.join(playbook_obj.bound_skills)}).\n"
         f"Compiled KEYSTONE Task Digest:\n{compiled_task_prompt.positive_prompt}"
@@ -780,9 +906,155 @@ async def execute_agent_task(
         "served_model": served_model,
         "compiled_prompt": compiled_task_prompt.positive_prompt,
         "prompt_hash": compiled_task_prompt.prompt_hash,
+        "content_mode": receipt.content_mode,
+        "envelope_id": receipt.envelope.envelope_id,
+        "persona": receipt.persona_summary,
         "steps_executed": steps_executed,
         "internet_findings": internet_findings,
         "created_assets": created_assets,
         "agent_response": agent_response,
         "latency_ms": latency_ms
+    }
+
+
+@router.post("/analyze", summary="Multimodal Qwen-VL asset inspection through the Gate")
+async def analyze_asset(
+    req: AnalyzeRequest,
+    tenant_id: str = Depends(get_current_tenant_id),
+    db: AsyncSession = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    Inspects an image/video/audio asset (with optional `as: persona_id` context)
+    through the Gate using live multimodal Qwen-VL completion.
+    """
+    start_time = time.time()
+    asset_obj: Optional[Asset] = None
+    if req.asset_id:
+        res = await db.execute(
+            select(Asset).where(
+                Asset.id == str(req.asset_id),
+                Asset.user_id == str(tenant_id),
+                Asset.deleted_at.is_(None),
+            )
+        )
+        asset_obj = res.scalar_one_or_none()
+        if asset_obj is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Asset not found")
+
+    target_persona_id = req.as_persona or req.persona_id
+    receipt = await GateService.authorize_async(
+        db,
+        user_id=tenant_id,
+        intent="analyze",
+        prompt_text=req.prompt,
+        capability_id="analysis.inspect",
+        arguments={"asset_id": req.asset_id},
+        project_id=req.project_id or (asset_obj.project_id if asset_obj else None),
+        session_id=req.session_id,
+        persona_id=target_persona_id,
+        input_asset_ids=[req.asset_id] if req.asset_id else [],
+        playbook=req.playbook_id,
+    )
+
+    if asset_obj is not None and getattr(asset_obj, "mature", False) and receipt.content_mode == "sfw":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "MATURE_ASSET_BLOCKED_IN_SFW",
+                "message": "Mature asset cannot be analyzed in SFW mode.",
+            },
+        )
+
+    from packages.prompt_engine import compiler as keystone_prompting
+    compiled_obj = await keystone_prompting.digest_and_compile_prompt(
+        user_text=req.prompt,
+        reference_count=1 if asset_obj else 0,
+        intent_hint="analyze",
+        persona_sheet=receipt.persona_sheet,
+    )
+
+    user_content: Any = req.prompt
+    if asset_obj is not None:
+        from apps.api.src.storage.service import AssetStorageService
+        storage = AssetStorageService()
+        try:
+            raw_bytes = await storage.provider.get_object(asset_obj.storage_key)
+        except FileNotFoundError:
+            raw_bytes = b""
+
+        mime = (asset_obj.mime_type or "application/octet-stream").split(";")[0].strip().lower()
+        asset_summary = (
+            f"Asset ID: {asset_obj.id}, type: {asset_obj.asset_type}, mime: {mime}, "
+            f"filename: {asset_obj.filename or asset_obj.storage_key.split('/')[-1]}"
+        )
+        if asset_obj.width and asset_obj.height:
+            asset_summary += f", dimensions: {asset_obj.width}x{asset_obj.height}"
+
+        if raw_bytes and (asset_obj.asset_type == "image" or mime.startswith("image/")):
+            b64 = base64.b64encode(raw_bytes).decode("ascii")
+            user_content = [
+                {"type": "text", "text": f"{req.prompt}\n\n[{asset_summary}]"},
+                {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}},
+            ]
+        elif raw_bytes and (asset_obj.asset_type == "video" or mime.startswith("video/")):
+            frame_b64: Optional[str] = None
+            try:
+                from services.comfy.src.video_ops import extract_video_frames
+                with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
+                    tmp.write(raw_bytes)
+                    tmp_path = Path(tmp.name)
+                try:
+                    frames = extract_video_frames(tmp_path)
+                    if frames:
+                        frame_b64 = base64.b64encode(frames[len(frames) // 2]).decode("ascii")
+                finally:
+                    if tmp_path.exists():
+                        tmp_path.unlink()
+            except Exception:
+                frame_b64 = None
+
+            if frame_b64:
+                user_content = [
+                    {"type": "text", "text": f"{req.prompt}\n\n[{asset_summary} (representative video keyframe attached)]"},
+                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{frame_b64}"}},
+                ]
+            else:
+                user_content = f"{req.prompt}\n\n[{asset_summary}]"
+        else:
+            user_content = f"{req.prompt}\n\n[{asset_summary}]"
+
+    connector = CognitionConnector()
+    active_endpoint = connector.resolve_active_endpoint()
+    api_key = connector.resolve_api_key()
+    served_model = connector.resolve_served_model()
+
+    live_res = await _invoke_live_cognition_completion(
+        active_endpoint=active_endpoint,
+        api_key=api_key,
+        served_model=served_model,
+        messages=[
+            {"role": "system", "content": receipt.compiled_prompt},
+            {"role": "user", "content": user_content},
+        ],
+        temperature=req.temperature if req.temperature is not None else 0.3,
+        max_tokens=req.max_tokens or 1024,
+    )
+    analysis_text = live_res["content"]
+    latency_ms = max(int((time.time() - start_time) * 1000), 1)
+    usage = live_res.get("usage") or {}
+
+    return {
+        "status": "ok",
+        "asset_id": req.asset_id,
+        "analysis": analysis_text,
+        "text": analysis_text,
+        "model": PINNED_CHECKPOINT,
+        "served_model": served_model,
+        "compiled_prompt": compiled_obj.positive_prompt,
+        "prompt_hash": compiled_obj.prompt_hash,
+        "content_mode": receipt.content_mode,
+        "envelope_id": receipt.envelope.envelope_id,
+        "persona": receipt.persona_summary,
+        "usage": usage,
+        "latency_ms": latency_ms,
     }

@@ -38,7 +38,7 @@ const MATTES = [
 /** Region 3 — the stage. The creative asset is visually primary (Bible §25). */
 export function CenterCanvas({ composerRef }: { composerRef: React.RefObject<HTMLTextAreaElement> }) {
   const { state, dispatch } = useStudio();
-  const { retry, upscale, variation } = useGeneration();
+  const { run, retry, upscale, variation, extend } = useGeneration();
   const pipeline = usePipeline();
   const [composerH, setComposerH] = useState(150);
   const [zoom, setZoom] = useState<'fit' | 1 | 2>('fit');
@@ -47,12 +47,10 @@ export function CenterCanvas({ composerRef }: { composerRef: React.RefObject<HTM
   const compare = selectCompare(state);
   const activeRun = selectActiveRun(state);
   const lastRun = state.runs[0] || null;
-  const { view, developer, guides, matte, fps } = state.ui;
+  const { view, developer, guides, matte, fps, showC2paBadge } = state.ui;
   const analysisRun = state.runs.find((r) => r.id === state.ui.analysisRunId) || null;
   const before = compare || selectAsset(state, selected?.parentId);
 
-  // Routing notices live in the composer, next to the action they affect.
-  // The slate only repeats the one fact that blocks everything: no API.
   const engineNotice = state.system.engineError ? `The studio API isn't reachable: ${state.system.engineError}` : null;
 
   const setView = (v: CanvasViewMode) => dispatch({ type: 'SET_VIEW', view: v });
@@ -64,6 +62,16 @@ export function CenterCanvas({ composerRef }: { composerRef: React.RefObject<HTM
     dispatch({ type: 'ADD_REFERENCE', asset: selected });
     dispatch({ type: 'SET_INTENT', intent });
     focusComposer();
+  };
+
+  const inspectSelected = () => {
+    if (!selected) return;
+    void run({
+      intent: 'analyze',
+      references: [selected],
+      prompt: 'Inspect this asset: describe its composition, lighting, visual details, and craft quality.',
+      label: 'Analyze',
+    });
   };
 
   // Space reserved below/around the frame so media never sits under the composer.
@@ -184,7 +192,16 @@ export function CenterCanvas({ composerRef }: { composerRef: React.RefObject<HTM
             />
           ) : (
             selected && (
-              <StageFrame asset={selected} look={state.controls.look} zoom={zoom} guides={guides} matte={matte} fps={fps} />
+              <StageFrame
+                key={selected.id}
+                asset={selected}
+                look={state.controls.look}
+                zoom={zoom}
+                guides={guides}
+                matte={matte}
+                fps={fps}
+                showC2paBadge={showC2paBadge}
+              />
             )
           ))}
 
@@ -214,6 +231,7 @@ export function CenterCanvas({ composerRef }: { composerRef: React.RefObject<HTM
         {view === 'lineage' && (
           <LineageView
             assets={state.library.assets}
+            lineageEdges={state.library.lineageEdges}
             selectedId={selected?.id || null}
             onSelect={(id) => dispatch({ type: 'SELECT_ASSET', id })}
             onCompareWithParent={(id) => {
@@ -265,6 +283,8 @@ export function CenterCanvas({ composerRef }: { composerRef: React.RefObject<HTM
             busy={!!activeRun}
             onEdit={() => startWith('edit')}
             onAnimate={() => startWith('animate')}
+            onExtend={extend}
+            onAnalyze={inspectSelected}
             onVariation={variation}
             onUpscale={upscale}
             onCompare={() => setView('compare')}

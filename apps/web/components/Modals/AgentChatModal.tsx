@@ -1,15 +1,26 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { RefreshCw, Send, Square, X } from 'lucide-react';
-import { ApiError, chatWithCognition, fetchCognitionStatus } from '../../lib/api';
+import { ExternalLink, RefreshCw, Send, Square, X } from 'lucide-react';
+import {
+  ApiError,
+  chatWithCognition,
+  createSession,
+  fetchCognitionStatus,
+  fetchSessionMessages,
+  mapPersistedAsset,
+} from '../../lib/api';
 import { readableError } from '../../lib/errors';
 import { useStudio } from '@/lib/studio/store';
+import { InternetFinding, StudioAsset } from '@/lib/types';
 import { SignedOutNote } from '../auth/SignedOutNote';
 
 interface ChatTurn {
   role: 'user' | 'assistant';
   content: string;
+  createdAssets?: StudioAsset[];
+  citations?: InternetFinding[];
+  errors?: string[];
 }
 
 interface CognitionRuntimeStatus {
@@ -27,8 +38,9 @@ interface AgentChatModalProps {
 }
 
 export const AgentChatModal: React.FC<AgentChatModalProps> = ({ open, onClose }) => {
-  const { state } = useStudio();
-  const { session, projectId } = state.system;
+  const { state, dispatch } = useStudio();
+  const { session, projectId, sessionId, activeSession, sessionMessages } = state.system;
+  const personaId = state.composer.personaId;
   const isSignedIn = session.status === 'signed_in';
 
   const [messages, setMessages] = useState<ChatTurn[]>([]);
@@ -58,15 +70,37 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({ open, onClose })
     }
   }, []);
 
+  // Hydrate persisted messages when opening or switching active session.
   useEffect(() => {
     if (!open) return;
     void refreshRuntime();
+    if (sessionId) {
+      fetchSessionMessages(sessionId)
+        .then((persisted) => {
+          const turns: ChatTurn[] = (persisted || [])
+            .filter((m) => m.role === 'user' || m.role === 'assistant' || m.role === 'keystone')
+            .map((m) => ({
+              role: m.role === 'user' ? 'user' : 'assistant',
+              content: m.content,
+            }));
+          setMessages(turns);
+        })
+        .catch(() => {
+          if (sessionMessages.length) {
+            setMessages(
+              sessionMessages
+                .filter((m) => m.role === 'user' || m.role === 'assistant' || m.role === 'keystone')
+                .map((m) => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.content })),
+            );
+          }
+        });
+    }
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose, refreshRuntime]);
+  }, [open, onClose, refreshRuntime, sessionId, sessionMessages]);
 
   useEffect(() => {
     if (isSignedIn) setAuthRequired(false);
@@ -76,13 +110,21 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({ open, onClose })
     if (streamRef.current) streamRef.current.scrollTop = streamRef.current.scrollHeight;
   }, [messages, busy, error]);
 
-  const handleNewChat = () => {
+  const handleNewChat = async () => {
     abortRef.current?.abort();
     setMessages([]);
     setError(null);
     setAuthRequired(false);
     setBusy(false);
     setInput('');
+    if (isSignedIn) {
+      try {
+        const created = await createSession('Cognition Chat', projectId);
+        dispatch({ type: 'SET_SESSION', session: created, messages: [] });
+      } catch {
+        dispatch({ type: 'SET_SESSION', session: null, messages: [] });
+      }
+    }
   };
 
   const handleStop = () => {
@@ -106,24 +148,66 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({ open, onClose })
     setError(null);
     setAuthRequired(false);
 
+    // Ensure a persisted session_id is attached whenever signed in.
+    let activeSessionId = sessionId;
+    if (!activeSessionId && isSignedIn) {
+      try {
+        const created = await createSession(text.slice(0, 40) || 'Cognition Chat', projectId);
+        if (created?.id) {
+          activeSessionId = created.id;
+          dispatch({ type: 'SET_SESSION', session: created, messages: [] });
+        }
+      } catch {
+        // Proceed without blocking if session creation fails; server reports any error explicitly.
+      }
+    }
+
     const controller = new AbortController();
     abortRef.current = controller;
     try {
       const result = await chatWithCognition(
         {
-          messages: nextMessages,
+          messages: nextMessages.map((m) => ({ role: m.role, content: m.content })),
           web_search: webSearch,
           allow_generation: allowGeneration,
+          session_id: activeSessionId,
           project_id: projectId,
+          as: personaId,
+          persona_id: personaId,
         },
         controller.signal,
       );
       if (controller.signal.aborted) return;
+
       const reply = result?.message?.content || result?.text;
       if (!reply) {
         throw new Error('Cognition returned an empty response body.');
       }
-      setMessages((prev) => [...prev, { role: 'assistant', content: String(reply) }]);
+
+      const rawAssets = Array.isArray(result?.created_assets) ? result.created_assets : [];
+      const createdAssets: StudioAsset[] = rawAssets
+        .filter((a) => a && a.id && (a.download_url || a.url))
+        .map((a) => mapPersistedAsset({ ...a, project_id: a.project_id ?? projectId }));
+
+      if (createdAssets.length) {
+        dispatch({ type: 'ASSETS_ADDED', assets: createdAssets, select: false });
+      }
+
+      const citations: InternetFinding[] = Array.isArray(result?.internet_findings) ? result.internet_findings : [];
+      const inlineErrors: string[] = [];
+      if (result?.generation_error) inlineErrors.push(`Generation: ${result.generation_error}`);
+      if (result?.session_persist_error) inlineErrors.push(`Session save: ${result.session_persist_error}`);
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: String(reply),
+          createdAssets,
+          citations,
+          errors: inlineErrors,
+        },
+      ]);
     } catch (err: any) {
       if (err?.name === 'AbortError') return;
       if (err instanceof ApiError && err.status === 401) {
@@ -161,19 +245,28 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({ open, onClose })
               <span className="stage-chip" style={{ ...badgeStyle, fontSize: 10.5, fontWeight: 700 }}>
                 {badgeLabel}
               </span>
+              {sessionId && (
+                <span className="stage-chip" style={{ fontSize: 10.5 }}>
+                  Session: {activeSession?.title || sessionId.slice(0, 8)}
+                </span>
+              )}
             </div>
             <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2, wordBreak: 'break-word' }}>
-              {runtimeError
-                ? `Probe failed: ${runtimeError}`
-                : `${activeModel} • ${endpointLabel} (/v1/cognition/chat)`}
+              {runtimeError ? `Probe failed: ${runtimeError}` : `${activeModel} • ${endpointLabel} (/v1/cognition/chat)`}
             </div>
             {runtime && !runtime.online && runtime.cognition_detail && (
-              <div style={{ fontSize: 11, color: '#fbbf24', marginTop: 2, wordBreak: 'break-word' }}>
-                {runtime.cognition_detail}
-              </div>
+              <div style={{ fontSize: 11, color: '#fbbf24', marginTop: 2, wordBreak: 'break-word' }}>{runtime.cognition_detail}</div>
             )}
           </div>
           <div className="chat-header-actions">
+            <button
+              className="icon-btn"
+              onClick={() => dispatch({ type: 'OPEN_MODAL', modal: 'sessions' })}
+              title="Switch session"
+              type="button"
+            >
+              Sessions
+            </button>
             <button
               className="icon-btn"
               onClick={() => void refreshRuntime()}
@@ -183,11 +276,13 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({ open, onClose })
             >
               <RefreshCw size={14} className={runtimeLoading ? 'animate-spin' : ''} />
             </button>
-            <button id="btnNewAgentChat" className="btn-new-chat" onClick={handleNewChat} title="Clear conversation" type="button">
+            <button id="btnNewAgentChat" className="btn-new-chat" onClick={() => void handleNewChat()} title="Start new session" type="button">
               <span>+</span>
               <span>New Chat</span>
             </button>
-            <button className="icon-btn" onClick={onClose} title="Close" type="button"><X size={14} /></button>
+            <button className="icon-btn" onClick={onClose} title="Close" type="button">
+              <X size={14} />
+            </button>
           </div>
         </div>
 
@@ -212,6 +307,66 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({ open, onClose })
                   </span>
                 </div>
                 <div style={{ whiteSpace: 'pre-wrap' }}>{message.content}</div>
+
+                {message.createdAssets && message.createdAssets.length > 0 && (
+                  <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {message.createdAssets.map((asset) => (
+                      <button
+                        key={asset.id}
+                        type="button"
+                        onClick={() => {
+                          dispatch({ type: 'SELECT_ASSET', id: asset.id });
+                          dispatch({ type: 'SET_VIEW', view: 'single' });
+                          onClose();
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          padding: 6,
+                          borderRadius: 8,
+                          border: '1px solid rgba(99,102,241,0.4)',
+                          background: 'rgba(99,102,241,0.1)',
+                          color: '#e2e8f0',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                        }}
+                      >
+                        <img src={asset.previewUrl || asset.url} alt={asset.title} style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 6 }} />
+                        <div>
+                          <div style={{ fontSize: 11.5, fontWeight: 600 }}>{asset.title}</div>
+                          <div style={{ fontSize: 10, color: '#a5b4fc' }}>Open on stage</div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {message.citations && message.citations.length > 0 && (
+                  <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div style={{ fontSize: 10.5, fontWeight: 700, color: '#94a3b8' }}>Sources &amp; Citations</div>
+                    {message.citations.map((c, cIdx) => (
+                      <a
+                        key={`${c.url}-${cIdx}`}
+                        href={c.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ fontSize: 11, color: '#a5b4fc', textDecoration: 'none', display: 'flex', alignItems: 'flex-start', gap: 6 }}
+                      >
+                        <ExternalLink size={12} style={{ marginTop: 2, flexShrink: 0 }} />
+                        <span>
+                          <strong>{c.title}</strong> — <span style={{ color: 'var(--text-secondary)' }}>{c.snippet}</span>
+                        </span>
+                      </a>
+                    ))}
+                  </div>
+                )}
+
+                {message.errors && message.errors.length > 0 && (
+                  <div role="alert" style={{ marginTop: 8, padding: 8, borderRadius: 6, border: '1px solid rgba(244,63,94,0.4)', background: 'rgba(244,63,94,0.08)', color: '#fda4af', fontSize: 11.5 }}>
+                    {message.errors.join(' · ')}
+                  </div>
+                )}
               </div>
             </div>
           ))}

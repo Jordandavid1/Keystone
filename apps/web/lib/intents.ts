@@ -6,11 +6,13 @@
 import { TOOLS_CATALOG } from './toolsCatalog';
 import {
   CanonicalPlaybook,
+  ContentMode,
   EngineStatus,
   GenerativeToolId,
   Intent,
   StudioAsset,
   StudioControls,
+  StudioPreferences,
 } from './types';
 
 export interface IntentDefinition {
@@ -155,9 +157,14 @@ export function buildInput(args: {
   references: StudioAsset[];
   playbook: CanonicalPlaybook | null;
   web: WebContext | null;
+  personaId?: string | null;
+  projectId?: string | null;
+  sessionId?: string | null;
+  contentMode?: ContentMode | null;
+  preferences?: StudioPreferences | null;
   extra?: Record<string, any>;
 }): Record<string, any> {
-  const { capability, compiledPrompt, controls, references, playbook, web } = args;
+  const { capability, compiledPrompt, controls, references, playbook, web, personaId, projectId, sessionId, contentMode, preferences } = args;
   const def = TOOLS_CATALOG[capability];
   const defaults = { ...(def.defaultParameters || {}) };
   delete (defaults as any).model;
@@ -173,10 +180,10 @@ export function buildInput(args: {
   input.quality = controls.quality;
   if ('batch_size' in defaults) input.batch_size = controls.results;
 
-  if (def.category.startsWith('Video')) {
+  if (def.category.startsWith('Video') || capability === 'extend') {
     input.camera_motion = controls.motion;
     input.motion_speed = controls.motionSpeed;
-    if ('duration' in defaults || capability === 'videogen' || capability === 'text_to_video' || capability === 'video2video') {
+    if ('duration' in defaults || capability === 'videogen' || capability === 'text_to_video' || capability === 'video2video' || capability === 'extend') {
       input.duration = controls.duration;
     }
   }
@@ -185,6 +192,9 @@ export function buildInput(args: {
     input.denoise = controls.strength;
     input.ref_asset_id = references[0].id;
     input.reference_asset_id = references[0].id;
+    if (references[0].type === 'video') {
+      input.video_asset_id = references[0].id;
+    }
     if (references.length > 1) input.reference_asset_ids = references.map((r) => r.id);
     if (capability === 'couplegen' || capability === 'collaber') input.character_assets = references.map((r) => r.id);
   }
@@ -202,6 +212,21 @@ export function buildInput(args: {
     input.playbook_context = formatPlaybookContext(playbook);
   }
   if (web) input.web_context_url = web.url;
+  if (personaId) {
+    input.as = personaId;
+    input.persona_id = personaId;
+  }
+  if (projectId) input.project_id = projectId;
+  if (sessionId) input.session_id = sessionId;
+  if (contentMode) input.content_mode = contentMode;
+
+  if (preferences) {
+    input.eval_budget = preferences.evalBudget;
+    if (preferences.defaultSeed != null && Number.isFinite(preferences.defaultSeed)) {
+      input.seed = preferences.defaultSeed;
+    }
+    input.output_prefs = preferences.outputPrefs;
+  }
 
   return { ...input, ...(args.extra || {}) };
 }

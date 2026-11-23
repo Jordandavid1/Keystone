@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { ArrowUpRight, Columns2, Copy, Download, Film, Heart, Maximize2, Paperclip, Pencil, Share2 } from 'lucide-react';
+import { ArrowUpRight, Columns2, Copy, Download, FastForward, Film, Heart, Maximize2, Paperclip, Pencil, ScanSearch, Share2 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { StudioAsset } from '@/lib/types';
@@ -42,6 +42,8 @@ export function ContextBar({
   busy,
   onEdit,
   onAnimate,
+  onExtend,
+  onAnalyze,
   onVariation,
   onUpscale,
   onCompare,
@@ -53,6 +55,8 @@ export function ContextBar({
   busy: boolean;
   onEdit: () => void;
   onAnimate: () => void;
+  onExtend?: () => void;
+  onAnalyze?: () => void;
   onVariation: () => void;
   onUpscale: (f: 2 | 4) => void;
   onCompare: () => void;
@@ -62,6 +66,7 @@ export function ContextBar({
   const [canShare, setCanShare] = useState(false);
   useEffect(() => setCanShare(typeof navigator !== 'undefined' && typeof navigator.share === 'function'), []);
   const isImage = asset.type === 'image';
+  const isVideo = asset.type === 'video';
   const href = asset.downloadUrl || asset.url;
 
   return (
@@ -72,7 +77,9 @@ export function ContextBar({
     >
       {isImage && <Action label="Edit" icon={Pencil} onClick={onEdit} />}
       {asset.type !== 'audio' && <Action label="Animate" icon={Film} onClick={onAnimate} />}
+      {isVideo && onExtend && <Action label="Extend" icon={FastForward} onClick={onExtend} disabled={busy} />}
       {isImage && <Action label="Variation" icon={Copy} onClick={onVariation} disabled={busy} />}
+      {asset.type !== 'audio' && onAnalyze && <Action label="Analyze" icon={ScanSearch} onClick={onAnalyze} disabled={busy} />}
       {asset.type !== 'audio' && (
         <Popover>
           <PopoverTrigger asChild>

@@ -4,6 +4,7 @@ import React from 'react';
 import {
   Check,
   ChevronDown,
+  Clock,
   Code2,
   FolderPlus,
   Globe,
@@ -12,6 +13,8 @@ import {
   Search,
   Settings,
   Shield,
+  ShieldAlert,
+  ShieldCheck,
   Users,
 } from 'lucide-react';
 import {
@@ -30,10 +33,10 @@ import { KeystoneMark } from './studio/KeystoneMark';
 import { IconButton } from './studio/IconButton';
 import { AccountMenu } from './auth/AccountMenu';
 
-/** Region 1 — product + project identity, command palette, engine and credit truth (Bible §25). */
+/** Region 1 — product + project identity, content mode, command palette, engine and credit truth (Bible §25). */
 export function TopBar() {
   const { state, dispatch } = useStudio();
-  const { engine, engineError, ledger, projects, projectId, projectsError, session } = state.system;
+  const { engine, engineError, ledger, projects, projectId, projectsError, session, contentMode, ageVerified } = state.system;
   const project = projects.find((p) => p.id === projectId) || null;
 
   const engineTone = engineError ? 'deny' : engine?.online ? 'verified' : 'hold';
@@ -41,6 +44,11 @@ export function TopBar() {
 
   const billingOff = ledger && ledger.balance == null;
   const open = (modal: Modal) => dispatch({ type: 'OPEN_MODAL', modal });
+
+  const openContentSettings = () => {
+    dispatch({ type: 'UI', patch: { settingsTab: 'content' } });
+    dispatch({ type: 'OPEN_MODAL', modal: 'settings' });
+  };
 
   return (
     <header
@@ -63,7 +71,7 @@ export function TopBar() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-64">
             <DropdownMenuLabel className="text-meta font-medium text-ks-ink-3">Projects</DropdownMenuLabel>
-            <DropdownMenuItem onSelect={() => dispatch({ type: 'SYSTEM', patch: { projectId: null } })}>
+            <DropdownMenuItem onSelect={() => dispatch({ type: 'SET_PROJECT', projectId: null })}>
               <span className="flex-1">All assets</span>
               {!projectId && <Check className="size-3.5" />}
             </DropdownMenuItem>
@@ -71,10 +79,10 @@ export function TopBar() {
               <DropdownMenuLabel className="text-meta font-normal text-ks-ink-3">Sign in to see your projects.</DropdownMenuLabel>
             )}
             {projectsError && (
-              <DropdownMenuLabel className="text-meta font-normal text-ks-deny">Projects didn't load: {projectsError}</DropdownMenuLabel>
+              <DropdownMenuLabel className="text-meta font-normal text-ks-deny">Projects didn&apos;t load: {projectsError}</DropdownMenuLabel>
             )}
             {projects.map((p) => (
-              <DropdownMenuItem key={p.id} onSelect={() => dispatch({ type: 'SYSTEM', patch: { projectId: p.id } })}>
+              <DropdownMenuItem key={p.id} onSelect={() => dispatch({ type: 'SET_PROJECT', projectId: p.id })}>
                 <span className="flex-1 truncate">{p.name}</span>
                 {projectId === p.id && <Check className="size-3.5" />}
               </DropdownMenuItem>
@@ -100,6 +108,21 @@ export function TopBar() {
       </div>
 
       <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={openContentSettings}
+          title={ageVerified ? `Content mode: ${contentMode} (click to switch)` : 'SFW mode (18+ verification required for Unrestricted)'}
+          className={cn(
+            'hidden h-7 items-center gap-1.5 rounded-full border px-2.5 text-micro font-medium transition-colors sm:inline-flex',
+            contentMode === 'unrestricted'
+              ? 'border-ks-hold/40 bg-ks-hold/10 text-ks-hold hover:bg-ks-hold/20'
+              : 'border-ks-line text-ks-ink-2 hover:bg-ks-lift hover:text-ks-ink',
+          )}
+        >
+          {contentMode === 'unrestricted' ? <ShieldAlert className="size-3" /> : <ShieldCheck className="size-3 text-ks-verified" />}
+          <span>{contentMode === 'unrestricted' ? '18+ Unrestricted' : 'SFW'}</span>
+        </button>
+
         <Tooltip>
           <TooltipTrigger asChild>
             <button
@@ -166,11 +189,14 @@ export function TopBar() {
             <DropdownMenuItem onSelect={() => open('personas')}>
               <Users className="size-3.5" /> Personas and voices
             </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => open('sessions')}>
+              <Clock className="size-3.5" /> Sessions
+            </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => open('web')}>
               <Globe className="size-3.5" /> Add web reference
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => open('settings')}>
-              <Settings className="size-3.5" /> Settings
+              <Settings className="size-3.5" /> Settings &amp; Content Mode
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => dispatch({ type: 'TOGGLE_DEVELOPER' })}>

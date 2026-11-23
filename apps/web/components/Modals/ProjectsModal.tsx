@@ -1,16 +1,17 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { FolderKanban, X } from 'lucide-react';
+import { Check, FolderKanban, X } from 'lucide-react';
 import { createProject, deleteProject, fetchProjects } from '../../lib/api';
 
 interface ProjectsModalProps {
   open: boolean;
   onClose: () => void;
-  onSelectProject?: (project: any) => void;
+  activeProjectId?: string | null;
+  onSelectProject?: (project: any | null) => void;
 }
 
-export const ProjectsModal: React.FC<ProjectsModalProps> = ({ open, onClose, onSelectProject }) => {
+export const ProjectsModal: React.FC<ProjectsModalProps> = ({ open, onClose, activeProjectId, onSelectProject }) => {
   const [projects, setProjects] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -28,7 +29,7 @@ export const ProjectsModal: React.FC<ProjectsModalProps> = ({ open, onClose, onS
   };
 
   useEffect(() => {
-    if (open) reload();
+    if (open) void reload();
   }, [open]);
 
   const handleCreate = async () => {
@@ -56,6 +57,7 @@ export const ProjectsModal: React.FC<ProjectsModalProps> = ({ open, onClose, onS
     setError(null);
     try {
       await deleteProject(id);
+      if (activeProjectId === id) onSelectProject?.(null);
       await reload();
     } catch (err: any) {
       setError(err?.message || 'Could not delete project.');
@@ -74,27 +76,53 @@ export const ProjectsModal: React.FC<ProjectsModalProps> = ({ open, onClose, onS
             <FolderKanban size={16} color="#6366f1" />
             <strong>Creative Projects Manager</strong>
           </div>
-          <button className="icon-btn" onClick={onClose} title="Close"><X size={14} /></button>
+          <button className="icon-btn" onClick={onClose} title="Close">
+            <X size={14} />
+          </button>
         </div>
         <div style={{ padding: '18px 22px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>
-            Projects isolate assets, personas, sessions, and render histories into tenant-scoped creative units.
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+            <div style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>
+              Projects isolate assets, personas, sessions, and lineage DAGs across browser refresh.
+            </div>
+            <button type="button" className="icon-btn" onClick={() => onSelectProject?.(null)}>
+              All assets
+            </button>
           </div>
           {error && <div style={{ padding: 10, borderRadius: 8, border: '1px solid rgba(244,63,94,0.4)', color: '#fda4af', fontSize: 12 }}>{error}</div>}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 220, overflowY: 'auto' }}>
             {projects.length === 0 ? (
               <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>No projects loaded.</div>
             ) : (
-              projects.map((project) => (
-                <div key={project.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: 10, border: '1px solid var(--border-subtle)', borderRadius: 8, background: 'rgba(255,255,255,0.02)' }}>
-                  <button onClick={() => onSelectProject?.(project)} style={{ background: 'transparent', border: 'none', textAlign: 'left', color: 'inherit', cursor: 'pointer', flex: 1 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700 }}>{project.name}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{project.description || 'No description'}</div>
-                    <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', marginTop: 4 }}>{project.id}</div>
-                  </button>
-                  <button className="icon-btn" onClick={() => handleDelete(project.id)} disabled={busy}>Delete</button>
-                </div>
-              ))
+              projects.map((project) => {
+                const isActive = activeProjectId === project.id;
+                return (
+                  <div
+                    key={project.id}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      gap: 10,
+                      padding: 10,
+                      border: isActive ? '1px solid rgba(99,102,241,0.5)' : '1px solid var(--border-subtle)',
+                      borderRadius: 8,
+                      background: isActive ? 'rgba(99,102,241,0.12)' : 'rgba(255,255,255,0.02)',
+                    }}
+                  >
+                    <button onClick={() => onSelectProject?.(project)} style={{ background: 'transparent', border: 'none', textAlign: 'left', color: 'inherit', cursor: 'pointer', flex: 1 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span>{project.name}</span>
+                        {isActive && <Check size={13} color="#a5b4fc" />}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{project.description || 'No description'}</div>
+                      <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', marginTop: 4 }}>{project.id}</div>
+                    </button>
+                    <button className="icon-btn" onClick={() => void handleDelete(project.id)} disabled={busy}>
+                      Delete
+                    </button>
+                  </div>
+                );
+              })
             )}
           </div>
           <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -102,7 +130,9 @@ export const ProjectsModal: React.FC<ProjectsModalProps> = ({ open, onClose, onS
             <input className="command-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Project name" style={{ border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '6px 10px', width: '100%' }} />
             <input className="command-input" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Brief project summary" style={{ border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '6px 10px', width: '100%' }} />
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <button className="composer-submit-btn" onClick={handleCreate} disabled={busy}>{busy ? 'Saving...' : '+ Create Project'}</button>
+              <button className="composer-submit-btn" onClick={() => void handleCreate()} disabled={busy}>
+                {busy ? 'Saving...' : '+ Create Project'}
+              </button>
             </div>
           </div>
         </div>

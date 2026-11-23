@@ -66,7 +66,7 @@ export const PipelineBuilder: React.FC<PipelineBuilderProps> = ({
             Custom Generative Pipeline Studio
           </h2>
           <p style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>
-            Total creative freedom. Chain any models, transformations, and synthesis stages together without restrictions.
+            Chain creative intents, transformations, and synthesis stages together.
           </p>
         </div>
 

@@ -8,8 +8,6 @@ export interface ToolDefinition {
   badge: string;
   icon: string;
   credits: number;
-  models?: string[];
-  defaultModel?: string;
   supportsAspectRatios: boolean;
   supportsTiers: boolean;
   inputsRequired: {
@@ -25,27 +23,19 @@ export interface ToolDefinition {
   defaultParameters: Record<string, any>;
 }
 
+/**
+ * Customer-facing capability catalog (Bible v2 §25):
+ * Exposes creative intents and capabilities only — never raw model names or model-picker dropdowns.
+ */
 export const TOOLS_CATALOG: Record<GenerativeToolId, ToolDefinition> = {
   by_prompt: {
     id: 'by_prompt',
     name: 'Text-to-Image',
     category: 'Image Generation',
-    description: 'Generate high-fidelity imagery from natural language prompts. Uncensored and SFW flagship models.',
-    badge: 'Flagship Core',
+    description: 'Generate high-fidelity imagery from natural language prompts.',
+    badge: 'Create',
     icon: 'Sparkles',
     credits: 1,
-    models: [
-      'SEEDREAM_5_PRO',
-      'QWEN_IMAGE_PRO',
-      'WAN_2_7_IMAGE_PRO',
-      'FLUX_KLEIN_NSFW',
-      'Z_IMAGE_SPICY',
-      'NANO_BANANA_2_1',
-      'GPT_IMAGE_2_5_SUNBURST',
-      'IDEOGRAM_4_5',
-      'GENERAL_NSFW'
-    ],
-    defaultModel: 'SEEDREAM_5_PRO',
     supportsAspectRatios: true,
     supportsTiers: true,
     inputsRequired: {},
@@ -57,94 +47,80 @@ export const TOOLS_CATALOG: Record<GenerativeToolId, ToolDefinition> = {
       web_search: false,
       transparent_background: false,
       negative_prompt: '',
-      batch_size: 1
-    }
+      batch_size: 1,
+    },
   },
 
   by_ref: {
     id: 'by_ref',
     name: 'Reference-to-Image',
     category: 'Image Generation',
-    description: 'Recreate a reference photo\'s scene, lighting, and composition for your character with pose preservation.',
-    badge: 'Img2Img Ref',
+    description: 'Recreate a reference photo scene, lighting, and composition with character and pose guidance.',
+    badge: 'Reference',
     icon: 'Image',
     credits: 2,
-    models: ['SEEDREAM_5_PRO'],
-    defaultModel: 'SEEDREAM_5_PRO',
     supportsAspectRatios: true,
     supportsTiers: true,
     inputsRequired: {
       refAsset: true,
-      characterAssets: true
+      characterAssets: true,
     },
     defaultParameters: {
       strength: 0.85,
       keep_pose: true,
       ratio: '16:9',
       tier: '2K',
-      batch_size: 1
-    }
+      batch_size: 1,
+    },
   },
 
   image_editor: {
     id: 'image_editor',
     name: 'AI Image Editor & Inpaint',
     category: 'Image Modification',
-    description: 'Edit, inpaint, composite, and transform existing images by instruction prompt with optional mask selection.',
-    badge: 'Brush & Inpaint',
+    description: 'Edit, inpaint, composite, and transform existing images by instruction prompt.',
+    badge: 'Edit',
     icon: 'Scissors',
     credits: 2,
-    models: [
-      'SEEDREAM_5_PRO',
-      'GPT_IMAGE_2_5_SUNBURST',
-      'NANO_BANANA_2_1',
-      'IDEOGRAM_4_5',
-      'QWEN_IMAGE_PRO',
-      'FLUX_KLEIN_NSFW',
-      'GENERAL_NSFW'
-    ],
-    defaultModel: 'SEEDREAM_5_PRO',
     supportsAspectRatios: true,
     supportsTiers: true,
     inputsRequired: {
       refAsset: true,
-      maskAsset: false
+      maskAsset: false,
     },
     defaultParameters: {
       edit_precision: 'high',
       batch_mode: false,
       sequential_generation: false,
-      tier: '2K'
-    }
+      tier: '2K',
+    },
   },
 
   faceswap: {
     id: 'faceswap',
     name: 'AI Face Swap & Fusion',
     category: 'Image Modification',
-    description: 'Swap a character\'s face onto any reference scene while preserving lighting, angle, and facial features.',
+    description: 'Preserve character identity onto any reference scene while matching lighting and angle.',
     badge: 'Identity Swap',
     icon: 'UserCheck',
     credits: 2,
-    models: ['SEEDREAM_5_PRO', 'FULL_HEAD', 'MULEROUTER_FACE'],
-    defaultModel: 'SEEDREAM_5_PRO',
     supportsAspectRatios: false,
     supportsTiers: true,
     inputsRequired: {
       refAsset: true,
-      faceRef: true
+      faceRef: true,
     },
     defaultParameters: {
-      swap_type: 'face', // face | head | person
-      tier: '2K'
-    }
+      swap_type: 'face',
+      tier: '2K',
+    },
   },
 
   photoshoot: {
     id: 'photoshoot',
     name: 'AI Studio Photoshoot',
     category: 'Image Generation',
-    description: 'Produce a batch of varied, organic editorial photos of one persona using face and body references.',
+    description: 'Produce a cohesive batch of editorial photos for a persona using face and body references.',
     badge: 'Editorial Studio',
     icon: 'Camera',
     credits: 3,
@@ -152,21 +128,21 @@ export const TOOLS_CATALOG: Record<GenerativeToolId, ToolDefinition> = {
     supportsTiers: false,
     inputsRequired: {
       faceRef: true,
-      bodyRef: true
+      bodyRef: true,
     },
     defaultParameters: {
       category_id: 'studio_editorial',
       image_count: 4,
-      ratio: '3:4'
-    }
+      ratio: '3:4',
+    },
   },
 
   facegen: {
     id: 'facegen',
     name: 'Parametric Face Synthesizer',
     category: 'Image Generation',
-    description: 'Design a pristine new character identity from parametric attributes (ethnicity, age, eyes, hair, beard, makeup).',
-    badge: 'DNA Creator',
+    description: 'Design a consistent character identity from parametric attributes.',
+    badge: 'Persona DNA',
     icon: 'Dna',
     credits: 2,
     supportsAspectRatios: false,
@@ -181,50 +157,48 @@ export const TOOLS_CATALOG: Record<GenerativeToolId, ToolDefinition> = {
       hair_color: 'Brunette',
       hair_style: 'Long Wavy',
       makeup: 'Natural',
-      tier: '2K'
-    }
+      tier: '2K',
+    },
   },
 
   carousel: {
     id: 'carousel',
     name: '360° Multi-Angle Views',
     category: 'Image Modification',
-    description: 'Generate consistent 3D turnaround camera angles of any subject or character photo.',
+    description: 'Generate consistent turnaround camera angles of any subject or character photo.',
     badge: 'Multi-Angle',
     icon: 'RotateCw',
     credits: 2,
     supportsAspectRatios: true,
     supportsTiers: true,
     inputsRequired: {
-      refAsset: true
+      refAsset: true,
     },
     defaultParameters: {
       number_of_images: 4,
       ratio: '1:1',
-      tier: '2K'
-    }
+      tier: '2K',
+    },
   },
 
   collaber: {
     id: 'collaber',
     name: 'AI Duo & Collab Scene',
     category: 'Image Generation',
-    description: 'Place two independent character personas together into a single cohesive scene with preserved likeness.',
+    description: 'Compose two character personas together into a single cohesive scene with preserved likeness.',
     badge: 'Duo Collab',
     icon: 'Users',
     credits: 2,
-    models: ['SEEDREAM_5_PRO', 'GENERAL', 'GENERAL_NSFW'],
-    defaultModel: 'SEEDREAM_5_PRO',
     supportsAspectRatios: true,
     supportsTiers: true,
     inputsRequired: {
-      characterAssets: true
+      characterAssets: true,
     },
     defaultParameters: {
       ratio: '16:9',
       tier: '2K',
-      number_of_images: 1
-    }
+      number_of_images: 1,
+    },
   },
 
   couplegen: {
@@ -238,62 +212,45 @@ export const TOOLS_CATALOG: Record<GenerativeToolId, ToolDefinition> = {
     supportsAspectRatios: false,
     supportsTiers: false,
     inputsRequired: {
-      characterAssets: true
+      characterAssets: true,
     },
     defaultParameters: {
-      duration: 5
-    }
+      duration: 5,
+    },
   },
 
   upscaler: {
     id: 'upscaler',
     name: 'Super-Resolution Detail Restoration',
     category: 'Image Modification',
-    description: 'Enhance and upscale images to 2K, 4K, 6K, or 8K resolution using diffusion restoration.',
-    badge: 'Clarity 8K',
+    description: 'Apply color look grading and upscale images to 2K or 4K resolution with detail restoration.',
+    badge: 'Upscale',
     icon: 'Maximize2',
     credits: 2,
-    models: ['seedvr2_7b', 'seedvr2_3b'],
-    defaultModel: 'seedvr2_7b',
     supportsAspectRatios: false,
     supportsTiers: false,
     inputsRequired: {
-      refAsset: true
+      refAsset: true,
     },
     defaultParameters: {
       target_resolution: '4k',
       detail: 'high',
-      noise_scale: 0.1
-    }
+      noise_scale: 0.1,
+    },
   },
 
   videogen: {
     id: 'videogen',
     name: 'Image-to-Video Animation',
     category: 'Video Generation',
-    description: 'Animate a still photo into a cinema-grade video clip with native synced audio, camera motions, and physics.',
-    badge: 'Cinema Motion',
+    description: 'Animate a still photo into a cinema-grade video clip with camera motion and speed controls.',
+    badge: 'Animate',
     icon: 'Film',
     credits: 7,
-    models: [
-      'wan@2.7-nsfw',
-      'wan@3.0-nsfw',
-      'wan@3.0-prime-nsfw',
-      'wan@2.2-lora',
-      'wan@2.2',
-      'seedance_2_5',
-      'seedance_2_0',
-      'wan@3.0',
-      'wan@2.7',
-      'kling@2.6',
-      'minimax@3.0',
-      'grok@4.1'
-    ],
-    defaultModel: 'wan@2.7-nsfw',
     supportsAspectRatios: true,
     supportsTiers: false,
     inputsRequired: {
-      refAsset: true
+      refAsset: true,
     },
     defaultParameters: {
       duration: 5,
@@ -301,29 +258,18 @@ export const TOOLS_CATALOG: Record<GenerativeToolId, ToolDefinition> = {
       ratio: '16:9',
       generate_audio: true,
       camera_fixed: false,
-      prompt_extend: true
-    }
+      prompt_extend: true,
+    },
   },
 
   text_to_video: {
     id: 'text_to_video',
     name: 'Direct Text-to-Video',
     category: 'Video Generation',
-    description: 'Generate video sequences straight from a text prompt with native sound effects and camera control.',
-    badge: 'Direct T2V',
+    description: 'Generate video sequences straight from a text prompt with camera control.',
+    badge: 'Animate T2V',
     icon: 'Video',
     credits: 10,
-    models: [
-      'wan@3.0-nsfw',
-      'wan@3.0-prime-nsfw',
-      'wan@2.7-nsfw',
-      'seedance_2_5',
-      'seedance_2_0',
-      'wan@3.0',
-      'wan@2.7',
-      'minimax@3.0'
-    ],
-    defaultModel: 'wan@3.0-nsfw',
     supportsAspectRatios: true,
     supportsTiers: false,
     inputsRequired: {},
@@ -331,167 +277,166 @@ export const TOOLS_CATALOG: Record<GenerativeToolId, ToolDefinition> = {
       duration: 5,
       resolution: '720p',
       ratio: '16:9',
-      generate_audio: true
-    }
+      generate_audio: true,
+    },
   },
 
   video2video: {
     id: 'video2video',
     name: 'Video-to-Video Motion Transfer',
     category: 'Video Generation',
-    description: 'Transfer motion or swap a character into an existing video clip while keeping the original soundtrack.',
+    description: 'Transfer motion or restyle an existing video clip while preserving timing and soundtrack.',
     badge: 'Motion Transfer',
     icon: 'Repeat',
     credits: 12,
-    models: [
-      'animate_nsfw',
-      'replace_nsfw',
-      'seedance_2_5_nsfw',
-      'wan3_0_nsfw',
-      'wan3_0_prime_nsfw',
-      'kling_2_6_sfw',
-      'replace_sfw',
-      'animate_sfw',
-      'dreamactor_m2',
-      'seedance_2_0',
-      'wan3_0',
-      'minimax_3_0'
-    ],
-    defaultModel: 'animate_nsfw',
     supportsAspectRatios: true,
     supportsTiers: false,
     inputsRequired: {
       videoAsset: true,
-      refAsset: true
+      refAsset: true,
     },
     defaultParameters: {
-      mode: 'animate_nsfw',
       resolution: '720p',
       keep_original_sound: true,
-      duration: 5
-    }
+      duration: 5,
+    },
+  },
+
+  extend: {
+    id: 'extend',
+    name: 'Video Shot Extension',
+    category: 'Video Generation',
+    description: 'Continue an existing video shot seamlessly from its final frame with camera motion.',
+    badge: 'Extend',
+    icon: 'Film',
+    credits: 7,
+    supportsAspectRatios: true,
+    supportsTiers: false,
+    inputsRequired: {
+      videoAsset: true,
+    },
+    defaultParameters: {
+      duration: 5,
+      resolution: '720p',
+      ratio: '16:9',
+    },
   },
 
   lipsync: {
     id: 'lipsync',
     name: 'Talking Head & LipSync',
     category: 'Video Generation',
-    description: 'Sync a portrait face photo with an audio track to produce realistic speech, gestures, and lip movement.',
+    description: 'Sync a portrait face photo with an audio track to produce realistic speech and lip movement.',
     badge: 'Talking Head',
     icon: 'Mic',
     credits: 3,
-    models: ['GENERAL_NSFW', 'OMNIHUMAN'],
-    defaultModel: 'GENERAL_NSFW',
     supportsAspectRatios: false,
     supportsTiers: false,
     inputsRequired: {
       refAsset: true,
-      audioAsset: true
+      audioAsset: true,
     },
-    defaultParameters: {
-      model: 'GENERAL_NSFW'
-    }
+    defaultParameters: {},
   },
 
   video_upscaler: {
     id: 'video_upscaler',
     name: 'AI Video Super-Resolution',
     category: 'Video Enhancement',
-    description: 'Upscale and sharpen video clips to 1080p, 2K, or 4K with frame enhancement at locked 30 FPS.',
-    badge: 'Video 4K',
+    description: 'Grade and upscale video clips to high resolution with frame enhancement.',
+    badge: 'Video Upscale',
     icon: 'Tv',
     credits: 5,
     supportsAspectRatios: false,
     supportsTiers: false,
     inputsRequired: {
-      videoAsset: true
+      videoAsset: true,
     },
     defaultParameters: {
-      mode: 'standard', // standard | pro
-      resolution: '1080p' // 1080p | 2k | 4k
-    }
+      mode: 'standard',
+      resolution: '1080p',
+    },
   },
 
   video_merger: {
     id: 'video_merger',
     name: 'Multi-Clip Video Sequencer',
     category: 'Video Enhancement',
-    description: 'Assemble and concatenate 2-5 generated video clips with transitions (dissolve, cut, fade, slide).',
+    description: 'Assemble and concatenate multiple video clips with smooth transitions.',
     badge: 'Timeline Sequencer',
     icon: 'Sliders',
     credits: 1,
     supportsAspectRatios: false,
     supportsTiers: false,
     inputsRequired: {
-      clips: true
+      clips: true,
     },
     defaultParameters: {
       transition: 'dissolve',
       fps: 24,
-      keep_audio: true
-    }
+      keep_audio: true,
+    },
   },
 
   run_any_llm: {
     id: 'run_any_llm',
-    name: 'Uncensored LLM Cognition',
+    name: 'Creative Cognition & Vision Analysis',
     category: 'Cognition & Audio',
-    description: 'Consult uncensored language & vision models (Grok, Hermes-3 405B, Qwen 27B) for prompt engineering and planning.',
-    badge: 'AI Cognition',
+    description: 'Inspect assets, plan shots, and expand creative prompts via KEYSTONE cognition.',
+    badge: 'Analyze',
     icon: 'Brain',
     credits: 1,
-    models: ['grok', 'hermes-3-405b', 'euryale-70b', 'qwen-27b'],
-    defaultModel: 'grok',
     supportsAspectRatios: false,
     supportsTiers: false,
     inputsRequired: {},
     defaultParameters: {
       max_tokens: 2048,
-      system_prompt: 'You are KEYSTONE Creative Prompt Cognition. Expand user ideas into rich cinematic details with camera, lighting, and composition specifics.'
-    }
-  }
+      system_prompt:
+        'You are KEYSTONE Creative Prompt Cognition. Expand user ideas into rich cinematic details with camera, lighting, and composition specifics.',
+    },
+  },
 };
 
 export const OPTIONAL_PLAYBOOKS: PlaybookTemplate[] = [
   {
     id: 'freedom',
-    name: 'Freedom & YOLO (Open Canvas)',
-    description: 'Unconstrained creative freedom. Complete access to every model, parameter, resolution, and seed.',
+    name: 'Freedom & Open Canvas',
+    description: 'Unconstrained creative freedom across intents, framing, and resolution.',
     icon: 'Infinity',
     starterPrompt: '',
     recommendedTool: 'by_prompt',
     defaultAspect: '16:9',
-    parameters: { guidance: 6.5, steps: 30 }
+    parameters: { guidance: 6.5, steps: 30 },
   },
   {
     id: 'design',
     name: 'Industrial & Digital Design',
-    description: 'Industrial design prototypes, UI/UX systems, architectural visualization, and high-craft product rendering.',
+    description: 'Industrial design prototypes, UI/UX systems, architectural visualization, and product rendering.',
     icon: 'Layers',
     starterPrompt: '',
     recommendedTool: 'by_prompt',
     defaultAspect: '16:9',
-    parameters: { quality: 'master' }
+    parameters: { quality: 'master' },
   },
   {
     id: 'content',
     name: 'Social Media & Content Creation',
-    description: 'Eye-catching reels, viral visual hooks, thumbnails, and dynamic multi-angle brand assets.',
+    description: 'Reels, visual hooks, thumbnails, and dynamic multi-angle brand assets.',
     icon: 'Smartphone',
     starterPrompt: '',
     recommendedTool: 'videogen',
     defaultAspect: '9:16',
-    parameters: { duration: 5 }
+    parameters: { duration: 5 },
   },
   {
     id: 'cinema',
     name: 'Hollywood Cinema & Film',
-    description: 'Anamorphic widescreen shots, cinematic camera tracks, Kodak 2383 film look, and Hollywood color grading.',
+    description: 'Anamorphic widescreen shots, cinematic camera tracks, and film color grading.',
     icon: 'Clapperboard',
     starterPrompt: '',
     recommendedTool: 'by_prompt',
     defaultAspect: '21:9',
-    parameters: { quality: 'master' }
+    parameters: { quality: 'master' },
   },
   {
     id: 'portrait',
@@ -501,6 +446,6 @@ export const OPTIONAL_PLAYBOOKS: PlaybookTemplate[] = [
     starterPrompt: '',
     recommendedTool: 'by_prompt',
     defaultAspect: '3:4',
-    parameters: { quality: 'high' }
-  }
+    parameters: { quality: 'high' },
+  },
 ];

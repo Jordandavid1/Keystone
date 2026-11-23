@@ -1,8 +1,16 @@
 'use client';
 
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { BookOpen, CornerDownLeft, Film, Globe, Lock, Paperclip, Palette, Pencil, ScanSearch, Sparkles, X } from 'lucide-react';
+import { BookOpen, Check, ChevronDown, CornerDownLeft, Film, Globe, Lock, Paperclip, Palette, Pencil, ScanSearch, ShieldAlert, Sparkles, UserCheck, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { INTENTS, INTENT_BY_ID, LOOK_LABELS, estimateCredits, routeIntent } from '@/lib/intents';
 import { useStudio } from '@/lib/studio/store';
@@ -36,20 +44,21 @@ function Chip({ icon: Icon, label, onRemove, tone = 'default' }: { icon: React.E
 }
 
 /**
- * Region 5 — the floating composer (Venice-clean): intent, words, attachments, cost and trust, one run button.
+ * Region 5 — the floating composer (Venice-clean): intent, persona (`as`), words, attachments, cost and trust, one run button.
  * It never chooses the capability; lib/intents.ts does.
  */
 export function FloatingComposer({ onHeight, inputRef }: { onHeight?: (h: number) => void; inputRef?: React.RefObject<HTMLTextAreaElement> }) {
   const { state, dispatch } = useStudio();
   const { run, upload } = useGeneration();
-  const { intent, prompt, references, playbook, useCase, web } = state.composer;
-  const { engine, ledger } = state.system;
+  const { intent, prompt, references, playbook, useCase, web, personaId } = state.composer;
+  const { engine, ledger, personas, contentMode } = state.system;
   const ownRef = useRef<HTMLTextAreaElement>(null);
   const textRef = inputRef || ownRef;
   const rootRef = useRef<HTMLElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [problems, setProblems] = useState<string[]>([]);
 
+  const activePersona = personas.find((p) => p.id === personaId) || null;
   const routed = useMemo(() => routeIntent({ intent, prompt, references, engine }), [intent, prompt, references, engine]);
   const credits = estimateCredits(routed.capability, state.controls);
   const def = INTENT_BY_ID[intent];
@@ -64,7 +73,6 @@ export function FloatingComposer({ onHeight, inputRef }: { onHeight?: (h: number
     el.style.height = `${Math.min(el.scrollHeight, 6 * 22 + 16)}px`;
   }, [prompt, textRef]);
 
-  // Width changes (breakpoints, sheets opening) change wrapping, so re-measure then too.
   useEffect(() => {
     const el = textRef.current;
     if (!el) return;
@@ -105,8 +113,8 @@ export function FloatingComposer({ onHeight, inputRef }: { onHeight?: (h: number
       aria-label="Composer"
       className="ks-glass pointer-events-auto w-full max-w-[760px] rounded-composer border border-ks-line-strong shadow-float transition-colors duration-base focus-within:border-ks-indigo/50"
     >
-      {/* Intent switch */}
-      <div className="flex items-center gap-1 px-2.5 pt-2.5" role="radiogroup" aria-label="What do you want to do?">
+      {/* Intent switch + Persona (`as: persona_id`) selector */}
+      <div className="flex flex-wrap items-center gap-1 px-2.5 pt-2.5" role="radiogroup" aria-label="What do you want to do?">
         {INTENTS.map((i) => {
           const Icon = INTENT_ICON[i.id];
           const on = intent === i.id;
@@ -127,10 +135,68 @@ export function FloatingComposer({ onHeight, inputRef }: { onHeight?: (h: number
             </button>
           );
         })}
+
+        <div className="ml-auto flex items-center gap-1.5">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label="Select persona for generation"
+                className={cn(
+                  'flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-meta transition-colors',
+                  activePersona
+                    ? 'border-ks-indigo/50 bg-ks-indigo/15 text-ks-ink'
+                    : 'border-ks-line text-ks-ink-3 hover:border-ks-line-strong hover:text-ks-ink',
+                )}
+              >
+                <UserCheck className="size-3.5" />
+                <span className="max-w-[130px] truncate">
+                  {activePersona ? `As: ${activePersona.name}${activePersona.version ? ` v${activePersona.version}` : ''}` : 'As: Persona'}
+                </span>
+                <ChevronDown className="size-3 opacity-70" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-60">
+              <DropdownMenuLabel className="text-meta text-ks-ink-3">Cast persona (`as`)</DropdownMenuLabel>
+              <DropdownMenuItem onSelect={() => dispatch({ type: 'SET_PERSONA', personaId: null })}>
+                <span className="flex-1">None (open cast)</span>
+                {!personaId && <Check className="size-3.5" />}
+              </DropdownMenuItem>
+              {personas.map((p) => (
+                <DropdownMenuItem key={p.id} onSelect={() => dispatch({ type: 'SET_PERSONA', personaId: p.id })}>
+                  <span className="flex-1 truncate">
+                    {p.name}
+                    {p.version ? ` v${p.version}` : ''}
+                    {p.mature ? ' (18+)' : ''}
+                  </span>
+                  {personaId === p.id && <Check className="size-3.5" />}
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={() => dispatch({ type: 'OPEN_MODAL', modal: 'personas' })}>
+                Manage personas &amp; voices…
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {contentMode === 'unrestricted' && (
+            <button
+              type="button"
+              onClick={() => {
+                dispatch({ type: 'UI', patch: { settingsTab: 'content' } });
+                dispatch({ type: 'OPEN_MODAL', modal: 'settings' });
+              }}
+              title="Unrestricted 18+ content mode is active"
+              className="inline-flex h-7 items-center gap-1 rounded-full border border-ks-hold/40 bg-ks-hold/10 px-2 text-micro font-medium text-ks-hold hover:bg-ks-hold/20"
+            >
+              <ShieldAlert className="size-3" /> 18+
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Attachments and context */}
-      {(references.length > 0 || playbook || useCase || web || state.controls.look.lut !== 'none') && (
+      {(references.length > 0 || playbook || useCase || web || activePersona || state.controls.look.lut !== 'none') && (
         <div className="flex flex-wrap items-center gap-1.5 px-3 pt-2.5">
           {references.map((r) => (
             <span key={r.id} className="group relative">
@@ -144,6 +210,14 @@ export function FloatingComposer({ onHeight, inputRef }: { onHeight?: (h: number
               </button>
             </span>
           ))}
+          {activePersona && (
+            <Chip
+              icon={UserCheck}
+              label={`As ${activePersona.name}${activePersona.version ? ` v${activePersona.version}` : ''}`}
+              tone="accent"
+              onRemove={() => dispatch({ type: 'SET_PERSONA', personaId: null })}
+            />
+          )}
           {playbook && <Chip icon={BookOpen} label={playbook.label} tone="accent" onRemove={() => dispatch({ type: 'SET_PLAYBOOK', playbook: null })} />}
           {useCase && <Chip icon={BookOpen} label={useCase.length > 40 ? useCase.slice(0, 39) + '…' : useCase} onRemove={() => dispatch({ type: 'SET_USE_CASE', useCase: null })} />}
           {web && <Chip icon={Globe} label={web.title || web.url} onRemove={() => dispatch({ type: 'SET_WEB', web: null })} />}
@@ -209,7 +283,6 @@ export function FloatingComposer({ onHeight, inputRef }: { onHeight?: (h: number
           }}
         />
 
-        {/* Trust + cost line (Venice + ZenCreator patterns) — only facts the client can verify */}
         <div className="ml-1 flex min-w-0 flex-1 items-center gap-3 text-micro text-ks-ink-3">
           <span className="flex min-w-0 items-center gap-1.5" title={engineReady ? 'Requests go to the KEYSTONE engine configured for this studio.' : 'The studio reports no connected engine.'}>
             <span className={cn('size-1.5 shrink-0 rounded-full', engineReady ? 'bg-ks-verified' : 'bg-ks-hold')} aria-hidden="true" />

@@ -125,7 +125,7 @@ export function StudioShell() {
           </div>
         )}
 
-        {/* Mobile tab bar: create, review, assets, history (Bible §25 mobile emphasis) */}
+        {/* Mobile tab bar */}
         {mode === 'mobile' && (
           <nav aria-label="Studio" className="ks-region z-40 grid grid-cols-4 border-t border-ks-line [grid-area:tabs]">
             {[
@@ -176,13 +176,26 @@ export function StudioShell() {
           dispatch({ type: 'UI', patch: { settingsTab: null } });
           close();
         }}
-        onFlagsSaved={(flags) => dispatch({ type: 'UI', patch: { fps: flags.framerate || 24 } })} />
+      />
       <ProjectsModal
         open={m === 'projects'}
         onClose={close}
-        onSelectProject={(project) => dispatch({ type: 'SYSTEM', patch: { projectId: project.id, projects: state.system.projects.some((p) => p.id === project.id) ? state.system.projects : [...state.system.projects, project] } })}
+        activeProjectId={state.system.projectId}
+        onSelectProject={(project) => {
+          dispatch({ type: 'SET_PROJECT', projectId: project ? project.id : null });
+          if (project && !state.system.projects.some((p) => p.id === project.id)) {
+            dispatch({ type: 'SYSTEM', patch: { projects: [...state.system.projects, project] } });
+          }
+        }}
       />
-      <SessionsModal open={m === 'sessions'} onClose={close} projectId={state.system.projectId} />
+      <SessionsModal
+        open={m === 'sessions'}
+        onClose={close}
+        projectId={state.system.projectId}
+        activeSessionId={state.system.sessionId}
+        onSelectSession={(session, messages) => dispatch({ type: 'SET_SESSION', session, messages })}
+        onOpenChat={() => dispatch({ type: 'OPEN_MODAL', modal: 'agent' })}
+      />
       <CreditsModal open={m === 'credits'} onClose={close} />
       <WorkerTelemetryModal open={m === 'worker'} onClose={close} />
       <AgentChatModal open={m === 'agent'} onClose={close} />

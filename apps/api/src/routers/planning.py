@@ -7,9 +7,14 @@ and playbook discovery per Bible §6, §7, §9, §33.
 
 from __future__ import annotations
 from typing import Any, Dict, List, Optional
-from fastapi import APIRouter, HTTPException, Query, status
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from apps.api.src.auth.dependencies import get_optional_user
+from apps.api.src.db.models import User
+from apps.api.src.db.session import get_db
+from apps.api.src.services.gate import GateService
 from packages.prompt_engine.engine import generate
 from packages.prompt_engine.compiler import PromptCompiler
 from packages.prompt_engine.playbooks import PlaybookRegistry, PLAYBOOK_IDS
@@ -19,9 +24,15 @@ router = APIRouter(prefix="/v1/planning", tags=["Planning"])
 
 
 class PlanRequestModel(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     goal: str = Field(..., min_length=1, max_length=102400, description="User creative or analytical goal")
     answers: Dict[str, Any] = Field(default_factory=dict, description="Answers to clarifying questions")
     options: Dict[str, Any] = Field(default_factory=dict, description="Compiler and heuristic options")
+    project_id: Optional[str] = None
+    session_id: Optional[str] = None
+    as_persona: Optional[str] = Field(None, alias="as", description="Optional persona ID")
+    persona_id: Optional[str] = Field(None, description="Optional persona ID (alias for `as`)")
 
 
 class CompileRequestModel(BaseModel):
@@ -35,11 +46,37 @@ class CompileRequestModel(BaseModel):
     summary="Generate Execution Plan (plan.v1)",
     description="Transforms a high-level goal into a deterministic, finishable 6-step path conforming to plan.v1 plus the digested KEYSTONE compiled prompt."
 )
-async def plan_goal(request: PlanRequestModel) -> Dict[str, Any]:
+async def plan_goal(
+    request: PlanRequestModel,
+    current_user: Optional[User] = Depends(get_optional_user),
+    db: AsyncSession = Depends(get_db),
+) -> Dict[str, Any]:
     """Generates a plan.v1 structure and digests the goal via KEYSTONE + Embedded Cognition."""
     options = dict(request.options)
     if request.answers:
         options["answers"] = request.answers
+
+    target_persona_id = request.as_persona or request.persona_id or options.get("as") or options.get("persona_id")
+    persona_sheet: Optional[str] = None
+    receipt = None
+    if target_persona_id:
+        if current_user is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Unauthorized: Authentication required to plan with a persona",
+            )
+        receipt = await GateService.authorize_async(
+            db,
+            user_id=str(current_user.id),
+            intent="plan",
+            prompt_text=request.goal,
+            capability_id="cognition.reasoning",
+            arguments={"goal": request.goal},
+            project_id=request.project_id,
+            session_id=request.session_id,
+            persona_id=str(target_persona_id),
+        )
+        persona_sheet = receipt.persona_sheet
 
     result = generate(request.goal, options)
     if "error" in result:
@@ -51,10 +88,15 @@ async def plan_goal(request: PlanRequestModel) -> Dict[str, Any]:
             user_text=request.goal,
             reference_count=int(options.get("reference_count", 0)),
             intent_hint="plan",
+            persona_sheet=persona_sheet,
         )
         result["compiledPrompt"] = compiled.positive_prompt
         result["promptHash"] = compiled.prompt_hash
         result["cognitionProvenance"] = compiled.provenance.get("cognition")
+        if receipt is not None:
+            result["persona"] = receipt.persona_summary
+            result["content_mode"] = receipt.content_mode
+            result["envelope_id"] = receipt.envelope.envelope_id
     except Exception as exc:
         result["cognitionProvenance"] = {
             "status": "error",

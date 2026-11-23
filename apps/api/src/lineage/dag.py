@@ -1,7 +1,7 @@
 """
 KEYSTONE Lineage Directed Acyclic Graph (DAG) Tracking
-Supports the 8 canonical relationship types, self-parenting prevention,
-cycle detection, and ancestor/descendant BFS graph traversal.
+Supports the 9 canonical relationship types, self-parenting prevention,
+cycle detection, cross-modal `depicts` persona edges, and ancestor/descendant BFS graph traversal.
 """
 
 from __future__ import annotations
@@ -23,7 +23,8 @@ VALID_RELATIONSHIPS: List[str] = [
     "upscale",
     "reference",
     "selected-final",
-    "intermediate"
+    "intermediate",
+    "depicts",
 ]
 
 
@@ -101,7 +102,7 @@ class LineageDAG:
             cur = queue.popleft()
             parents = [e["parent_id"] for e in self.edges if e["child_id"] == cur]
             for p in parents:
-                if p not in visited:
+                if p is not None and p not in visited:
                     visited.add(p)
                     ancestors.append(p)
                     queue.append(p)
@@ -118,11 +119,27 @@ class LineageDAG:
             cur = queue.popleft()
             children = [e["child_id"] for e in self.edges if e["parent_id"] == cur]
             for c in children:
-                if c not in visited:
+                if c is not None and c not in visited:
                     visited.add(c)
                     descendants.append(c)
                     queue.append(c)
         return descendants
+
+    def get_depicts(self, asset_id: str | uuid.UUID) -> List[Dict[str, Any]]:
+        """Returns `depicts` persona lineage edges targeting this asset."""
+        a_id = str(asset_id)
+        return [
+            {
+                "id": e.get("id"),
+                "persona_id": e.get("persona_id"),
+                "persona_version": e.get("persona_version"),
+                "mature": bool(e.get("mature", False)),
+                "job_id": e.get("job_id"),
+                "created_at": e.get("created_at"),
+            }
+            for e in self.edges
+            if e.get("child_id") == a_id and e.get("relationship_type") == "depicts"
+        ]
 
     # Async Database Integration Methods
     async def load_from_db(self) -> None:
@@ -135,11 +152,14 @@ class LineageDAG:
         self.edges = [
             {
                 "id": str(e.id),
-                "parent_id": str(e.parent_asset_id),
-                "child_id": str(e.child_asset_id),
+                "parent_id": str(e.parent_asset_id) if e.parent_asset_id else None,
+                "child_id": str(e.child_asset_id) if e.child_asset_id else None,
                 "relationship_type": e.relationship_type,
                 "job_id": str(e.job_id) if e.job_id else None,
-                "created_at": e.created_at.isoformat() if e.created_at else None
+                "persona_id": str(e.persona_id) if e.persona_id else None,
+                "persona_version": e.persona_version,
+                "mature": bool(getattr(e, "mature", False)),
+                "created_at": e.created_at.isoformat() if e.created_at else None,
             }
             for e in db_edges
         ]
@@ -149,7 +169,8 @@ class LineageDAG:
         parent_id: str | uuid.UUID,
         child_id: str | uuid.UUID,
         relationship_type: str,
-        job_id: Optional[str | uuid.UUID] = None
+        job_id: Optional[str | uuid.UUID] = None,
+        mature: bool = False,
     ) -> AssetRelationship:
         """Validates acyclicity and persists edge to database."""
         if self.session:
@@ -162,8 +183,74 @@ class LineageDAG:
                 child_asset_id=edge_dict["child_id"],
                 relationship_type=edge_dict["relationship_type"],
                 job_id=edge_dict["job_id"],
+                mature=bool(mature),
             )
             self.session.add(db_rel)
             await self.session.flush()
             return db_rel
         return None  # type: ignore
+
+    async def persist_depicts_edge(
+        self,
+        child_asset_id: str | uuid.UUID,
+        persona_id: str | uuid.UUID,
+        persona_version: int = 1,
+        job_id: Optional[str | uuid.UUID] = None,
+        mature: bool = False,
+    ) -> AssetRelationship:
+        """Persist a cross-modal `depicts(persona_id, persona_version)` edge for an output asset."""
+        edge_id = str(uuid.uuid4())
+        c_id = str(child_asset_id)
+        p_id = str(persona_id)
+        j_id = str(job_id) if job_id is not None else None
+        p_ver = int(persona_version or 1)
+        is_mature = bool(mature)
+
+        self.edges.append(
+            {
+                "id": edge_id,
+                "parent_id": None,
+                "child_id": c_id,
+                "relationship_type": "depicts",
+                "job_id": j_id,
+                "persona_id": p_id,
+                "persona_version": p_ver,
+                "mature": is_mature,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            }
+        )
+        if not self.session:
+            return None  # type: ignore
+
+        db_rel = AssetRelationship(
+            id=edge_id,
+            parent_asset_id=None,
+            child_asset_id=c_id,
+            relationship_type="depicts",
+            job_id=j_id,
+            persona_id=p_id,
+            persona_version=p_ver,
+            mature=is_mature,
+        )
+        self.session.add(db_rel)
+        await self.session.flush()
+        return db_rel
+
+
+async def persist_depicts_edge(
+    session: AsyncSession,
+    child_asset_id: str | uuid.UUID,
+    persona_id: str | uuid.UUID,
+    persona_version: int = 1,
+    job_id: Optional[str | uuid.UUID] = None,
+    mature: bool = False,
+) -> AssetRelationship:
+    """Async DB helper to persist a `depicts` lineage edge for a persona-bearing asset."""
+    dag = LineageDAG(session=session)
+    return await dag.persist_depicts_edge(
+        child_asset_id=child_asset_id,
+        persona_id=persona_id,
+        persona_version=persona_version,
+        job_id=job_id,
+        mature=mature,
+    )

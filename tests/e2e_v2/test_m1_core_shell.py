@@ -359,8 +359,8 @@ async def test_f07_local_storage_provider():
 # ============================================================================
 
 def test_f08_lineage_dag_valid_relationships():
-    """Verify all 8 relationship types are supported."""
-    assert len(VALID_RELATIONSHIPS) == 8
+    """Verify all 9 relationship types are supported."""
+    assert len(VALID_RELATIONSHIPS) == 9
     dag = LineageDAG()
     for rel_type in VALID_RELATIONSHIPS:
         edge = dag.add_relationship("root", f"child_{rel_type}", rel_type, "j1")

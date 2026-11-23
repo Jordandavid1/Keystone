@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo, useRef, useState } from 'react';
-import { Heart, Paperclip, Upload } from 'lucide-react';
+import { Heart, Paperclip, ShieldCheck, Upload } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio/store';
 import { useGeneration } from '@/lib/studio/useGeneration';
@@ -17,11 +17,13 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: 'audio', label: 'Audio' },
 ];
 
-/** Assets / Favorites panel — the real library, with upload by click or drop. */
+/** Assets / Favorites panel — project-scoped library with SFW/Mature isolation and C2PA indicators. */
 export function AssetsPanel({ favoritesOnly = false }: { favoritesOnly?: boolean }) {
   const { state, dispatch } = useStudio();
   const { upload } = useGeneration();
   const { assets, favorites, selectedId, loaded, loadError } = state.library;
+  const { contentMode, projects, projectId } = state.system;
+  const { matureFilter, showC2paBadge } = state.ui;
   const sessionStatus = state.system.session.status;
   const awaitingSession = sessionStatus === 'checking';
   const signedOut = sessionStatus === 'signed_out' || sessionStatus === 'error';
@@ -29,12 +31,21 @@ export function AssetsPanel({ favoritesOnly = false }: { favoritesOnly?: boolean
   const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  const activeProject = projects.find((p) => p.id === projectId) || null;
+
   const visible = useMemo(
     () =>
-      assets.filter(
-        (a) => (!favoritesOnly || favorites.includes(a.id)) && (filter === 'all' || a.type === filter),
-      ),
-    [assets, favorites, favoritesOnly, filter],
+      assets.filter((a) => {
+        if (favoritesOnly && !favorites.includes(a.id)) return false;
+        if (filter !== 'all' && a.type !== filter) return false;
+        if (contentMode === 'sfw' && a.mature) return false;
+        if (contentMode === 'unrestricted') {
+          if (matureFilter === 'sfw' && a.mature) return false;
+          if (matureFilter === 'mature' && !a.mature) return false;
+        }
+        return true;
+      }),
+    [assets, contentMode, favorites, favoritesOnly, filter, matureFilter],
   );
 
   const onFiles = (files: FileList | null) => {
@@ -58,7 +69,7 @@ export function AssetsPanel({ favoritesOnly = false }: { favoritesOnly?: boolean
         onFiles(e.dataTransfer.files);
       }}
     >
-      <PanelHeader title={favoritesOnly ? 'Favorites' : 'Assets'}>
+      <PanelHeader title={favoritesOnly ? 'Favorites' : activeProject ? `Assets · ${activeProject.name}` : 'Assets'}>
         {!favoritesOnly && (
           <button
             onClick={() => fileRef.current?.click()}
@@ -80,7 +91,7 @@ export function AssetsPanel({ favoritesOnly = false }: { favoritesOnly?: boolean
         }}
       />
 
-      <div className="mb-3 flex gap-1 px-3" role="tablist" aria-label="Filter assets">
+      <div className="mb-2 flex gap-1 px-3" role="tablist" aria-label="Filter assets">
         {FILTERS.map((f) => (
           <button
             key={f.id}
@@ -96,6 +107,33 @@ export function AssetsPanel({ favoritesOnly = false }: { favoritesOnly?: boolean
           </button>
         ))}
       </div>
+
+      {contentMode === 'unrestricted' && (
+        <div className="mb-3 flex items-center gap-1 px-3" role="group" aria-label="Maturity filter">
+          {(
+            [
+              { id: 'all', label: 'All modes' },
+              { id: 'sfw', label: 'SFW only' },
+              { id: 'mature', label: '18+ Mature' },
+            ] as const
+          ).map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              aria-pressed={matureFilter === m.id}
+              onClick={() => dispatch({ type: 'UI', patch: { matureFilter: m.id } })}
+              className={cn(
+                'rounded-full border px-2 py-0.5 text-micro transition-colors',
+                matureFilter === m.id
+                  ? 'border-ks-hold/40 bg-ks-hold/15 text-ks-hold'
+                  : 'border-ks-line text-ks-ink-3 hover:text-ks-ink',
+              )}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {signedOut && !favoritesOnly && (
         <div className="mb-3">
@@ -118,12 +156,12 @@ export function AssetsPanel({ favoritesOnly = false }: { favoritesOnly?: boolean
               <span className="text-body text-ks-ink-2">Drop images, video or audio</span>
               <span>or click to choose files. Everything you create lands here too.</span>
             </button>
-            {loadError && <p className="mt-3 text-meta text-ks-deny">Saved assets didn't load: {loadError} New results from this session still appear here.</p>}
+            {loadError && <p className="mt-3 text-meta text-ks-deny">Saved assets didn&apos;t load: {loadError} New results from this session still appear here.</p>}
           </div>
         )
       ) : (
         <>
-          {loadError && <PanelNote tone="error">Saved assets didn't load: {loadError} New results from this session still appear here.</PanelNote>}
+          {loadError && <PanelNote tone="error">Saved assets didn&apos;t load: {loadError} New results from this session still appear here.</PanelNote>}
           <ul className="grid grid-cols-2 gap-2 px-3" aria-label="Assets">
             {visible.map((asset) => {
               const selected = asset.id === selectedId;
@@ -144,6 +182,20 @@ export function AssetsPanel({ favoritesOnly = false }: { favoritesOnly?: boolean
                   >
                     <AssetThumb asset={asset} className="aspect-square w-full" />
                   </button>
+                  {(asset.mature || (showC2paBadge && asset.c2paManifest)) && (
+                    <div className="pointer-events-none absolute left-1 top-1 flex items-center gap-1">
+                      {asset.mature && (
+                        <span className="rounded bg-black/75 px-1.5 py-0.5 text-[10px] font-semibold text-ks-hold backdrop-blur">
+                          18+
+                        </span>
+                      )}
+                      {showC2paBadge && asset.c2paManifest && (
+                        <span className="rounded bg-black/75 p-0.5 text-ks-verified backdrop-blur" title="C2PA Content Credentials">
+                          <ShieldCheck className="size-3" />
+                        </span>
+                      )}
+                    </div>
+                  )}
                   <div className="pointer-events-none absolute inset-x-0 top-0 flex justify-end gap-1 p-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
                     <button
                       onClick={() => dispatch({ type: 'ADD_REFERENCE', asset })}

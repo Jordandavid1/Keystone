@@ -10,7 +10,7 @@ import re
 import uuid
 from typing import Any, Dict, List, Optional, Tuple
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, status, File, UploadFile, Form
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.concurrency import run_in_threadpool
@@ -20,6 +20,12 @@ from apps.api.src.db.models import Asset, AuthorityDecision, Job
 from apps.api.src.db.session import get_db
 from apps.api.src.lineage.dag import LineageDAG
 from apps.api.src.repositories.assets import AssetRepository
+from apps.api.src.services.gate import (
+    GateService,
+    ensure_job_for_receipt,
+    load_persona_reference_media,
+    resolve_content_mode,
+)
 from apps.api.src.storage.service import (
     STORAGE_BASE_URL,
     AssetStorageService,
@@ -65,6 +71,8 @@ class UploadAssetRequest(BaseModel):
 
 
 class GenerateAssetRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     prompt: str = Field(..., min_length=1, description="Compiled generation prompt")
     negative_prompt: Optional[str] = None
     title: Optional[str] = None
@@ -75,11 +83,16 @@ class GenerateAssetRequest(BaseModel):
     seed: Optional[int] = Field(None, ge=0)
     checkpoint: Optional[str] = None
     project_id: Optional[str] = None
+    session_id: Optional[str] = None
     parent_asset_id: Optional[str] = None
     reference_asset_id: Optional[str] = Field(None, description="Anchor asset used as visual or motion reference")
     reference_type: Optional[str] = Field("img2img", description="Reference role: img2img, style, composition, video_anchor")
     denoise: Optional[float] = Field(0.65, ge=0.05, le=1.0, description="Denoising strength for reference conditioning")
     mode: Optional[str] = Field("text2image", description="text2image, img2img, upscale, i2v, minimax_h3")
+    intent: Optional[str] = Field(None, description="Intent hint: create, edit, vary, animate")
+    playbook_id: Optional[Any] = Field(None, description="Optional domain playbook ID")
+    as_persona: Optional[str] = Field(None, alias="as", description="Optional persona ID")
+    persona_id: Optional[str] = Field(None, description="Optional persona ID (alias for `as`)")
     scale_factor: Optional[int] = Field(2, ge=2, le=4)
     duration_seconds: Optional[int] = Field(5, ge=1, le=15)
     resolution: Optional[str] = Field("720p", description="Video resolution: 480p, 720p, 1080p, 2k, 4k")
@@ -89,9 +102,15 @@ class GenerateAssetRequest(BaseModel):
 
 
 class UpscaleAssetRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     scale_factor: int = Field(2, ge=2, le=4, description="Resolution scale multiplier (2 for 2x, 4 for 4x)")
+    scale: Optional[int] = Field(None, ge=2, le=4, description="Alias for scale_factor")
     prompt: Optional[str] = Field(None, description="Optional guidance prompt for detail synthesis")
     project_id: Optional[str] = None
+    session_id: Optional[str] = None
+    as_persona: Optional[str] = Field(None, alias="as", description="Optional persona ID")
+    persona_id: Optional[str] = Field(None, description="Optional persona ID (alias for `as`)")
 
 
 class CreateRelationshipRequest(BaseModel):
@@ -284,58 +303,101 @@ async def generate_asset(
                 detail=f"REFERENCE_ASSET_LOAD_FAILED: {exc}",
             ) from exc
 
-    if not req.job_id:
-        # Auto-provision request, authority decision, and RUNNING job for seamless caller UX
-        from apps.api.src.db.models import Request as DBRequest
-        req_id = str(uuid.uuid4())
-        dec_id = str(uuid.uuid4())
-        auto_job_id = str(uuid.uuid4())
+    if req.parent_asset_id:
+        parent_asset = await asset_repo.get_asset_by_id(req.parent_asset_id)
+        if not parent_asset:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Parent asset not found or access denied"
+            )
 
-        persisted_req = DBRequest(
-            id=req_id,
+    if req.project_id:
+        from apps.api.src.repositories.projects import ProjectRepository
+        project = await ProjectRepository(db, tenant_id=tenant_id).get_project_by_id(req.project_id)
+        if project is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Project not found or access denied",
+            )
+
+    target_persona_id = req.as_persona or req.persona_id
+    mode_lower = (req.mode or "").lower()
+    is_video_mode = (
+        mode_lower in ("minimax_h3", "animate", "i2v", "video")
+        or "minimax" in mode_lower
+        or (req.intent or "").lower() == "animate"
+    )
+    gate_intent = (req.intent or ("animate" if is_video_mode else ("edit" if req.reference_asset_id else "generate"))).lower()
+    if gate_intent == "create":
+        gate_intent = "generate"
+    elif gate_intent == "vary":
+        gate_intent = "variate"
+    capability_id = (
+        "video.minimax_h3_ref2va"
+        if is_video_mode
+        else ("image.editing" if gate_intent == "edit" and req.reference_asset_id else "image.generation")
+    )
+
+    receipt = None
+    persona_id_resolved: Optional[str] = None
+    persona_version_resolved: Optional[int] = None
+    persona_sheet: Optional[str] = None
+    persona_descriptors: Optional[str] = None
+    persona_ref_ids: List[str] = []
+    effective_mature = False
+
+    if not req.job_id:
+        gate_args: Dict[str, Any] = {
+            "prompt": req.prompt,
+            "negative_prompt": req.negative_prompt,
+            "width": req.width,
+            "height": req.height,
+            "steps": req.steps,
+            "guidance": req.cfg,
+        }
+        if req.reference_asset_id:
+            gate_args["input_asset_id"] = req.reference_asset_id
+        if is_video_mode:
+            gate_args["duration_seconds"] = max(1, min(10, int(req.duration_seconds or 5)))
+            gate_args["resolution"] = req.resolution or "720p"
+
+        input_ids = [aid for aid in (req.parent_asset_id, req.reference_asset_id) if aid]
+        receipt = await GateService.authorize_async(
+            db,
+            user_id=tenant_id,
+            intent=gate_intent,
+            prompt_text=req.prompt,
+            capability_id=capability_id,
+            arguments=gate_args,
+            project_id=req.project_id,
+            session_id=req.session_id,
+            persona_id=target_persona_id,
+            input_asset_ids=input_ids,
+            playbook=req.playbook_id,
+        )
+        job = await ensure_job_for_receipt(
+            db,
+            receipt=receipt,
             user_id=tenant_id,
             project_id=req.project_id,
-            intent_hint=req.mode or "generate",
-            status="created",
-        )
-        persisted_dec = AuthorityDecision(
-            id=dec_id,
-            request_id=req_id,
-            decision="approve",
-            capability_id="image.generation",
-            provider_id="comfyui",
-            sanitized_arguments={
-                "prompt": req.prompt,
-                "negative_prompt": req.negative_prompt,
-                "width": req.width,
-                "height": req.height,
-                "steps": req.steps,
-                "guidance": req.cfg,
-            },
-            reason_codes=["AUTO_AUTHORIZED"],
-            policy_bundle_version="1.0.0",
-            capability_registry_version="1.0.0",
-            harness_bundle_version="1.0.0",
-        )
-        persisted_job = Job(
-            id=auto_job_id,
-            user_id=tenant_id,
-            project_id=req.project_id,
-            request_id=req_id,
-            capability_id="image.generation",
+            capability_id=capability_id,
             provider_id="comfyui",
             workflow_id="wf_default",
-            workflow_version="1.0.0",
-            status="RUNNING",
-            priority=100,
+            status_value="RUNNING",
         )
-        db.add(persisted_req)
-        db.add(persisted_dec)
-        db.add(persisted_job)
         await db.commit()
-        await db.refresh(persisted_job)
-        job = persisted_job
-        req.job_id = auto_job_id
+        await db.refresh(job)
+        req.job_id = receipt.job_id
+        persona_id_resolved = receipt.persona_id
+        persona_version_resolved = receipt.persona_version
+        persona_sheet = receipt.persona_sheet
+        persona_descriptors = receipt.persona_descriptors
+        persona_ref_ids = list(receipt.persona_reference_assets or [])
+        effective_mature = bool(
+            receipt.mature
+            or getattr(parent_asset, "mature", False)
+            or getattr(ref_asset, "mature", False)
+        )
     else:
         job_result = await db.execute(
             select(Job)
@@ -348,7 +410,7 @@ async def generate_asset(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Job not found or access denied",
             )
-        if job.state != "RUNNING":
+        if job.status != "RUNNING":
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Generation can only execute for a job in RUNNING state.",
@@ -356,7 +418,6 @@ async def generate_asset(
 
         decision_result = await db.execute(
             select(AuthorityDecision)
-            .where(AuthorityDecision.id == job.authority_decision_id)
             .where(AuthorityDecision.request_id == job.request_id)
         )
         from services.authority.src.rules import CAPABILITY_NAMESPACES
@@ -385,22 +446,55 @@ async def generate_asset(
                         detail=f"Generation parameter '{key}' does not match the persisted authority approval.",
                     )
 
-    if req.parent_asset_id:
-        parent_asset = await asset_repo.get_asset_by_id(req.parent_asset_id)
-        if not parent_asset:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Parent asset not found or access denied"
+        effective_persona_id = target_persona_id or job.persona_id
+        effective_mature = (
+            (job.content_mode == "unrestricted")
+            or bool(getattr(parent_asset, "mature", False))
+            or bool(getattr(ref_asset, "mature", False))
+        )
+        if effective_persona_id:
+            from apps.api.src.services.gate import (
+                collect_persona_reference_asset_ids,
+                format_persona_descriptors,
+                format_persona_sheet,
+                resolve_content_mode,
             )
+            from apps.api.src.db.models import Persona, User as DbUser
 
-    if req.project_id:
-        from apps.api.src.repositories.projects import ProjectRepository
-        project = await ProjectRepository(db, tenant_id=tenant_id).get_project_by_id(req.project_id)
-        if project is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Project not found or access denied",
-            )
+            def _resolve_job_persona(sync_db):
+                u = sync_db.query(DbUser).filter(DbUser.id == tenant_id).first()
+                mode = job.content_mode or resolve_content_mode(u, None, None)
+                pq = sync_db.query(Persona).filter(
+                    Persona.id == str(effective_persona_id),
+                    Persona.is_current.is_(True),
+                    Persona.deleted_at.is_(None),
+                ).first()
+                if not pq or str(pq.user_id) != str(tenant_id):
+                    raise HTTPException(status_code=404, detail="Persona not found")
+                if getattr(pq, "mature", False) and mode == "sfw":
+                    raise HTTPException(status_code=403, detail={"code": "MATURE_PERSONA_BLOCKED_IN_SFW", "message": "Mature persona cannot be used in SFW mode."})
+                return (
+                    str(pq.id),
+                    int(pq.version),
+                    bool(getattr(pq, "mature", False)),
+                    format_persona_sheet(pq),
+                    format_persona_descriptors(pq),
+                    collect_persona_reference_asset_ids(pq),
+                )
+
+            p_id, p_ver, p_mat, p_sheet, p_desc, p_refs = await db.run_sync(_resolve_job_persona)
+            persona_id_resolved = p_id
+            persona_version_resolved = p_ver
+            persona_sheet = p_sheet
+            persona_descriptors = p_desc
+            persona_ref_ids = p_refs
+            effective_mature = effective_mature or p_mat
+
+    if ref_bytes is None and persona_ref_ids:
+        loaded_persona_refs = await load_persona_reference_media(db, tenant_id, persona_ref_ids, media_kind="image")
+        if loaded_persona_refs:
+            ref_asset, _, _, ref_bytes = loaded_persona_refs[0]
+            effective_mature = effective_mature or bool(getattr(ref_asset, "mature", False))
 
     # KEYSTONE Prompt Authority + Embedded Cognition digest step:
     # Digests raw user prompt + reference count via KEYSTONE & seated Qwen model,
@@ -411,12 +505,18 @@ async def generate_asset(
         reference_count=1 if ref_bytes else 0,
         intent_hint=req.mode or "generate",
         job_id=str(req.job_id),
+        persona_sheet=persona_sheet,
     )
     final_positive_prompt = compiled_prompt_obj.positive_prompt
+    if persona_descriptors and persona_descriptors not in final_positive_prompt:
+        final_positive_prompt = f"{final_positive_prompt}\n\n[Persona: {persona_descriptors}]"
+
+    comfy_mode = req.mode or "text2image"
+    if comfy_mode.lower() in ("sfw", "unrestricted"):
+        comfy_mode = "img2img" if ref_bytes else "text2image"
 
     try:
-        mode_lower = (req.mode or "").lower()
-        if mode_lower in ("minimax_h3", "animate", "i2v", "video") or "minimax" in mode_lower:
+        if is_video_mode:
             result = await run_in_threadpool(
                 comfy_client.generate_minimax_h3_video,
                 final_positive_prompt,
@@ -436,9 +536,13 @@ async def generate_asset(
                 seed=req.seed,
                 checkpoint=req.checkpoint,
                 reference_image_bytes=ref_bytes,
-                reference_filename=(ref_asset.metadata_ or {}).get("filename", ref_asset.storage_key.split("/")[-1]) if ref_asset else None,
+                reference_filename=(
+                    (getattr(ref_asset, "metadata_", None) or {}).get("filename")
+                    or getattr(ref_asset, "filename", None)
+                    or ref_asset.storage_key.split("/")[-1]
+                ) if ref_asset else None,
                 denoise=req.denoise or 0.65,
-                mode=req.mode or "text2image",
+                mode=comfy_mode,
             )
     except ComfyUINotConfigured as err:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(err))
@@ -486,6 +590,9 @@ async def generate_asset(
         metadata["reference_asset_id"] = req.reference_asset_id
         metadata["reference_type"] = req.reference_type or "img2img"
         metadata["denoise"] = req.denoise or 0.65
+    if persona_id_resolved:
+        metadata["persona_id"] = persona_id_resolved
+        metadata["persona_version"] = persona_version_resolved
     if req.metadata:
         metadata.update(req.metadata)
 
@@ -500,13 +607,14 @@ async def generate_asset(
             media_type="video" if is_video else "image",
             storage_provider=storage.provider.__class__.__name__,
             metadata=metadata,
+            mature=effective_mature,
         )
     except ValueError as err:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(err))
 
+    dag = LineageDAG(session=db)
     active_parent = parent_asset or ref_asset
     if active_parent is not None:
-        dag = LineageDAG(session=db)
         try:
             rel_type = "reference" if (ref_asset and not parent_asset) else relationship
             await dag.persist_relationship(
@@ -514,9 +622,23 @@ async def generate_asset(
                 child_id=asset.id,
                 relationship_type=rel_type,
                 job_id=req.job_id,
+                mature=effective_mature,
             )
         except ValueError as err:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(err))
+
+    if persona_id_resolved:
+        await dag.persist_depicts_edge(
+            child_asset_id=asset.id,
+            persona_id=persona_id_resolved,
+            persona_version=persona_version_resolved or 1,
+            job_id=req.job_id,
+            mature=effective_mature,
+        )
+
+    job.status = "COMPLETED"
+    job.outputs = [asset.id]
+    await db.commit()
 
     return {
         "status": "ok",
@@ -528,6 +650,10 @@ async def generate_asset(
         "storage_provider": getattr(asset, "storage_provider", storage.provider.__class__.__name__),
         "storage_key": asset.storage_key,
         "byte_size": asset.size_bytes,
+        "mature": bool(asset.mature),
+        "persona_id": persona_id_resolved,
+        "persona_version": persona_version_resolved,
+        "envelope_id": receipt.envelope.envelope_id if receipt else None,
         "metadata": metadata,
         "download_url": content_url(asset),
         "job_id": req.job_id,
@@ -558,27 +684,30 @@ async def upscale_asset(
     except FileNotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Source asset media bytes not found")
 
+    effective_scale = req.scale or req.scale_factor
+    target_persona_id = req.as_persona or req.persona_id
     try:
-        from apps.api.src.services.gate import GateService
-        from apps.api.src.db.models import User as DbUser
-
-        receipt = await db.run_sync(
-            lambda sync_db: GateService.authorize_and_sign(
-                sync_db,
-                user=sync_db.query(DbUser).filter(DbUser.id == tenant_id).first(),
-                intent="upscale",
-                prompt_text=req.prompt or "Neural ESRGAN upscale",
-                capability_id="image.generation",
-                arguments={"scale_factor": req.scale_factor},
-                input_asset_ids=[asset_id],
-            )
+        receipt = await GateService.authorize_async(
+            db,
+            user_id=tenant_id,
+            intent="upscale",
+            prompt_text=req.prompt or "Neural ESRGAN upscale",
+            capability_id="upscale.clarity",
+            arguments={"scale_factor": effective_scale, "input_asset_id": asset_id},
+            project_id=req.project_id or source_asset.project_id,
+            session_id=req.session_id,
+            persona_id=target_persona_id,
+            input_asset_ids=[asset_id],
         )
+        upscale_prompt = receipt.compiled_prompt or (req.prompt or "")
         upscale_res = await run_in_threadpool(
             comfy_client.upscale_image,
             source_bytes,
-            scale_factor=req.scale_factor,
-            prompt=req.prompt or ""
+            scale_factor=effective_scale,
+            prompt=upscale_prompt,
         )
+    except HTTPException:
+        raise
     except ComfyUINotConfigured as err:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(err))
     except ComfyUIError as err:
@@ -589,11 +718,12 @@ async def upscale_asset(
     out_bytes = upscale_res["bytes"]
     out_mime = upscale_res.get("mime_type", "image/png")
     out_asset_id = str(uuid.uuid4())
-    out_filename = f"keystone_upscaled_{source_asset.id[:8]}_{req.scale_factor}x.png"
+    out_filename = f"keystone_upscaled_{source_asset.id[:8]}_{effective_scale}x.png"
     out_storage_key = generate_storage_key(tenant_id, out_asset_id, out_filename)
 
     await storage.provider.put_object(out_storage_key, out_bytes, out_mime)
 
+    effective_mature = bool(receipt.mature or getattr(source_asset, "mature", False))
     upscaled_asset = await asset_repo.create_asset(
         id=out_asset_id,
         filename=out_filename,
@@ -603,14 +733,29 @@ async def upscale_asset(
         project_id=req.project_id or source_asset.project_id,
         media_type="image",
         storage_provider=storage.provider.__class__.__name__,
+        mature=effective_mature,
         metadata={
             "kind": "keystone_upscale",
             "source_asset_id": source_asset.id,
-            "scale_factor": req.scale_factor,
+            "scale_factor": effective_scale,
             "width": upscale_res.get("width"),
             "height": upscale_res.get("height"),
             "prompt": req.prompt,
+            "persona_id": receipt.persona_id,
+            "persona_version": receipt.persona_version,
         }
+    )
+
+    await ensure_job_for_receipt(
+        db,
+        receipt=receipt,
+        user_id=tenant_id,
+        project_id=req.project_id or source_asset.project_id,
+        capability_id="upscale.clarity",
+        provider_id="comfyui",
+        workflow_id="esrgan_upscale",
+        output_asset_id=upscaled_asset.id,
+        status_value="COMPLETED",
     )
 
     dag = LineageDAG(session=db)
@@ -619,14 +764,24 @@ async def upscale_asset(
             parent_id=source_asset.id,
             child_id=upscaled_asset.id,
             relationship_type="upscale",
-            job_id=None
+            job_id=receipt.job_id,
+            mature=effective_mature,
         )
+        if receipt.persona_id:
+            await dag.persist_depicts_edge(
+                child_asset_id=upscaled_asset.id,
+                persona_id=receipt.persona_id,
+                persona_version=receipt.persona_version or 1,
+                job_id=receipt.job_id,
+                mature=effective_mature,
+            )
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"LINEAGE_PERSIST_FAILED: {exc}",
         ) from exc
 
+    await db.commit()
     up_meta = getattr(upscaled_asset, "metadata_", None) or {}
     return {
         "status": "ok",
@@ -635,10 +790,14 @@ async def upscale_asset(
         "media_type": upscaled_asset.asset_type,
         "mime_type": upscaled_asset.mime_type,
         "byte_size": upscaled_asset.size_bytes,
-        "scale_factor": req.scale_factor,
+        "scale_factor": effective_scale,
         "width": upscale_res.get("width"),
         "height": upscale_res.get("height"),
         "source_asset_id": source_asset.id,
+        "mature": bool(upscaled_asset.mature),
+        "persona_id": receipt.persona_id,
+        "persona_version": receipt.persona_version,
+        "envelope_id": receipt.envelope.envelope_id,
         "download_url": content_url(upscaled_asset),
         "metadata": up_meta,
         "created_at": upscaled_asset.created_at.isoformat() if upscaled_asset.created_at else None
@@ -686,11 +845,23 @@ async def list_assets(
     tenant_id: str = Depends(get_current_tenant_id),
     db: AsyncSession = Depends(get_db)
 ) -> Dict[str, Any]:
-    from apps.api.src.db.models import User as _DbUser
+    from apps.api.src.db.models import Project as _DbProject, User as _DbUser
     user_res = await db.execute(select(_DbUser).where(_DbUser.id == tenant_id))
     user_obj = user_res.scalar_one_or_none()
+    project_obj = None
+    if project_id:
+        proj_res = await db.execute(
+            select(_DbProject).where(_DbProject.id == project_id, _DbProject.user_id == tenant_id, _DbProject.deleted_at.is_(None))
+        )
+        project_obj = proj_res.scalar_one_or_none()
+
+    resolved_mode = (
+        content_mode
+        if content_mode in ("sfw", "unrestricted")
+        else resolve_content_mode(user_obj, project_obj, None)
+    )
     allow_mature = (
-        content_mode == "unrestricted"
+        resolved_mode == "unrestricted"
         and user_obj is not None
         and bool(getattr(user_obj, "age_verified", False))
     )
@@ -708,6 +879,7 @@ async def list_assets(
                 "mime_type": a.mime_type,
                 "storage_key": a.storage_key,
                 "byte_size": a.size_bytes,
+                "mature": bool(getattr(a, "mature", False)),
                 "metadata": getattr(a, "metadata_", None) or {},
                 "download_url": content_url(a),
                 "created_at": a.created_at.isoformat() if a.created_at else None
@@ -739,6 +911,7 @@ async def get_asset(
         "mime_type": asset.mime_type,
         "storage_key": asset.storage_key,
         "byte_size": asset.size_bytes,
+        "mature": bool(getattr(asset, "mature", False)),
         "metadata": getattr(asset, "metadata_", None) or {},
         "download_url": content_url(asset),
         "created_at": asset.created_at.isoformat() if asset.created_at else None
@@ -947,9 +1120,27 @@ async def get_lineage(
     await dag.load_from_db()
     ancestors = dag.get_ancestors(asset_id)
     descendants = dag.get_descendants(asset_id)
+    depicts = dag.get_depicts(asset_id)
+    related_nodes = {str(asset_id), *ancestors, *descendants}
+    edges = [
+        {
+            "id": e.get("id"),
+            "parent_asset_id": e.get("parent_id"),
+            "child_asset_id": e.get("child_id"),
+            "relationship_type": e.get("relationship_type"),
+            "persona_id": e.get("persona_id"),
+            "persona_version": e.get("persona_version"),
+            "mature": bool(e.get("mature", False)),
+            "job_id": e.get("job_id"),
+        }
+        for e in dag.edges
+        if e.get("child_id") in related_nodes or e.get("parent_id") in related_nodes
+    ]
 
     return {
         "asset_id": asset_id,
         "ancestors": ancestors,
-        "descendants": descendants
+        "descendants": descendants,
+        "depicts": depicts,
+        "edges": edges,
     }

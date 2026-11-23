@@ -1,12 +1,15 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { Copy, Download, X } from 'lucide-react';
+import { Copy, Download, Maximize2, Play, ShieldCheck, X } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
+import { fetchAssetCredentials, replayRecipe } from '@/lib/api';
+import { readableError } from '@/lib/errors';
 import { INTENT_BY_ID, LOOK_LABELS, compilePrompt, estimateCredits, routeIntent } from '@/lib/intents';
-import { selectAsset, selectSelected, useStudio } from '@/lib/studio/store';
+import { selectActiveRun, selectAsset, selectSelected, useStudio } from '@/lib/studio/store';
+import { useGeneration } from '@/lib/studio/useGeneration';
 import { TOOLS_CATALOG } from '@/lib/toolsCatalog';
 import { AspectRatio, QualityTier } from '@/lib/types';
 import { Field, Section, Segmented } from './inspector/Section';
@@ -44,16 +47,22 @@ async function sha256(text: string): Promise<string | null> {
     .join('');
 }
 
-/** Region 4 — Result → Controls → Look → Advanced → Developer, each deeper layer collapsed until asked for. */
+/** Region 4 — Result → Controls → Look → Recipes → Advanced → Developer, each deeper layer collapsed until asked for. */
 export function RightInspector({ overlay = false }: { overlay?: boolean }) {
   const { state, dispatch } = useStudio();
+  const { run: executeRun, upscale } = useGeneration();
   const selected = selectSelected(state);
-  const { intent, prompt, references } = state.composer;
+  const activeRun = selectActiveRun(state);
+  const { intent, prompt, references, personaId } = state.composer;
   const c = state.controls;
   const run = selected ? state.runs.find((r) => r.outputIds.includes(selected.id)) : null;
   const parent = selectAsset(state, selected?.parentId);
+  const depictedPersona = selected?.personaId ? state.system.personas.find((p) => p.id === selected.personaId) : null;
   const routed = routeIntent({ intent, prompt, references, engine: state.system.engine });
   const [hash, setHash] = useState<string | null>(null);
+  const [c2paInfo, setC2paInfo] = useState<Record<string, any> | null>(null);
+  const [replayingId, setReplayingId] = useState<string | null>(null);
+  const [replayNote, setReplayNote] = useState<string | null>(null);
 
   const compiled = useMemo(
     () =>
@@ -76,11 +85,41 @@ export function RightInspector({ overlay = false }: { overlay?: boolean }) {
     };
   }, [compiled, state.ui.developer]);
 
+  useEffect(() => {
+    setC2paInfo(selected?.c2paManifest || null);
+    if (!selected || !state.ui.showC2paBadge || selected.c2paManifest) return;
+    let cancelled = false;
+    fetchAssetCredentials(selected.id)
+      .then((res) => {
+        if (!cancelled && res) setC2paInfo(res);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [selected, state.ui.showC2paBadge]);
+
   if (!state.ui.inspectorOpen) return null;
 
   const set = (patch: Partial<typeof c>) => dispatch({ type: 'SET_CONTROLS', patch });
   const strengthId = STRENGTH.reduce((best, s) => (Math.abs(s.value - c.strength) < Math.abs(best.value - c.strength) ? s : best)).id;
   const hasRef = references.length > 0;
+  const nonNeutralGrade =
+    c.look.lut !== 'none' || c.look.exposure !== 0 || c.look.contrast !== 100 || c.look.saturation !== 100 || c.look.warmth !== 0;
+
+  const handleReplayRecipe = async (recipeId: string) => {
+    setReplayingId(recipeId);
+    setReplayNote(null);
+    try {
+      const res = await replayRecipe(recipeId);
+      setReplayNote(res?.status ? `Replay submitted (${res.status}).` : 'Recipe replay submitted through Gate.');
+      dispatch({ type: 'REFRESH_ASSETS' });
+    } catch (err) {
+      setReplayNote(readableError(err));
+    } finally {
+      setReplayingId(null);
+    }
+  };
 
   return (
     <aside
@@ -106,7 +145,14 @@ export function RightInspector({ overlay = false }: { overlay?: boolean }) {
             <p className="text-meta text-ks-ink-3">Select an asset to see where it came from and what you can do with it.</p>
           ) : (
             <div className="space-y-3">
-              <p className="break-words text-body text-ks-ink">{selected.title}</p>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <p className="break-words text-body text-ks-ink">{selected.title}</p>
+                {selected.mature && (
+                  <span className="rounded-full border border-ks-hold/40 bg-ks-hold/10 px-2 py-0.5 text-micro font-medium text-ks-hold">
+                    Mature 18+
+                  </span>
+                )}
+              </div>
               <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-meta">
                 {selected.width && selected.height ? (
                   <>
@@ -131,6 +177,15 @@ export function RightInspector({ overlay = false }: { overlay?: boolean }) {
                   <>
                     <dt className="text-ks-ink-3">Made with</dt>
                     <dd className="text-ks-ink-2">{run.label}</dd>
+                  </>
+                )}
+                {(depictedPersona || selected.personaId) && (
+                  <>
+                    <dt className="text-ks-ink-3">Depicts</dt>
+                    <dd className="text-ks-ink-2">
+                      {depictedPersona?.name || selected.personaId}
+                      {selected.personaVersion ? ` (v${selected.personaVersion})` : ''}
+                    </dd>
                   </>
                 )}
                 {parent && (
@@ -158,6 +213,30 @@ export function RightInspector({ overlay = false }: { overlay?: boolean }) {
                   <p className="line-clamp-6 whitespace-pre-wrap text-meta text-ks-ink-2">{selected.prompt}</p>
                 </div>
               )}
+
+              <div className="flex items-center justify-between rounded-control border border-ks-line bg-ks-abyss/60 px-2.5 py-2 text-meta">
+                <span className="flex items-center gap-1.5 text-ks-ink-2">
+                  <ShieldCheck className={cn('size-3.5', c2paInfo ? 'text-ks-verified' : 'text-ks-ink-3')} />
+                  <span>C2PA badge</span>
+                </span>
+                <button
+                  type="button"
+                  aria-pressed={state.ui.showC2paBadge}
+                  onClick={() => dispatch({ type: 'UI', patch: { showC2paBadge: !state.ui.showC2paBadge } })}
+                  className={cn(
+                    'rounded-full px-2 py-0.5 text-micro font-medium transition-colors',
+                    state.ui.showC2paBadge ? 'bg-ks-lift text-ks-ink' : 'text-ks-ink-3 hover:text-ks-ink',
+                  )}
+                >
+                  {state.ui.showC2paBadge ? 'Visible' : 'Hidden'}
+                </button>
+              </div>
+              {state.ui.showC2paBadge && c2paInfo && (
+                <div className="rounded-control border border-ks-verified/30 bg-ks-verified/5 px-2.5 py-2 text-micro text-ks-ink-2">
+                  Content Credentials attached ({c2paInfo.platform || 'KEYSTONE'}).
+                </div>
+              )}
+
               <a
                 href={selected.downloadUrl || selected.url}
                 download
@@ -174,13 +253,30 @@ export function RightInspector({ overlay = false }: { overlay?: boolean }) {
         {/* Controls — customer-level only, per intent */}
         <Section title="Controls" hint={INTENT_BY_ID[intent].label}>
           {intent === 'analyze' ? (
-            <p className="text-meta text-ks-ink-3">Analyze uses your question and the selected asset. There's nothing to set.</p>
+            <p className="text-meta text-ks-ink-3">Analyze inspects the selected asset and answers your question.</p>
           ) : (
             <>
               {intent === 'animate' && (
                 <>
                   <Field label="Camera move">
-                    <MotionPad value={c.motion} onChange={(motion) => set({ motion })} />
+                    <MotionPad
+                      value={c.motion}
+                      speed={c.motionSpeed}
+                      canAnimate={!!(references[0] || selected || prompt.trim())}
+                      busy={!!activeRun}
+                      onChange={(motion) => set({ motion })}
+                      onAnimate={({ camera_motion, motion_speed }) => {
+                        const targetRef = references[0] || selected;
+                        const animatePrompt = prompt.trim() || targetRef?.prompt || `Smooth ${camera_motion} camera move`;
+                        void executeRun({
+                          intent: 'animate',
+                          references: targetRef ? [targetRef] : [],
+                          prompt: animatePrompt,
+                          label: `Animate (${camera_motion})`,
+                          extra: { camera_motion, motion_speed },
+                        });
+                      }}
+                    />
                   </Field>
                   <Field label="Speed" value={`${c.motionSpeed.toFixed(1)}×`}>
                     <Slider min={0.2} max={2} step={0.1} value={[c.motionSpeed]} onValueChange={([v]) => set({ motionSpeed: v })} aria-label="Camera speed" />
@@ -259,9 +355,13 @@ export function RightInspector({ overlay = false }: { overlay?: boolean }) {
           )}
         </Section>
 
-        {/* Look */}
+        {/* Look — previewed on stage and sent to backend deterministic grade lane before upscale */}
         <Section title="Look" hint={LOOK_LABELS[c.look.lut]} defaultOpen={false}>
-          <p className="mb-3 text-meta text-ks-ink-3">Previewed on the stage and sent with your next run.</p>
+          <p className="mb-3 text-meta text-ks-ink-3">
+            {nonNeutralGrade
+              ? 'Active grade is sent to the deterministic grade lane before upscale and included in runs.'
+              : 'Previewed on the stage and sent to the backend grade lane before upscale.'}
+          </p>
           <div className="grid grid-cols-2 gap-1" role="radiogroup" aria-label="Film look">
             {Object.entries(LOOK_LABELS).map(([id, label]) => (
               <button
@@ -297,12 +397,65 @@ export function RightInspector({ overlay = false }: { overlay?: boolean }) {
               />
             </Field>
           ))}
+          {selected && selected.type !== 'audio' && (
+            <div className="mt-3 flex items-center gap-1.5">
+              <button
+                type="button"
+                disabled={!!activeRun}
+                onClick={() => upscale(2)}
+                className="flex h-8 flex-1 items-center justify-center gap-1.5 rounded-control bg-ks-lift text-meta font-medium text-ks-ink ring-1 ring-inset ring-ks-line-strong hover:bg-ks-indigo/25 disabled:opacity-40"
+              >
+                <Maximize2 className="size-3.5" /> Grade &amp; Upscale 2×
+              </button>
+              <button
+                type="button"
+                disabled={!!activeRun}
+                onClick={() => upscale(4)}
+                className="flex h-8 flex-1 items-center justify-center gap-1.5 rounded-control bg-ks-lift text-meta font-medium text-ks-ink ring-1 ring-inset ring-ks-line-strong hover:bg-ks-indigo/25 disabled:opacity-40"
+              >
+                <Maximize2 className="size-3.5" /> 4×
+              </button>
+            </div>
+          )}
           <button
             onClick={() => dispatch({ type: 'SET_LOOK', patch: { lut: 'none', exposure: 0, contrast: 100, saturation: 100, warmth: 0 } })}
             className="mt-3 text-meta text-ks-ink-3 hover:text-ks-ink"
           >
             Reset look
           </button>
+        </Section>
+
+        {/* Proven Recipes (Row 12 UI hook ready for PR8) */}
+        <Section title="Recipes" hint={state.system.recipes.length ? `${state.system.recipes.length}` : undefined} defaultOpen={false}>
+          {state.system.recipes.length === 0 ? (
+            <p className="text-meta text-ks-ink-3">
+              No proven recipes for this project yet. Promoted runs appear here for one-click replay through the Gate.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {state.system.recipes.slice(0, 6).map((recipe) => (
+                <div key={recipe.id} className="flex items-center justify-between gap-2 rounded-control border border-ks-line bg-ks-abyss/60 px-2.5 py-2">
+                  <div className="min-w-0">
+                    <div className="truncate text-meta font-medium text-ks-ink">
+                      Recipe {recipe.id.slice(0, 8)} {recipe.mode === 'unrestricted' ? '· 18+' : ''}
+                    </div>
+                    <div className="text-micro text-ks-ink-3">
+                      {recipe.passing_runs ? `${recipe.passing_runs} passing runs` : 'Candidate'}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={replayingId === recipe.id}
+                    onClick={() => void handleReplayRecipe(recipe.id)}
+                    className="inline-flex h-7 shrink-0 items-center gap-1 rounded-control bg-ks-lift px-2 text-micro font-medium text-ks-ink hover:bg-ks-indigo/25 disabled:opacity-40"
+                  >
+                    <Play className="size-3" /> {replayingId === recipe.id ? 'Running…' : 'Replay'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          {replayNote && <p className="mt-2 text-meta text-ks-ink-2">{replayNote}</p>}
         </Section>
 
         {/* Advanced */}
@@ -321,6 +474,8 @@ export function RightInspector({ overlay = false }: { overlay?: boolean }) {
               <dd className="text-ks-ink-2">
                 {TOOLS_CATALOG[routed.capability].name} <span className="font-mono text-ks-ink-3">{routed.capability}</span>
               </dd>
+              <dt className="text-ks-ink-3">Persona (as)</dt>
+              <dd className="font-mono text-ks-ink-2">{personaId || 'none'}</dd>
               <dt className="text-ks-ink-3">Estimate</dt>
               <dd className="ks-num text-ks-ink-2">{estimateCredits(routed.capability, c)} credits (catalog)</dd>
               <dt className="text-ks-ink-3">Engine</dt>
@@ -341,7 +496,7 @@ export function RightInspector({ overlay = false }: { overlay?: boolean }) {
                 </pre>
               </>
             )}
-            <p className="mt-3 text-meta text-ks-ink-3">Authority decisions and execution envelopes are made server-side at submit time and aren't returned to this client yet.</p>
+            <p className="mt-3 text-meta text-ks-ink-3">Authority decisions and execution envelopes are made server-side at submit time.</p>
           </Section>
         )}
       </ScrollArea>
