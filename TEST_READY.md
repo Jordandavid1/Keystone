@@ -5,6 +5,7 @@
 > - **Bible v2 §34 Alpha Gate (`scripts/verify_alpha_gate.py`)**: Executes live `tests/acceptance/test_bible_acceptance.py` mapped 1-to-1 across all 15 Alpha Gate criteria plus `--strict` invariants, change-control audit, `npm test`, and Next.js `tsc --noEmit`.
 > - **Structural Invariants (`scripts/verify_invariants.py --strict`)**: All 7 checks (`bible_sync`, `no_duplicate_engines`, `manifest_accounting`, `license_policy`, `banned_strings`, `change_control`, `npm_test_identity`) active in BLOCKING mode.
 > - **PR1–PR10 Real Integration Suites (`tests/test_pr*.py` & `tests/acceptance/test_bible_acceptance.py`)**: Real FastAPI, ORM/DB, Gate, Worker, Evaluator, Memory, Billing, and C2PA boundaries — zero fabricated PASS dicts (`Invariant 12`).
+> - **High-Refresh Video Generation (`tests/test_video_120hz_fps.py`)**: Verifies 30, 60, 100, and 120 Hz video generation, FFmpeg motion/frame interpolation, stitching, authority bounds, and HTTP persistence across all video generators.
 >
 > *(Historical Notice: The v1 `e2e_v2` JS mock-oracle suite was archived to `archive/v1_verification/e2e_v2_oracle/` in `O0.5`, and v1 Bible freeze checksums are preserved at git tag `bible-v1-final`.)*
 

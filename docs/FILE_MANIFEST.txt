@@ -72,3 +72,4 @@
 ./scripts/verify_alpha_gate.py
 ./tests/identity.test.js
 ./tests/acceptance/test_bible_acceptance.py
+./tests/test_video_120hz_fps.py
