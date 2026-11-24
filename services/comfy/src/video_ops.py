@@ -383,7 +383,7 @@ def convert_video_fps(
 
     proc: Optional[subprocess.CompletedProcess[str]] = None
     if upsampling:
-        if mode == "mci" or (mode == "auto" and est_frames > 4 and duration <= 15.0):
+        if mode == "mci" or (mode == "auto" and est_frames > 12 and duration <= 15.0):
             proc = _run_vf(
                 f"pad=ceil(iw/2)*2:ceil(ih/2)*2,minterpolate=fps={fps_str}:mi_mode=mci:mc_mode=obmc:me_mode=bidir:me=epzs"
             )

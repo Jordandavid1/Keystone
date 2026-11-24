@@ -1075,7 +1075,7 @@ paths:
     get:
       tags:
       - Assets
-      summary: "Get C2PA Content Credentials for Asset (Bible v2 \xA743)"
+      summary: Get C2PA Content Credentials for Asset (Bible v2 §43)
       operationId: get_asset_credentials_v1_assets__asset_id__credentials_get
       parameters:
       - name: asset_id
@@ -1921,8 +1921,8 @@ paths:
       tags:
       - Creative Tool Fabric
       summary: List Creative Tool Capabilities
-      description: "Returns all registered creative capability manifests per Bible\
-        \ \xA78."
+      description: Returns all registered creative capability manifests per Bible
+        §8.
       operationId: get_creative_capabilities_v1_creative_capabilities_get
       responses:
         '200':
@@ -2439,8 +2439,8 @@ paths:
       tags:
       - Operator Admin Console
       summary: Get System & Worker Telemetry
-      description: "Returns aggregate real-time hardware telemetry and worker pool\
-        \ metrics per Bible \xA726."
+      description: Returns aggregate real-time hardware telemetry and worker pool
+        metrics per Bible §26.
       operationId: get_system_telemetry_v1_admin_telemetry_get
       parameters:
       - name: Authorization
@@ -4131,9 +4131,8 @@ paths:
       tags:
       - Contracts
       summary: Get Canonical Contracts & Schemas
-      description: "Returns the frozen contract definitions, state machines, and complete\
-        \ JSON schemas for all Keystone Pydantic v2 models per Bible \xA76\u2013\xA7\
-        16."
+      description: Returns the frozen contract definitions, state machines, and complete
+        JSON schemas for all Keystone Pydantic v2 models per Bible §6–§16.
       operationId: get_contracts_v1_contracts_get
       responses:
         '200':
@@ -4241,7 +4240,7 @@ paths:
       tags:
       - Operator Admin Console
       summary: Operator Admin Console UI
-      description: "Serves the KEYSTONE Operator Admin Console (Bible \xA726)."
+      description: Serves the KEYSTONE Operator Admin Console (Bible §26).
       operationId: serve_admin_index_admin_get
       responses:
         '200':
@@ -4525,8 +4524,7 @@ components:
       - request_id
       - decision
       title: AuthorityDecision
-      description: "Authoritative decision rendered by AuthorityEngine (Bible \xA7\
-        12)."
+      description: Authoritative decision rendered by AuthorityEngine (Bible §12).
     AuthorityDecision-Output:
       properties:
         decision_id:
@@ -4649,8 +4647,7 @@ components:
       - floor_verdict
       - created_at
       title: AuthorityDecision
-      description: "Authoritative decision rendered by AuthorityEngine (Bible \xA7\
-        12)."
+      description: Authoritative decision rendered by AuthorityEngine (Bible §12).
     AuthorityEvaluateRequest:
       properties:
         action:
@@ -4832,7 +4829,7 @@ components:
       - enabled
       - metadata
       title: CapabilityManifest
-      description: "Provider capability declaration manifest (Bible \xA78)."
+      description: Provider capability declaration manifest (Bible §8).
     ChatMessage:
       properties:
         role:
@@ -5246,7 +5243,7 @@ components:
           anyOf:
           - $ref: '#/components/schemas/PersonaVoiceInput'
           - type: 'null'
-          description: "Nested \xA741 voice binding"
+          description: Nested §41 voice binding
         voice_provider:
           anyOf:
           - type: string
@@ -5576,8 +5573,8 @@ components:
       - nonce
       - signature
       title: ExecutionEnvelope
-      description: "Cryptographically signed, short-expiry execution token delivered\
-        \ to workers (Bible \xA712)."
+      description: Cryptographically signed, short-expiry execution token delivered
+        to workers (Bible §12).
     ExtractRequest:
       properties:
         url:
@@ -5814,6 +5811,15 @@ components:
           - type: 'null'
           title: Duration Seconds
           default: 5
+        fps:
+          anyOf:
+          - type: integer
+            maximum: 120.0
+            minimum: 8.0
+          - type: 'null'
+          title: Fps
+          description: Target video framerate in Hz (30, 60, 100, 120; max 120)
+          default: 30
         resolution:
           anyOf:
           - type: string
@@ -5969,7 +5975,7 @@ components:
       - evidence
       - runtime_ms
       title: HarnessResult
-      description: "KHF evaluation and validation verdict (Bible \xA713)."
+      description: KHF evaluation and validation verdict (Bible §13).
     LoginRequest:
       properties:
         email:
@@ -6036,8 +6042,7 @@ components:
       - enum
       - description
       title: ParameterSpec
-      description: "Detailed specification for a capability parameter (Bible \xA7\
-        8)."
+      description: Detailed specification for a capability parameter (Bible §8).
     PersonaSpeakRequest:
       properties:
         text:
@@ -6199,8 +6204,7 @@ components:
       - action_type
       - capability
       title: ProposedAction
-      description: "Structured action proposed by Qwen cognition (Bible \xA710, \xA7\
-        12)."
+      description: Structured action proposed by Qwen cognition (Bible §10, §12).
     PublicCapabilitySchema:
       properties:
         id:
@@ -6364,8 +6368,7 @@ components:
           default: 10.0
       type: object
       title: RetryPolicy
-      description: "Bounded retry policy to prevent runaway execution (Bible \xA7\
-        14)."
+      description: Bounded retry policy to prevent runaway execution (Bible §14).
     SanitizeRequest:
       properties:
         content:

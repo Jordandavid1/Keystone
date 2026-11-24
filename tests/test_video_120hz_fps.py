@@ -126,17 +126,25 @@ def api_client(db_session):
 
 def _start_local_comfy_server(mp4_bytes: bytes) -> Tuple[ThreadingHTTPServer, str]:
     class _Handler(BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"
+
         def log_message(self, format: str, *args: Any) -> None:
             return
+
+        def _send_bytes(self, status_code: int, content_type: str, payload: bytes) -> None:
+            self.send_response(status_code)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(payload)))
+            self.send_header("Connection", "close")
+            self.end_headers()
+            if payload:
+                self.wfile.write(payload)
+            self.wfile.flush()
 
         def do_GET(self):
             if self.path.startswith("/system_stats"):
                 body = json.dumps({"system": {"os": "posix"}, "devices": [{"name": "test-gpu"}]}).encode()
-                self.send_response(200)
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Content-Length", str(len(body)))
-                self.end_headers()
-                self.wfile.write(body)
+                self._send_bytes(200, "application/json", body)
             elif self.path.startswith("/history/"):
                 pid = self.path.split("/history/", 1)[1].split("?")[0]
                 body = json.dumps(
@@ -151,38 +159,28 @@ def _start_local_comfy_server(mp4_bytes: bytes) -> Tuple[ThreadingHTTPServer, st
                         }
                     }
                 ).encode()
-                self.send_response(200)
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Content-Length", str(len(body)))
-                self.end_headers()
-                self.wfile.write(body)
+                self._send_bytes(200, "application/json", body)
             elif self.path.startswith("/view"):
-                self.send_response(200)
-                self.send_header("Content-Type", "video/mp4")
-                self.send_header("Content-Length", str(len(mp4_bytes)))
-                self.end_headers()
-                self.wfile.write(mp4_bytes)
+                self._send_bytes(200, "video/mp4", mp4_bytes)
             else:
-                self.send_response(404)
-                self.end_headers()
+                self._send_bytes(404, "text/plain", b"")
 
         def do_POST(self):
             length = int(self.headers.get("Content-Length") or 0)
-            if length > 0:
-                self.rfile.read(length)
+            remaining = length
+            while remaining > 0:
+                chunk = self.rfile.read(min(65536, remaining))
+                if not chunk:
+                    break
+                remaining -= len(chunk)
             if self.path.startswith("/upload/"):
                 body = json.dumps({"name": "uploaded_ref.png"}).encode()
             elif self.path.startswith("/prompt"):
                 body = json.dumps({"prompt_id": f"pid_{uuid.uuid4().hex[:10]}"}).encode()
             else:
-                self.send_response(404)
-                self.end_headers()
+                self._send_bytes(404, "text/plain", b"")
                 return
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
+            self._send_bytes(200, "application/json", body)
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -366,38 +364,38 @@ def test_comfy_video_generators_produce_real_100_120hz_outputs(tmp_path: Path, m
 
 
 def test_http_routes_support_and_persist_120hz_video(api_client: TestClient, db_session, tmp_path: Path, monkeypatch):
-    pol_res = api_client.get("/v1/authority/policies")
-    assert pol_res.status_code == 200
-    pol_data = pol_res.json()
-    assert pol_data["video_max_fps"] == 120
-    assert pol_data["video_supported_fps"] == [30, 60, 100, 120]
-
-    status_res = api_client.get("/v1/creative/comfy/status")
-    assert status_res.status_code == 200
-    status_data = status_res.json()
-    assert status_data["max_video_fps"] == 120
-    assert status_data["supported_video_fps"] == [30, 60, 100, 120]
-
-    user = User(
-        id=str(uuid.uuid4()),
-        email=f"fps120_{uuid.uuid4().hex[:8]}@keystone.local",
-        role="user",
-        content_mode="sfw",
-        age_verified=True,
-        is_active=True,
-    )
-    db_session.add(user)
-    db_session.add(CreditAccount(id=str(uuid.uuid4()), user_id=user.id, balance=500))
-    db_session.commit()
-    token = generate_token(user_id=user.id)
-    headers = {"Authorization": f"Bearer {token}"}
-
     base_mp4 = _make_mp4_bytes(tmp_path, "api_src_24.mp4", fps=24.0, num_frames=6)
     server, base_url = _start_local_comfy_server(base_mp4)
     monkeypatch.setenv("COMFY_BASE_URL", base_url)
     monkeypatch.setenv("KEYSTONE_COMFY_URL", base_url)
 
     try:
+        pol_res = api_client.get("/v1/authority/policies")
+        assert pol_res.status_code == 200
+        pol_data = pol_res.json()
+        assert pol_data["video_max_fps"] == 120
+        assert pol_data["video_supported_fps"] == [30, 60, 100, 120]
+
+        status_res = api_client.get("/v1/creative/comfy/status")
+        assert status_res.status_code == 200
+        status_data = status_res.json()
+        assert status_data["max_video_fps"] == 120
+        assert status_data["supported_video_fps"] == [30, 60, 100, 120]
+
+        user = User(
+            id=str(uuid.uuid4()),
+            email=f"fps120_{uuid.uuid4().hex[:8]}@keystone.local",
+            role="user",
+            content_mode="sfw",
+            age_verified=True,
+            is_active=True,
+        )
+        db_session.add(user)
+        db_session.add(CreditAccount(id=str(uuid.uuid4()), user_id=user.id, balance=500))
+        db_session.commit()
+        token = generate_token(user_id=user.id)
+        headers = {"Authorization": f"Bearer {token}"}
+
         t2v_res = api_client.post(
             "/v1/zencreator/generate",
             headers=headers,
@@ -416,8 +414,10 @@ def test_http_routes_support_and_persist_120hz_video(api_client: TestClient, db_
         t2v_asset = db_session.query(Asset).filter(Asset.id == t2v_asset_id).one()
         assert abs(float((t2v_asset.metadata_ or {}).get("fps") or 0) - 120.0) <= 0.5
 
-        dl_t2v = api_client.get(f"/v1/assets/{t2v_asset_id}/content", headers=headers)
-        assert dl_t2v.status_code == 200
+        t2v_meta = api_client.get(f"/v1/assets/{t2v_asset_id}", headers=headers)
+        assert t2v_meta.status_code == 200, t2v_meta.text
+        dl_t2v = api_client.get(t2v_meta.json()["download_url"], headers=headers)
+        assert dl_t2v.status_code == 200, dl_t2v.text
         dl_path = tmp_path / "dl_t2v_120.mp4"
         dl_path.write_bytes(dl_t2v.content)
         assert abs(probe_video_metadata(dl_path)["fps"] - 120.0) <= 0.5
@@ -455,8 +455,10 @@ def test_http_routes_support_and_persist_120hz_video(api_client: TestClient, db_
         ag_id = assets_gen.json()["id"]
         ag_asset = db_session.query(Asset).filter(Asset.id == ag_id).one()
         assert (ag_asset.metadata_ or {}).get("fps") == 120
-        dl_ag = api_client.get(f"/v1/assets/{ag_id}/content", headers=headers)
-        assert dl_ag.status_code == 200
+        ag_meta = api_client.get(f"/v1/assets/{ag_id}", headers=headers)
+        assert ag_meta.status_code == 200, ag_meta.text
+        dl_ag = api_client.get(ag_meta.json()["download_url"], headers=headers)
+        assert dl_ag.status_code == 200, dl_ag.text
         ag_path = tmp_path / "dl_ag_120.mp4"
         ag_path.write_bytes(dl_ag.content)
         assert abs(probe_video_metadata(ag_path)["fps"] - 120.0) <= 0.5
