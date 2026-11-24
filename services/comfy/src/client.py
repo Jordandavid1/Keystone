@@ -707,12 +707,15 @@ def build_minimax_h3_prompt_graph(
     ref_image_size: str = "match",
     seed: Optional[int] = None,
     fps: Optional[int] = None,
+    reference_filenames: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """
     Constructs a ComfyUI executable prompt graph directly from the user's
     canonical PinkCherry_Ref2V.json workflow template, targeting
     PinkCherry_hybrid_v1.8_minimax_h3_pruned_bf16.safetensors.
     """
+    if not ref_image_filename and reference_filenames:
+        ref_image_filename = str(reference_filenames[0])
     wf_path = _resolve_workflow_file()
 
     with open(wf_path, "r", encoding="utf-8") as f:
