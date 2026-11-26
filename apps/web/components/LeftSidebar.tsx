@@ -6,11 +6,12 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useStudio } from '@/lib/studio/store';
 import { cn } from '@/lib/utils';
 import { CreatePanel } from './sidebar/CreatePanel';
+import { PersonasPanel } from './sidebar/PersonasPanel';
 import { AssetsPanel } from './sidebar/AssetsPanel';
 import { HistoryPanel } from './sidebar/HistoryPanel';
 import { IconButton } from './studio/IconButton';
 
-/** Region 2 — the panel the rail opens: Create (playbooks, personas), Assets, History, Favorites. */
+/** Region 2 — the panel the rail opens: Create, Personas, Assets, History, Favorites. */
 export function LeftSidebar({ overlay = false }: { overlay?: boolean }) {
   const { state, dispatch } = useStudio();
   const { panel, panelOpen } = state.ui;
@@ -35,6 +36,7 @@ export function LeftSidebar({ overlay = false }: { overlay?: boolean }) {
       </IconButton>
       <ScrollArea className="h-full">
         {panel === 'create' && <CreatePanel />}
+        {panel === 'personas' && <PersonasPanel />}
         {panel === 'assets' && <AssetsPanel />}
         {panel === 'favorites' && <AssetsPanel favoritesOnly />}
         {panel === 'history' && <HistoryPanel />}

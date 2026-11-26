@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { BookOpen, Check, ChevronDown, CornerDownLeft, Film, Globe, Lock, Paperclip, Palette, Pencil, ScanSearch, ShieldAlert, Sparkles, UserCheck, X } from 'lucide-react';
+import { BookOpen, Check, ChevronDown, CornerDownLeft, Cpu, Film, Flame, Globe, Layers, Lock, Paperclip, Palette, Pencil, ScanSearch, ShieldAlert, Sparkles, UserCheck, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -15,7 +15,8 @@ import { cn } from '@/lib/utils';
 import { INTENTS, INTENT_BY_ID, LOOK_LABELS, estimateCredits, routeIntent } from '@/lib/intents';
 import { useStudio } from '@/lib/studio/store';
 import { useGeneration } from '@/lib/studio/useGeneration';
-import { Intent } from '@/lib/types';
+import { TOOLS_CATALOG } from '@/lib/toolsCatalog';
+import { GenerativeToolId, Intent } from '@/lib/types';
 import { AssetThumb } from './studio/AssetThumb';
 import { IconButton } from './studio/IconButton';
 
@@ -44,13 +45,12 @@ function Chip({ icon: Icon, label, onRemove, tone = 'default' }: { icon: React.E
 }
 
 /**
- * Region 5 — the floating composer (Venice-clean): intent, persona (`as`), words, attachments, cost and trust, one run button.
- * It never chooses the capability; lib/intents.ts does.
+ * Region 5 — the floating composer: intent, explicit job/tool picker, model selector, persona (`as`), attachments, and run button.
  */
 export function FloatingComposer({ onHeight, inputRef }: { onHeight?: (h: number) => void; inputRef?: React.RefObject<HTMLTextAreaElement> }) {
   const { state, dispatch } = useStudio();
   const { run, upload } = useGeneration();
-  const { intent, prompt, references, playbook, useCase, web, personaId } = state.composer;
+  const { intent, explicitTool, selectedModel, prompt, references, playbook, useCase, web, personaId } = state.composer;
   const { engine, ledger, personas, contentMode } = state.system;
   const ownRef = useRef<HTMLTextAreaElement>(null);
   const textRef = inputRef || ownRef;
@@ -59,11 +59,16 @@ export function FloatingComposer({ onHeight, inputRef }: { onHeight?: (h: number
   const [problems, setProblems] = useState<string[]>([]);
 
   const activePersona = personas.find((p) => p.id === personaId) || null;
-  const routed = useMemo(() => routeIntent({ intent, prompt, references, engine }), [intent, prompt, references, engine]);
+  const routed = useMemo(
+    () => routeIntent({ intent, explicitTool, prompt, references, engine }),
+    [intent, explicitTool, prompt, references, engine],
+  );
+  const activeToolDef = TOOLS_CATALOG[routed.capability];
+  const activeModel = selectedModel || activeToolDef?.defaultModel || activeToolDef?.models?.[0] || null;
   const credits = estimateCredits(routed.capability, state.controls);
   const def = INTENT_BY_ID[intent];
 
-  useEffect(() => setProblems([]), [intent, prompt, references]);
+  useEffect(() => setProblems([]), [intent, explicitTool, prompt, references]);
 
   // Auto-grow the prompt field (1–6 lines).
   useLayoutEffect(() => {
@@ -136,7 +141,73 @@ export function FloatingComposer({ onHeight, inputRef }: { onHeight?: (h: number
           );
         })}
 
-        <div className="ml-auto flex items-center gap-1.5">
+        <div className="ml-auto flex flex-wrap items-center gap-1.5">
+          {/* Explicit Pipeline Job / Tool Selector */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label="Select creative job or tool"
+                className={cn(
+                  'flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-meta transition-colors',
+                  explicitTool
+                    ? 'border-ks-indigo/60 bg-ks-indigo/20 text-ks-ink'
+                    : 'border-ks-line text-ks-ink-2 hover:border-ks-line-strong hover:text-ks-ink',
+                )}
+              >
+                {routed.capability === 'minimax_h3' ? <Flame className="size-3.5 text-amber-400" /> : <Layers className="size-3.5" />}
+                <span className="max-w-[140px] truncate">{activeToolDef.name}</span>
+                <ChevronDown className="size-3 opacity-70" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="max-h-80 w-72 overflow-y-auto">
+              <DropdownMenuLabel className="text-meta text-ks-ink-3">Creative Pipeline Jobs (19)</DropdownMenuLabel>
+              <DropdownMenuItem onSelect={() => dispatch({ type: 'SET_TOOL', tool: null })}>
+                <span className="flex-1">Auto-route by intent</span>
+                {!explicitTool && <Check className="size-3.5" />}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {Object.values(TOOLS_CATALOG).map((tool) => (
+                <DropdownMenuItem
+                  key={tool.id}
+                  onSelect={() => dispatch({ type: 'SET_TOOL', tool: tool.id as GenerativeToolId })}
+                >
+                  <span className="flex-1 truncate">
+                    {tool.name} <span className="text-micro text-ks-ink-3">({tool.badge})</span>
+                  </span>
+                  {explicitTool === tool.id && <Check className="size-3.5" />}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Explicit Model / Checkpoint Picker */}
+          {activeToolDef?.models && activeToolDef.models.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="Select model checkpoint"
+                  className="flex h-7 items-center gap-1.5 rounded-full border border-ks-line bg-ks-abyss/60 px-2.5 font-mono text-micro text-ks-ink-2 transition-colors hover:border-ks-line-strong hover:text-ks-ink"
+                >
+                  <Cpu className="size-3 text-ks-indigo" />
+                  <span className="max-w-[155px] truncate">{activeModel}</span>
+                  <ChevronDown className="size-3 opacity-70" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="max-h-72 w-80 overflow-y-auto">
+                <DropdownMenuLabel className="text-meta text-ks-ink-3">Model / Checkpoint ({activeToolDef.name})</DropdownMenuLabel>
+                {activeToolDef.models.map((m) => (
+                  <DropdownMenuItem key={m} onSelect={() => dispatch({ type: 'SET_MODEL', model: m })}>
+                    <span className="flex-1 truncate font-mono text-micro">{m}</span>
+                    {activeModel === m && <Check className="size-3.5" />}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+
+          {/* Persona Selector */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
@@ -284,10 +355,15 @@ export function FloatingComposer({ onHeight, inputRef }: { onHeight?: (h: number
         />
 
         <div className="ml-1 flex min-w-0 flex-1 items-center gap-3 text-micro text-ks-ink-3">
-          <span className="flex min-w-0 items-center gap-1.5" title={engineReady ? 'Requests go to the KEYSTONE engine configured for this studio.' : 'The studio reports no connected engine.'}>
+          <button
+            type="button"
+            onClick={() => dispatch({ type: 'OPEN_MODAL', modal: 'worker' })}
+            className="flex min-w-0 items-center gap-1.5 rounded px-1.5 py-0.5 hover:bg-ks-lift hover:text-ks-ink"
+            title={engineReady ? 'Open ComfyUI & Engine Control Panel' : 'Engine offline — click to launch or connect ComfyUI'}
+          >
             <span className={cn('size-1.5 shrink-0 rounded-full', engineReady ? 'bg-ks-verified' : 'bg-ks-hold')} aria-hidden="true" />
-            <span className="truncate">{engineReady ? 'Your KEYSTONE engine' : 'Engine offline'}</span>
-          </span>
+            <span className="truncate">{engineReady ? 'ComfyUI + Engine Ready' : 'Launch / Connect Engine'}</span>
+          </button>
           {web && (
             <span className="hidden items-center gap-1 sm:flex" title="Web references are requested with personal-data redaction turned on.">
               <Lock className="size-3" /> Web text redacted

@@ -1,9 +1,11 @@
 'use client';
 
-import React from 'react';
-import { BookOpen, Check, X } from 'lucide-react';
+import React, { useState } from 'react';
+import { BookOpen, Check, Cpu, Flame, Layers, Plus, Sparkles, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio/store';
+import { TOOLS_CATALOG } from '@/lib/toolsCatalog';
+import { GenerativeToolId } from '@/lib/types';
 import { SignedOutNote } from '../auth/SignedOutNote';
 import { PanelHeader, PanelNote } from './PanelHeader';
 
@@ -16,17 +18,159 @@ function useCaseText(useCase: any): string {
   return useCase?.prompt || useCase?.description || useCase?.title || useCase?.name || JSON.stringify(useCase);
 }
 
-/** Create panel — Domain Playbooks (attach context, never auto-run) and the persona cast (`as`). */
+const CATEGORY_ORDER: Array<
+  'Video Generation' | 'Image Generation' | 'Image Modification' | 'Video Enhancement' | 'Cognition & Audio'
+> = [
+  'Video Generation',
+  'Image Generation',
+  'Image Modification',
+  'Video Enhancement',
+  'Cognition & Audio',
+];
+
+/** Create panel — Creative Jobs & MiniMax-H3 Tools, Domain Playbooks, and Persona Cast (`as`). */
 export function CreatePanel() {
   const { state, dispatch } = useStudio();
-  const { playbooks, playbooksError, playbooksLoaded, personas, personasError, session } = state.system;
+  const { playbooks, playbooksError, playbooksLoaded, personas, personasError, session, engine } = state.system;
   const attached = state.composer.playbook;
   const activePersonaId = state.composer.personaId;
+  const explicitTool = state.composer.explicitTool;
+  const selectedModel = state.composer.selectedModel;
+  const [activeCategory, setActiveCategory] = useState<string>('ALL');
+
+  const allTools = Object.values(TOOLS_CATALOG);
+  const visibleTools =
+    activeCategory === 'ALL' ? allTools : allTools.filter((t) => t.category === activeCategory);
+  const comfyOnline = Boolean(engine?.comfy_online || engine?.comfy?.reachable || engine?.comfy?.configured);
 
   return (
     <div className="flex flex-col gap-4 pb-6">
+      {/* 1. Live Engine Banner + Creative Jobs & MiniMax-H3 Tools */}
+      <PanelHeader title="Creative Jobs & MiniMax H3" />
+      <div className="mx-3 flex items-center justify-between gap-2 rounded-panel border border-ks-line-strong bg-ks-raised/70 px-3 py-2">
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5 text-meta font-semibold text-ks-ink">
+            <span className={cn('size-2 rounded-full', comfyOnline ? 'bg-ks-verified' : 'bg-ks-hold')} />
+            <span>{comfyOnline ? 'ComfyUI + MiniMax H3 Online' : 'ComfyUI Runtime Offline'}</span>
+          </div>
+          <div className="truncate font-mono text-micro text-ks-ink-3">
+            {engine?.comfy_base_url || 'Click Configure to launch or connect'}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => dispatch({ type: 'OPEN_MODAL', modal: 'worker' })}
+          className="inline-flex h-7 shrink-0 items-center gap-1 rounded-control border border-ks-indigo/50 bg-ks-indigo/15 px-2.5 text-micro font-semibold text-ks-ink hover:bg-ks-indigo/25"
+        >
+          <Cpu className="size-3" /> {comfyOnline ? 'Engine' : 'Connect'}
+        </button>
+      </div>
+
+      {/* Category Filter Pills */}
+      <div className="flex flex-wrap gap-1 px-3">
+        {(['ALL', ...CATEGORY_ORDER] as const).map((cat) => {
+          const shortLabel =
+            cat === 'ALL'
+              ? 'All (19)'
+              : cat === 'Video Generation'
+                ? 'Video & H3'
+                : cat === 'Image Generation'
+                  ? 'Image'
+                  : cat === 'Image Modification'
+                    ? 'Edit/Swap'
+                    : cat === 'Video Enhancement'
+                      ? 'Enhance'
+                      : 'Cognition';
+          const active = activeCategory === cat;
+          return (
+            <button
+              key={cat}
+              type="button"
+              onClick={() => setActiveCategory(cat)}
+              className={cn(
+                'rounded-full border px-2 py-0.5 text-micro font-medium transition-colors',
+                active
+                  ? 'border-ks-indigo bg-ks-indigo/20 text-ks-ink'
+                  : 'border-ks-line text-ks-ink-3 hover:border-ks-line-strong hover:text-ks-ink',
+              )}
+            >
+              {shortLabel}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* All Creative Jobs List */}
+      <div className="flex flex-col gap-1 px-2">
+        {visibleTools.map((tool) => {
+          const isSelected = explicitTool === tool.id;
+          const isH3 = tool.id === 'minimax_h3';
+          return (
+            <div
+              key={tool.id}
+              className={cn(
+                'rounded-control border px-2.5 py-2 transition-colors',
+                isSelected
+                  ? 'border-ks-indigo/60 bg-ks-indigo/15'
+                  : 'border-transparent hover:border-ks-line hover:bg-ks-lift/70',
+              )}
+            >
+              <button
+                type="button"
+                onClick={() =>
+                  dispatch({
+                    type: 'SET_TOOL',
+                    tool: isSelected ? null : (tool.id as GenerativeToolId),
+                  })
+                }
+                aria-pressed={isSelected}
+                className="flex w-full items-start gap-2 text-left"
+              >
+                {isH3 ? (
+                  <Flame className={cn('mt-0.5 size-4 shrink-0', isSelected ? 'text-ks-indigo' : 'text-amber-400')} />
+                ) : (
+                  <Sparkles className={cn('mt-0.5 size-3.5 shrink-0', isSelected ? 'text-ks-indigo' : 'text-ks-ink-3')} />
+                )}
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center justify-between gap-1.5">
+                    <span className="truncate text-body font-medium text-ks-ink">{tool.name}</span>
+                    <span className="shrink-0 rounded border border-ks-line-strong px-1.5 py-px text-micro text-ks-ink-3">
+                      {tool.badge}
+                    </span>
+                  </span>
+                  <span className="mt-0.5 line-clamp-2 block text-meta text-ks-ink-3">{tool.description}</span>
+                </span>
+              </button>
+
+              {isSelected && tool.models && tool.models.length > 0 && (
+                <div className="mt-2 border-t border-ks-line/60 pt-2">
+                  <label className="mb-1 block text-micro font-medium text-ks-ink-2">
+                    Active Model / Checkpoint
+                  </label>
+                  <select
+                    aria-label={`Model for ${tool.name}`}
+                    value={selectedModel || tool.defaultModel || tool.models[0]}
+                    onChange={(e) => dispatch({ type: 'SET_MODEL', model: e.target.value })}
+                    className="w-full rounded-control border border-ks-line-strong bg-ks-abyss px-2 py-1 font-mono text-micro text-ks-ink"
+                  >
+                    {tool.models.map((m) => (
+                      <option key={m} value={m}>
+                        {m}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="mx-4 h-px bg-ks-line" />
+
+      {/* 2. Domain Playbooks */}
       <PanelHeader title="Playbooks" />
-      <PanelNote>Attach a playbook to shape every run with its domain brief. Nothing runs until you do.</PanelNote>
+      <PanelNote>Attach a playbook to shape every run with its domain brief.</PanelNote>
 
       {attached && (
         <section aria-label="Attached playbook" className="mx-3 rounded-panel border border-ks-indigo/40 bg-ks-indigo/[0.07] p-3">
@@ -118,12 +262,13 @@ export function CreatePanel() {
 
       <div className="mx-4 h-px bg-ks-line" />
 
+      {/* 3. Personas */}
       <PanelHeader title="Personas">
         <button
           onClick={() => dispatch({ type: 'OPEN_MODAL', modal: 'personas' })}
-          className="rounded-control px-2 py-1 text-meta text-ks-ink-2 hover:bg-ks-lift hover:text-ks-ink"
+          className="inline-flex items-center gap-1 text-meta text-ks-ink-3 hover:text-ks-ink"
         >
-          Manage
+          <Plus className="size-3" /> Manage
         </button>
       </PanelHeader>
       {session.status !== 'signed_in' ? (

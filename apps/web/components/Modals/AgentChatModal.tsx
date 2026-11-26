@@ -232,8 +232,8 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({ open, onClose })
     ? { background: 'rgba(16, 185, 129, 0.16)', color: '#34d399' }
     : { background: 'rgba(245, 158, 11, 0.16)', color: '#fbbf24' };
 
-  const activeModel = runtime?.served_model || runtime?.model || 'Awaiting live status';
-  const endpointLabel = runtime?.active_endpoint || 'no endpoint configured';
+  const activeModel = runtime?.served_model || runtime?.model || 'OBLITERATUS/Qwen3.8-27B-OBLITERATED';
+  const endpointLabel = runtime?.active_endpoint || 'Awaiting open-weight runtime selection (click Configure Engine)';
 
   return (
     <div className="modal-backdrop" onClick={onClose} role="dialog" aria-modal="true" aria-label="Direct LLM Agent Chat">
@@ -259,6 +259,14 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({ open, onClose })
             )}
           </div>
           <div className="chat-header-actions">
+            <button
+              className="icon-btn"
+              onClick={() => dispatch({ type: 'OPEN_MODAL', modal: 'worker' })}
+              title="Configure Cognition & ComfyUI Endpoints"
+              type="button"
+            >
+              Configure Engine
+            </button>
             <button
               className="icon-btn"
               onClick={() => dispatch({ type: 'OPEN_MODAL', modal: 'sessions' })}

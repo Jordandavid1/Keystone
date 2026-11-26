@@ -45,7 +45,7 @@
 ./apps/api/src/routers/billing.py
 ./apps/api/src/routers/personas.py
 ./apps/api/src/routers/recipes.py
-./apps/api/src/routers/zencreator.py
+./apps/api/src/routers/studio.py
 ./apps/api/src/services/gate.py
 ./apps/api/src/services/floor_watchdog.py
 ./apps/api/src/services/memory.py

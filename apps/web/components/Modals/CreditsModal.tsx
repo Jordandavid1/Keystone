@@ -79,7 +79,7 @@ export const CreditsModal: React.FC<CreditsModalProps> = ({ open, onClose }) => 
                 <tbody>
                   {events.length === 0 ? (
                     <tr>
-                      <td colSpan={4}>No ledger events. Paid ZenCreator billing is disabled.</td>
+                      <td colSpan={4}>No ledger events. Paid studio billing is disabled.</td>
                     </tr>
                   ) : (
                     events.map((event: any, idx: number) => (

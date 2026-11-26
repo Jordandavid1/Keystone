@@ -1,12 +1,15 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Settings, ShieldAlert, ShieldCheck, X } from 'lucide-react';
+import { Play, Power, RefreshCw, Save, Server, Settings, ShieldAlert, ShieldCheck, X } from 'lucide-react';
 import {
+  configureStudioEngine,
   fetchAccount,
   fetchAudioConfig,
   fetchCognitionStatus,
   fetchEngineStatus,
+  launchLocalComfyEngine,
+  stopLocalComfyEngine,
   updateContentMode,
   verifyAccountAge,
 } from '../../lib/api';
@@ -20,9 +23,16 @@ type SettingsTab = 'config' | 'engine' | 'security';
 interface SettingsModalProps {
   open: boolean;
   onClose: () => void;
-  /** Open straight on the account or content tab. */
-  initialTab?: 'account' | 'content' | null;
+  /** Open straight on the account, content, or engine tab. */
+  initialTab?: 'account' | 'content' | 'engine' | null;
 }
+
+const PROVIDER_PRESETS = [
+  { label: 'Together.ai (HF Partner)', url: 'https://api.together.xyz/v1', model: 'Qwen/Qwen2.5-72B-Instruct-Turbo' },
+  { label: 'Fireworks.ai', url: 'https://api.fireworks.ai/inference/v1', model: 'accounts/fireworks/models/llama-v3p3-70b-instruct' },
+  { label: 'Hugging Face Router', url: 'https://router.huggingface.co/v1', model: 'Qwen/Qwen2.5-72B-Instruct' },
+  { label: 'Local / RunPod llama-server', url: 'http://127.0.0.1:8081/v1', model: 'OBLITERATUS/Qwen3.8-27B-OBLITERATED' },
+];
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose, initialTab }) => {
   const { state, dispatch } = useStudio();
@@ -36,23 +46,32 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose, ini
   const [ageModalOpen, setAgeModalOpen] = useState(false);
   const [adultConfirmed, setAdultConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [launchingComfy, setLaunchingComfy] = useState(false);
   const [saveNote, setSaveNote] = useState<string | null>(null);
   const [errorNote, setErrorNote] = useState<string | null>(null);
   const [engine, setEngine] = useState<any>(null);
   const [cognition, setCognition] = useState<any>(null);
   const [audio, setAudio] = useState<any>(null);
   const [engineError, setEngineError] = useState<string | null>(null);
+  const [engineNote, setEngineNote] = useState<string | null>(null);
+  const [comfyUrlInput, setComfyUrlInput] = useState('http://127.0.0.1:8188');
+  const [comfyKeyInput, setComfyKeyInput] = useState('');
+  const [openaiUrlInput, setOpenaiUrlInput] = useState('');
+  const [openaiKeyInput, setOpenaiKeyInput] = useState('');
+  const [openaiModelInput, setOpenaiModelInput] = useState('OBLITERATUS/Qwen3.8-27B-OBLITERATED');
 
   useEffect(() => {
     if (!open) return;
     if (initialTab === 'account') setTab('security');
     else if (initialTab === 'content') setTab('config');
+    else if (initialTab === 'engine') setTab('engine');
 
     setDraftPrefs(preferences);
     setSeedInput(preferences.defaultSeed != null ? String(preferences.defaultSeed) : '');
     setSelectedMode(contentMode);
     setSaveNote(null);
     setErrorNote(null);
+    setEngineNote(null);
     setAgeModalOpen(false);
     setAdultConfirmed(false);
     setEngineError(null);
@@ -72,7 +91,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose, ini
       .catch(() => undefined);
 
     fetchEngineStatus()
-      .then(setEngine)
+      .then((eng) => {
+        setEngine(eng);
+        if (eng.comfy_base_url) setComfyUrlInput(eng.comfy_base_url);
+        if (eng.cognition_endpoint || eng.llm?.endpoint) setOpenaiUrlInput(eng.cognition_endpoint || eng.llm?.endpoint || '');
+        if (eng.llm?.model) setOpenaiModelInput(eng.llm.model);
+      })
       .catch((err: any) => setEngineError(err?.message || 'Could not reach engine status.'));
     fetchCognitionStatus()
       .then(setCognition)
@@ -173,7 +197,79 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose, ini
   };
 
   const llmOnline = Boolean(cognition?.online || engine?.llm?.configured);
-  const comfyOnline = Boolean(engine?.comfy?.configured || cognition?.comfy_configured);
+  const comfyOnline = Boolean(engine?.comfy_online || engine?.comfy?.reachable || engine?.comfy?.configured);
+
+  const handleRefreshEngine = async () => {
+    setBusy(true);
+    setEngineError(null);
+    try {
+      const eng = await fetchEngineStatus();
+      setEngine(eng);
+      dispatch({ type: 'SYSTEM', patch: { engine: eng, engineError: null } });
+      const cog = await fetchCognitionStatus().catch(() => null);
+      if (cog) setCognition(cog);
+    } catch (err) {
+      setEngineError(readableError(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleLaunchComfy = async () => {
+    setLaunchingComfy(true);
+    setEngineError(null);
+    setEngineNote('Starting local ComfyUI server on 127.0.0.1:8188 and wiring MiniMax-H3...');
+    try {
+      const snap = await launchLocalComfyEngine({ host: '127.0.0.1', port: 8188, wait_seconds: 75 });
+      setEngine(snap);
+      if (snap.comfy_base_url) setComfyUrlInput(snap.comfy_base_url);
+      dispatch({ type: 'SYSTEM', patch: { engine: snap, engineError: null } });
+      setEngineNote(snap.launch_message || 'ComfyUI server launched and wired on http://127.0.0.1:8188.');
+    } catch (err) {
+      setEngineError(readableError(err));
+      setEngineNote(null);
+    } finally {
+      setLaunchingComfy(false);
+    }
+  };
+
+  const handleStopComfy = async () => {
+    setBusy(true);
+    setEngineError(null);
+    try {
+      const snap = await stopLocalComfyEngine();
+      setEngine(snap);
+      dispatch({ type: 'SYSTEM', patch: { engine: snap } });
+      setEngineNote(snap.stop_message || 'Stopped managed local ComfyUI process.');
+    } catch (err) {
+      setEngineError(readableError(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleSaveEngineRuntime = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setEngineError(null);
+    setEngineNote(null);
+    try {
+      const snap = await configureStudioEngine({
+        comfy_base_url: comfyUrlInput.trim(),
+        ...(comfyKeyInput.trim() ? { comfy_api_key: comfyKeyInput.trim() } : {}),
+        openai_base_url: openaiUrlInput.trim(),
+        ...(openaiKeyInput.trim() ? { openai_api_key: openaiKeyInput.trim() } : {}),
+        openai_model: openaiModelInput.trim(),
+      });
+      setEngine(snap);
+      dispatch({ type: 'SYSTEM', patch: { engine: snap, engineError: null } });
+      setEngineNote('ComfyUI & Cognition endpoints saved and live-wired across WorkerBridge and .env.');
+    } catch (err) {
+      setEngineError(readableError(err));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <div className="modal-backdrop" onClick={onClose} role="dialog" aria-modal="true" aria-label="Studio Settings">
@@ -403,34 +499,169 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose, ini
             {engineError && (
               <div style={{ padding: 10, borderRadius: 8, border: '1px solid rgba(244,63,94,0.4)', color: '#fda4af', fontSize: 12 }}>{engineError}</div>
             )}
-            <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: 14 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                <span style={{ fontSize: 13, fontWeight: 700 }}>Cognition Checkpoint &amp; OpenAI-compatible Tunnel</span>
+            {engineNote && (
+              <div style={{ padding: 10, borderRadius: 8, border: '1px solid rgba(52,211,153,0.4)', background: 'rgba(52,211,153,0.08)', color: '#86efac', fontSize: 12 }}>
+                {engineNote}
+              </div>
+            )}
+
+            {/* Active Local ComfyUI Server Control */}
+            <div style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.35)', borderRadius: 8, padding: 14 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Server size={14} /> ComfyUI &amp; MiniMax-H3 Creative Execution Server
+                    <span className="telemetry-pill" style={{ borderColor: comfyOnline ? 'rgba(52,211,153,0.4)' : 'rgba(245,158,11,0.4)', color: comfyOnline ? '#34d399' : '#fbbf24' }}>
+                      {comfyOnline ? 'ONLINE' : 'OFFLINE'}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 11.5, color: 'var(--text-secondary)', marginTop: 4 }}>
+                    {engine?.local_comfy_path
+                      ? `Local install: ${engine.local_comfy_path} · H3 workflow: ${engine?.workflows?.minimax_h3_ref2va || 'ready'}`
+                      : `Active URL: ${engine?.comfy_base_url || 'Not connected'}`}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    disabled={launchingComfy || busy}
+                    onClick={() => void handleLaunchComfy()}
+                    className="composer-submit-btn"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 12 }}
+                  >
+                    <Play size={13} /> {launchingComfy ? 'Launching...' : comfyOnline ? 'Reconnect 8188' : 'Launch Local ComfyUI'}
+                  </button>
+                  {comfyOnline && (
+                    <button
+                      type="button"
+                      disabled={busy || launchingComfy}
+                      onClick={() => void handleStopComfy()}
+                      className="icon-btn"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 5, borderColor: 'rgba(244,63,94,0.4)', color: '#fda4af', padding: '6px 10px', fontSize: 12 }}
+                    >
+                      <Power size={13} /> Stop
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    disabled={busy || launchingComfy}
+                    onClick={() => void handleRefreshEngine()}
+                    className="icon-btn"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 10px', fontSize: 12 }}
+                  >
+                    <RefreshCw size={13} /> Probe
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Live Endpoint & Model Form */}
+            <form onSubmit={(e) => void handleSaveEngineRuntime(e)} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 13, fontWeight: 700 }}>ComfyUI &amp; Open-Weight Cognition Endpoints</span>
                 <span className="telemetry-pill" style={{ borderColor: llmOnline ? 'rgba(52,211,153,0.4)' : 'rgba(148,163,184,0.4)', color: llmOnline ? '#34d399' : '#94a3b8' }}>
-                  {llmOnline ? 'CONFIGURED' : 'OFFLINE'}
+                  Cognition: {llmOnline ? 'CONNECTED' : 'NOT SET'}
                 </span>
               </div>
-              <div style={{ fontSize: 11.5, fontFamily: 'var(--font-mono)', color: '#38bdf8', marginBottom: 4 }}>
-                {cognition?.served_model || cognition?.model || engine?.llm?.model || 'No served model reported'}
+
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 10 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>
+                    ComfyUI Server URL (Local 8188, RunPod Pod, or Tunnel)
+                  </label>
+                  <input
+                    aria-label="ComfyUI server URL"
+                    type="text"
+                    value={comfyUrlInput}
+                    onChange={(e) => setComfyUrlInput(e.target.value)}
+                    placeholder="http://127.0.0.1:8188"
+                    className="command-input"
+                    style={{ width: '100%', background: 'var(--bg-surface-3)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '6px 10px', fontFamily: 'var(--font-mono)', fontSize: 12 }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>
+                    ComfyUI API Key (Optional)
+                  </label>
+                  <input
+                    aria-label="ComfyUI API key"
+                    type="password"
+                    value={comfyKeyInput}
+                    onChange={(e) => setComfyKeyInput(e.target.value)}
+                    placeholder="Bearer token"
+                    className="command-input"
+                    style={{ width: '100%', background: 'var(--bg-surface-3)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '6px 10px', fontFamily: 'var(--font-mono)', fontSize: 12 }}
+                  />
+                </div>
               </div>
-              <div style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: '#94a3b8' }}>
-                Endpoint present: {engine?.llm?.endpoint_present ? 'yes' : 'no'} · Latency: {cognition?.cognition_latency_ms != null ? `${cognition.cognition_latency_ms} ms` : 'n/a'}
+
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
+                  <label style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                    Open-Weight Cognition Provider (1-Click Presets)
+                  </label>
+                  <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                    {PROVIDER_PRESETS.map((p) => (
+                      <button
+                        key={p.label}
+                        type="button"
+                        onClick={() => {
+                          setOpenaiUrlInput(p.url);
+                          setOpenaiModelInput(p.model);
+                        }}
+                        style={{ fontSize: 10.5, padding: '2px 7px', borderRadius: 999, border: '1px solid var(--border-subtle)', background: 'rgba(255,255,255,0.04)', color: '#c7d2fe', cursor: 'pointer' }}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1.2fr', gap: 10 }}>
+                  <input
+                    aria-label="OpenAI-compatible endpoint URL"
+                    type="text"
+                    value={openaiUrlInput}
+                    onChange={(e) => setOpenaiUrlInput(e.target.value)}
+                    placeholder="https://api.together.xyz/v1"
+                    className="command-input"
+                    style={{ width: '100%', background: 'var(--bg-surface-3)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '6px 10px', fontFamily: 'var(--font-mono)', fontSize: 12 }}
+                  />
+                  <input
+                    aria-label="OpenAI-compatible API key"
+                    type="password"
+                    value={openaiKeyInput}
+                    onChange={(e) => setOpenaiKeyInput(e.target.value)}
+                    placeholder="Provider API Key"
+                    className="command-input"
+                    style={{ width: '100%', background: 'var(--bg-surface-3)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '6px 10px', fontFamily: 'var(--font-mono)', fontSize: 12 }}
+                  />
+                  <input
+                    aria-label="Served open-weight model"
+                    type="text"
+                    value={openaiModelInput}
+                    onChange={(e) => setOpenaiModelInput(e.target.value)}
+                    placeholder="OBLITERATUS/Qwen3.8-27B-OBLITERATED"
+                    className="command-input"
+                    style={{ width: '100%', background: 'var(--bg-surface-3)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '6px 10px', fontFamily: 'var(--font-mono)', fontSize: 12 }}
+                  />
+                </div>
               </div>
-              {cognition?.cognition_detail && (
-                <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 6 }}>{String(cognition.cognition_detail)}</div>
-              )}
-            </div>
-            <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: 14 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                <span style={{ fontSize: 13, fontWeight: 700 }}>ComfyUI Creative Execution Engine</span>
-                <span className="telemetry-pill" style={{ borderColor: comfyOnline ? 'rgba(56,189,248,0.4)' : 'rgba(148,163,184,0.4)', color: comfyOnline ? '#38bdf8' : '#94a3b8' }}>
-                  {comfyOnline ? 'CONFIGURED' : 'OFFLINE'}
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: '#94a3b8' }}>
+                  Wired tools: {engine?.wired_tools?.length || 19} · Latency: {cognition?.cognition_latency_ms != null ? `${cognition.cognition_latency_ms} ms` : (engine?.comfy?.latency_ms != null ? `${engine.comfy.latency_ms} ms` : 'n/a')}
                 </span>
+                <button
+                  type="submit"
+                  disabled={busy || launchingComfy}
+                  className="composer-submit-btn"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px', fontSize: 12 }}
+                >
+                  <Save size={13} /> {busy ? 'Saving...' : 'Save & Connect Runtime'}
+                </button>
               </div>
-              <div style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>
-                {engine?.comfy ? JSON.stringify(engine.comfy) : cognition?.comfy_endpoint || 'No ComfyUI status reported'}
-              </div>
-            </div>
+            </form>
+
             <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: 14 }}>
               <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>Voice Synthesis Engine</div>
               <div style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>

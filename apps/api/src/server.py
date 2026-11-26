@@ -52,7 +52,7 @@ from apps.api.src.routers.admin import router as admin_router
 from apps.api.src.routers.personas import router as personas_router
 from apps.api.src.routers.audio import router as audio_router
 from apps.api.src.routers.cognition import router as cognition_router
-from apps.api.src.routers.zencreator import router as zencreator_router
+from apps.api.src.routers.studio import router as studio_router
 from apps.api.src.db.session import init_db
 
 # 3. Import canonical Pydantic v2 contract models
@@ -194,8 +194,8 @@ app.include_router(audio_router)
 # Mount Autonomous Cognition Agent & Direct LLM Chat Router (/v1/cognition, Bible §39, ADR-002)
 app.include_router(cognition_router)
 
-# Mount ZenCreator Full Generative Pipeline Router (/v1/zencreator, all 17 generative tools)
-app.include_router(zencreator_router)
+# Mount Studio Generative Pipeline Router (/v1/studio, all 17 generative tools)
+app.include_router(studio_router)
 
 # Mount Account & Age-Verification Router
 try:
@@ -308,7 +308,7 @@ def get_remote_config(
             pass
     return {
         "parameters": {
-            "enable_zencreator_node_graph": {"defaultValue": {"value": "true"}},
+            "enable_studio_node_graph": {"defaultValue": {"value": "true"}},
             "enable_cursor_floating_composer": {"defaultValue": {"value": "true"}},
             "enable_vscode_activity_bar": {"defaultValue": {"value": "true"}},
             "enable_higgsfield_motion_controls": {"defaultValue": {"value": "true"}},
@@ -359,7 +359,7 @@ _cors_origins = [
     o.strip()
     for o in os.getenv(
         "KEYSTONE_CORS_ORIGINS",
-        "http://localhost:3000,http://127.0.0.1:3000,http://localhost:8000,http://127.0.0.1:8000",
+        "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001,http://localhost:8000,http://127.0.0.1:8000",
     ).split(",")
     if o.strip()
 ]
@@ -406,6 +406,16 @@ def serve_workspace_index() -> RedirectResponse:
 def serve_admin_index() -> FileResponse:
     """Serves the KEYSTONE Operator Admin Console (Bible §26)."""
     return FileResponse(_ADMIN_DIR / "index.html")
+
+
+@app.on_event("startup")
+async def _bootstrap_comfy_runtime_on_startup() -> None:
+    """Automatically wire or boot local ComfyUI when launching KEYSTONE outside pytest."""
+    try:
+        from services.comfy.src.runtime_manager import auto_bootstrap_comfy_background
+        auto_bootstrap_comfy_background()
+    except Exception:
+        pass
 
 
 if _ADMIN_DIR.exists():

@@ -397,7 +397,7 @@ def test_http_routes_support_and_persist_120hz_video(api_client: TestClient, db_
         headers = {"Authorization": f"Bearer {token}"}
 
         t2v_res = api_client.post(
-            "/v1/zencreator/generate",
+            "/v1/studio/generate",
             headers=headers,
             json={
                 "tool": "text_to_video",
@@ -423,7 +423,7 @@ def test_http_routes_support_and_persist_120hz_video(api_client: TestClient, db_
         assert abs(probe_video_metadata(dl_path)["fps"] - 120.0) <= 0.5
 
         ext_res = api_client.post(
-            "/v1/zencreator/generate",
+            "/v1/studio/generate",
             headers=headers,
             json={
                 "tool": "extend",

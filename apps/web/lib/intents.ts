@@ -1,7 +1,7 @@
 /**
- * Intent routing — docs/UI_SCHEMA.md §5.5.
- * Customers express an intent; this module chooses the capability. Customers never pick a model:
- * no `model` key is sent, so the engine's own default applies (Bible §2, §17).
+ * Intent & Explicit Tool/Model Routing (ADR-006).
+ * Users can either work via quick intents (Create, Edit, Animate, Analyze) or select
+ * any of the 19 pipeline tools and fabric models directly.
  */
 import { TOOLS_CATALOG } from './toolsCatalog';
 import {
@@ -18,7 +18,7 @@ import {
 export interface IntentDefinition {
   id: Intent;
   label: string;
-  /** Placeholder for the prompt field — an instruction, not sample content. */
+  /** Instruction text for the prompt input field. */
   prompt: string;
   /** Run button label; the same verb is used in the history row and toast. */
   verb: string;
@@ -38,6 +38,7 @@ export const INTENT_BY_ID: Record<Intent, IntentDefinition> = Object.fromEntries
 
 export interface RouteContext {
   intent: Intent;
+  explicitTool?: GenerativeToolId | null;
   prompt: string;
   references: StudioAsset[];
   engine: EngineStatus | null;
@@ -48,41 +49,66 @@ export interface RouteResult {
   /** Blocking problems — the run button stays disabled and the composer shows the fix. */
   problems: string[];
   /** Non-blocking notices shown before the run. */
-  notices: string[];
 }
 
-export function routeIntent({ intent, prompt, references, engine }: RouteContext): RouteResult {
+export function routeIntent({ intent, explicitTool, prompt, references, engine }: RouteContext): RouteResult & { notices: string[] } {
   const ref = references[0] || null;
   const problems: string[] = [];
   const notices: string[] = [];
   let capability: GenerativeToolId;
 
-  switch (intent) {
-    case 'create':
-      capability = ref && ref.type === 'image' ? 'by_ref' : 'by_prompt';
-      if (!prompt.trim()) problems.push('Describe what you want to see.');
-      break;
-    case 'edit':
-      capability = 'image_editor';
-      if (!ref || ref.type !== 'image') problems.push('Add or select the image you want to edit.');
-      if (!prompt.trim()) problems.push('Say what should change.');
-      break;
-    case 'animate':
-      capability = !ref ? 'text_to_video' : ref.type === 'video' ? 'video2video' : 'videogen';
-      if (!prompt.trim()) problems.push('Describe the motion and the shot.');
-      break;
-    case 'analyze':
-    default:
-      capability = 'run_any_llm';
-      if (!prompt.trim()) problems.push('Ask a question.');
-      break;
+  if (explicitTool && TOOLS_CATALOG[explicitTool]) {
+    capability = explicitTool;
+    const req = TOOLS_CATALOG[explicitTool].inputsRequired || {};
+    const hasImage = references.some((r) => r.type === 'image');
+    const hasVideo = references.some((r) => r.type === 'video');
+    const hasAudio = references.some((r) => r.type === 'audio');
+    const videoCount = references.filter((r) => r.type === 'video').length;
+
+    if (req.videoAsset && !hasVideo) {
+      problems.push(`${TOOLS_CATALOG[explicitTool].name} requires a source video asset attached.`);
+    }
+    if (req.clips && videoCount < 2) {
+      problems.push('Multi-Clip Video Sequencer requires at least 2 video clips attached.');
+    }
+    if (req.audioAsset && !hasAudio) {
+      problems.push(`${TOOLS_CATALOG[explicitTool].name} requires an audio track attached.`);
+    }
+    if ((req.refAsset || req.faceRef || req.characterAssets) && !hasImage && !req.videoAsset && explicitTool !== 'minimax_h3') {
+      problems.push(`${TOOLS_CATALOG[explicitTool].name} requires a reference image attached.`);
+    }
+    const promptOptional: GenerativeToolId[] = ['upscaler', 'video_upscaler', 'video_merger', 'extend', 'facegen', 'photoshoot', 'carousel', 'faceswap', 'collaber', 'couplegen', 'lipsync'];
+    if (!promptOptional.includes(explicitTool) && !prompt.trim()) {
+      problems.push(`Enter a prompt for ${TOOLS_CATALOG[explicitTool].name}.`);
+    }
+  } else {
+    switch (intent) {
+      case 'create':
+        capability = ref && ref.type === 'image' ? 'by_ref' : 'by_prompt';
+        if (!prompt.trim()) problems.push('Describe what you want to see.');
+        break;
+      case 'edit':
+        capability = 'image_editor';
+        if (!ref || ref.type !== 'image') problems.push('Add or select the image you want to edit.');
+        if (!prompt.trim()) problems.push('Say what should change.');
+        break;
+      case 'animate':
+        capability = !ref ? 'text_to_video' : ref.type === 'video' ? 'video2video' : 'videogen';
+        if (!prompt.trim()) problems.push('Describe the motion and the shot.');
+        break;
+      case 'analyze':
+      default:
+        capability = 'run_any_llm';
+        if (!prompt.trim()) problems.push('Ask a question.');
+        break;
+    }
   }
 
   if (engine && Array.isArray(engine.unwired_tools) && engine.unwired_tools.includes(capability)) {
     const kind = TOOLS_CATALOG[capability].category.startsWith('Video') ? 'video' : intent === 'analyze' ? 'cognition' : 'image';
     notices.push(`The ${kind} engine for this isn't connected yet, so the run will return an error.`);
   } else if (engine && !engine.online) {
-    notices.push('Your engine is offline. Runs will fail until it is connected.');
+    notices.push('Your engine is offline. Click Engine in the top bar or Settings to launch or connect ComfyUI.');
   }
 
   return { capability, problems, notices };
@@ -149,7 +175,7 @@ export function compilePrompt(args: {
   return sections.filter(Boolean).join('\n\n');
 }
 
-/** Build the request body for a capability from customer-level controls only. */
+/** Build the request body for a capability including explicit model & parameter controls. */
 export function buildInput(args: {
   capability: GenerativeToolId;
   compiledPrompt: string;
@@ -157,6 +183,7 @@ export function buildInput(args: {
   references: StudioAsset[];
   playbook: CanonicalPlaybook | null;
   web: WebContext | null;
+  selectedModel?: string | null;
   personaId?: string | null;
   projectId?: string | null;
   sessionId?: string | null;
@@ -164,16 +191,20 @@ export function buildInput(args: {
   preferences?: StudioPreferences | null;
   extra?: Record<string, any>;
 }): Record<string, any> {
-  const { capability, compiledPrompt, controls, references, playbook, web, personaId, projectId, sessionId, contentMode, preferences } = args;
+  const { capability, compiledPrompt, controls, references, playbook, web, selectedModel, personaId, projectId, sessionId, contentMode, preferences } = args;
   const def = TOOLS_CATALOG[capability];
   const defaults = { ...(def.defaultParameters || {}) };
-  delete (defaults as any).model;
+  const activeModel = (selectedModel && selectedModel.trim()) || def.defaultModel || (defaults as any).model || null;
 
   const input: Record<string, any> = {
     ...defaults,
     prompt: compiledPrompt,
     positive_prompt: compiledPrompt,
   };
+  if (activeModel) {
+    input.model = activeModel;
+    input.selected_model = activeModel;
+  }
 
   if (def.supportsAspectRatios) input.ratio = controls.aspect;
   if (def.supportsTiers) input.tier = QUALITY_TIER[controls.quality];

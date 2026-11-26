@@ -220,12 +220,13 @@ export function useGeneration() {
     async (opts: RunOptions = {}): Promise<string[]> => {
       const s = stateRef.current;
       const intent = opts.intent || s.composer.intent;
+      const explicitTool = opts.capability ? null : s.composer.explicitTool;
       const prompt = opts.prompt ?? s.composer.prompt;
       const selectedAsset = selectSelected(s);
       const references =
         opts.references ??
         (intent === 'analyze' && !s.composer.references.length && selectedAsset ? [selectedAsset] : s.composer.references);
-      const routed = routeIntent({ intent, prompt, references, engine: s.system.engine });
+      const routed = routeIntent({ intent, explicitTool, prompt, references, engine: s.system.engine });
       const capability = opts.capability || routed.capability;
       const problems = opts.capability ? [] : routed.problems;
       if (problems.length) return problems;
@@ -244,6 +245,7 @@ export function useGeneration() {
         references,
         playbook: s.composer.playbook,
         web: s.composer.web,
+        selectedModel: s.composer.selectedModel,
         personaId: s.composer.personaId,
         projectId: s.system.projectId,
         sessionId: s.system.sessionId,
@@ -251,7 +253,7 @@ export function useGeneration() {
         preferences: s.system.preferences,
         extra: opts.extra,
       });
-      const label = opts.label || INTENT_BY_ID[intent].verb;
+      const label = opts.label || (s.composer.explicitTool ? TOOLS_CATALOG[capability].name : INTENT_BY_ID[intent].verb);
       const gen: Generation = {
         id: `run_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
         intent,

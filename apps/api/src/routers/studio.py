@@ -1,7 +1,7 @@
 """
 KEYSTONE studio generative router.
 
-Keeps the /v1/zencreator request/response contract used by the Next.js studio UX,
+Keeps the /v1/studio request/response contract used by the Next.js studio UX,
 routes all image & video intents through the Gate (ExecutionEnvelope v2) and ComfyUI
 workflow fabric, and never returns mock or placeholder media.
 """
@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -50,7 +51,7 @@ from services.comfy.src.video_ops import (
     stitch_video_segments,
 )
 from apps.api.src.db.models import Asset, User
-from apps.api.src.db.session import get_db
+from apps.api.src.db.session import async_session_factory, get_db
 from apps.api.src.jobs import generation_progress
 from apps.api.src.jobs.generation_progress import GenerationProgress, JobIdConflict
 from apps.api.src.repositories.assets import AssetRepository
@@ -59,15 +60,24 @@ from apps.api.src.storage.service import AssetStorageService, generate_storage_k
 from packages.prompt_engine.playbooks import PlaybookRegistry
 from services.cognition.src.client import CognitionConnector, load_keystone_dotenv
 
-router = APIRouter(prefix="/v1/zencreator", tags=["ZenCreator Generative Pipeline"])
-
-_CATALOG_FILE = Path(__file__).resolve().parents[4] / ".firecrawl" / "zc-tools-catalog.json"
+router = APIRouter(prefix="/v1/studio", tags=["Studio Generative Pipeline"])
 
 STUDIO_USER_ID = "00000000-0000-4000-8000-000000000001"
 STUDIO_EMAIL = "studio@local.keystone"
 
 LLM_TOOLS = {"run_any_llm"}
-H3_VIDEO_TOOLS = {"videogen", "text_to_video", "image_to_video", "video2video", "extend", "video_upscaler"}
+H3_VIDEO_TOOLS = {
+    "minimax_h3",
+    "videogen",
+    "text_to_video",
+    "image_to_video",
+    "video2video",
+    "extend",
+    "video_upscaler",
+    "couplegen",
+    "lipsync",
+}
+VIDEO_POST_TOOLS = {"video_merger"}
 
 # canonical_tool -> (intent, workflow_name, capability_id, relationship_type)
 IMAGE_TOOL_SPECS: Dict[str, Tuple[str, str, str, str]] = {
@@ -76,19 +86,29 @@ IMAGE_TOOL_SPECS: Dict[str, Tuple[str, str, str, str]] = {
     "image_editor": ("edit", "sdxl_edit", "image.editing", "edit"),
     "variation": ("variate", "sdxl_vary", "image.generation", "variation"),
     "upscaler": ("upscale", "esrgan_upscale", "upscale.clarity", "upscale"),
+    "faceswap": ("edit", "sdxl_edit", "image.editing", "edit"),
+    "photoshoot": ("generate", "sdxl_create", "image.generation", "reference"),
+    "facegen": ("generate", "sdxl_create", "image.generation", "reference"),
+    "carousel": ("variate", "sdxl_vary", "image.generation", "variation"),
+    "collaber": ("generate", "sdxl_create", "image.generation", "reference"),
 }
 
 # canonical_tool -> (intent, variant, capability_id, relationship_type)
 VIDEO_TOOL_SPECS: Dict[str, Tuple[str, str, str, str]] = {
+    "minimax_h3": ("animate", "ref2v", "video.minimax_h3_ref2va", "animation"),
     "text_to_video": ("animate", "t2v", "video.t2v", "animation"),
     "image_to_video": ("animate", "i2v", "video.i2v", "animation"),
     "videogen": ("animate", "ref2v", "video.minimax_h3_ref2va", "animation"),
     "video2video": ("animate", "v2v", "video.minimax_h3_ref2va", "animation"),
     "extend": ("animate", "i2v", "video.i2v", "animation"),
     "video_upscaler": ("upscale", "video_upscale", "upscale.clarity", "upscale"),
+    "couplegen": ("animate", "ref2v", "video.minimax_h3_ref2va", "animation"),
+    "lipsync": ("animate", "ref2v", "video.minimax_h3_ref2va", "animation"),
 }
 
 TOOL_ALIASES: Dict[str, str] = {
+    "h3": "minimax_h3",
+    "pinkcherry": "minimax_h3",
     "t2v": "text_to_video",
     "i2v": "image_to_video",
     "ref2v": "videogen",
@@ -100,6 +120,7 @@ TOOL_ALIASES: Dict[str, str] = {
 }
 
 ALL_TOOLS = {
+    "minimax_h3",
     "by_prompt",
     "by_ref",
     "image_editor",
@@ -126,10 +147,13 @@ ALL_TOOLS = {
 class ToolGenerationRequest(BaseModel):
     tool: str = Field(..., description="Tool name from the generative pipeline catalog")
     input: Dict[str, Any] = Field(default_factory=dict, description="Tool input matching input_schema")
-    async_mode: bool = Field(default=False, description="Reserved; this router runs tools synchronously")
+    async_mode: bool = Field(
+        default=False,
+        description="When true, executes generation in a background task and returns HTTP 202 with job_id for polling",
+    )
     job_id: Optional[str] = Field(
         default=None,
-        description="Optional client-chosen UUID. Poll GET /v1/zencreator/jobs/{job_id} for live progress while this request runs.",
+        description="Optional client-chosen UUID. Poll GET /v1/studio/jobs/{job_id} for live progress while this request runs.",
     )
 
 
@@ -418,11 +442,6 @@ def _call_llm(prompt: str, system_prompt: str, max_tokens: int, tool_input: Dict
 
 @router.get("/tools", summary="List All 17 Generative Pipeline Tools")
 def list_tools() -> Dict[str, Any]:
-    if _CATALOG_FILE.exists():
-        try:
-            return json.loads(_CATALOG_FILE.read_text(encoding="utf-8"))
-        except Exception:
-            pass
     return {
         "source": "builtin_catalog",
         "tools": {name: {"metadata": {"description": name}} for name in sorted(ALL_TOOLS)},
@@ -435,22 +454,126 @@ def list_playbooks() -> Dict[str, Any]:
     return {"count": len(playbooks), "playbooks": playbooks}
 
 
-@router.get("/engine", summary="Describe the configured Colab generation engine")
-def engine_status() -> Dict[str, Any]:
+class StudioEngineConfigureRequest(BaseModel):
+    comfy_base_url: Optional[str] = Field(None, description="ComfyUI server or GPU worker URL (e.g. http://127.0.0.1:8188)")
+    comfy_api_key: Optional[str] = Field(None, description="Optional Bearer token / API key for ComfyUI")
+    openai_base_url: Optional[str] = Field(None, description="OpenAI-compatible LLM endpoint (Together.ai, Fireworks.ai, HuggingFace, llama.cpp)")
+    openai_api_key: Optional[str] = Field(None, description="API key for OpenAI-compatible cognition provider")
+    openai_model: Optional[str] = Field(None, description="Served open-weight model identifier")
+
+
+class StudioComfyLaunchRequest(BaseModel):
+    host: str = Field(default="127.0.0.1", description="Bind host for local ComfyUI server")
+    port: int = Field(default=8188, ge=1024, le=65535, description="Bind port for local ComfyUI server")
+    wait_seconds: float = Field(default=45.0, ge=5.0, le=180.0, description="Startup readiness timeout in seconds")
+
+
+def _build_full_engine_status() -> Dict[str, Any]:
+    from services.comfy.src.client import ADAPTER_REGISTRY, h3_health, h3_workflow_path
+    from services.comfy.src.runtime_manager import (
+        discover_local_comfy_dir,
+        get_last_boot_error,
+        probe_comfy_endpoint,
+    )
+
     llm_configured, endpoint, _api_key, model = _llm_endpoint()
     comfy = h3_describe()
-    wired = LLM_TOOLS | set(IMAGE_TOOL_SPECS) | set(VIDEO_TOOL_SPECS)
+    comfy_url = comfy_client.base_url()
+    comfy_probe = probe_comfy_endpoint(comfy_url, timeout=2.5) if comfy_url else {"reachable": False, "system_stats": None, "latency_ms": None, "error": None}
+    h3_health_info = h3_health() if comfy_url else {"configured": False, "reachable": False, "detail": "COMFY_BASE_URL is not set"}
+    local_comfy_dir = discover_local_comfy_dir()
+    wired = LLM_TOOLS | set(IMAGE_TOOL_SPECS) | set(VIDEO_TOOL_SPECS) | VIDEO_POST_TOOLS
+    comfy_live = bool(comfy_probe.get("reachable") or h3_health_info.get("reachable"))
     return {
-        "online": bool(llm_configured or comfy.get("configured")),
+        "online": bool(llm_configured or comfy_live or comfy.get("configured")),
+        "comfy_online": comfy_live,
+        "comfy_base_url": comfy_url or None,
+        "cognition_endpoint": endpoint or None,
+        "local_comfy_available": local_comfy_dir is not None,
+        "local_comfy_path": str(local_comfy_dir) if local_comfy_dir else None,
+        "boot_error": get_last_boot_error(),
         "llm": {
             "configured": llm_configured,
             "endpoint_present": bool(endpoint),
-            "model": model if llm_configured else None,
+            "endpoint": endpoint or None,
+            "model": model if llm_configured else os.getenv("OPENAI_MODEL", "OBLITERATUS/Qwen3.8-27B-OBLITERATED"),
         },
-        "comfy": comfy,
+        "comfy": {
+            **comfy,
+            "reachable": comfy_live,
+            "latency_ms": comfy_probe.get("latency_ms"),
+            "error": comfy_probe.get("error"),
+        },
+        "h3": comfy,
+        "h3_health": h3_health_info,
+        "system_stats": comfy_probe.get("system_stats"),
+        "adapters": list(ADAPTER_REGISTRY.keys()),
+        "workflows": {
+            "sdxl_txt2img": "ready",
+            "sdxl_img2img": "ready",
+            "upscale_4x": "ready",
+            "minimax_h3_ref2va": "ready" if h3_workflow_path() else "missing",
+        },
+        "supported_video_fps": [30, 60, 100, 120],
         "wired_tools": sorted(wired),
         "unwired_tools": sorted(ALL_TOOLS - wired),
     }
+
+
+@router.get("/engine", summary="Describe the configured ComfyUI, MiniMax-H3, and Cognition engines")
+def engine_status() -> Dict[str, Any]:
+    return _build_full_engine_status()
+
+
+@router.get("/engine/status", summary="Live ComfyUI, MiniMax-H3, and Cognition Runtime Telemetry")
+def detailed_engine_status() -> Dict[str, Any]:
+    return _build_full_engine_status()
+
+
+@router.post("/engine/configure", summary="Configure Studio ComfyUI & Open-Weight Cognition Endpoints")
+def configure_studio_engine(req: StudioEngineConfigureRequest) -> Dict[str, Any]:
+    from services.comfy.src.runtime_manager import configure_studio_runtime
+
+    try:
+        configure_studio_runtime(
+            comfy_base_url=req.comfy_base_url,
+            comfy_api_key=req.comfy_api_key,
+            openai_base_url=req.openai_base_url,
+            openai_api_key=req.openai_api_key,
+            openai_model=req.openai_model,
+            persist=True,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return _build_full_engine_status()
+
+
+@router.post("/engine/launch", summary="Launch & Wire Local ComfyUI Server with MiniMax-H3 Capabilities")
+def launch_studio_comfy(req: StudioComfyLaunchRequest = StudioComfyLaunchRequest()) -> Dict[str, Any]:
+    from services.comfy.src.runtime_manager import launch_local_comfy_daemon
+
+    ok, detail, _probe = launch_local_comfy_daemon(
+        host=req.host,
+        port=req.port,
+        wait_seconds=req.wait_seconds,
+    )
+    snap = _build_full_engine_status()
+    snap["launch_ok"] = ok
+    snap["launch_message"] = detail
+    if not ok and not snap.get("comfy_online"):
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=detail)
+    return snap
+
+
+@router.post("/engine/stop", summary="Stop Managed Local ComfyUI Subprocess")
+def stop_studio_comfy() -> Dict[str, Any]:
+    from services.comfy.src.runtime_manager import stop_local_comfy_daemon
+
+    stopped, detail = stop_local_comfy_daemon()
+    snap = _build_full_engine_status()
+    snap["stopped"] = stopped
+    snap["stop_message"] = detail
+    return snap
 
 
 @router.get("/balance", summary="Get Credit Balance")
@@ -459,7 +582,7 @@ def get_balance() -> Dict[str, Any]:
         "balance": None,
         "currency": "credits",
         "status": "local_engine",
-        "note": "ZenCreator billing is disabled. Generation uses the Colab engine and is not charged per tool.",
+        "note": "Studio billing is disabled. Generation uses the configured engine and is not charged per tool.",
     }
 
 
@@ -514,12 +637,35 @@ async def generation_job(job_id: str) -> Dict[str, Any]:
     return snap
 
 
+_BACKGROUND_TASKS: set[asyncio.Task] = set()
+
+
+async def _run_generation_background(
+    request: ToolGenerationRequest,
+    progress: GenerationProgress,
+    owner_id: Optional[str],
+) -> None:
+    async with async_session_factory() as db:
+        try:
+            result = await _run_generation(request, db, progress, owner_id)
+            result["job_id"] = progress.job_id
+            result["job_state"] = progress.state
+            await db.commit()
+            progress.set_result(result)
+        except HTTPException as exc:
+            await db.rollback()
+            progress.fail(str(exc.detail))
+        except Exception as exc:
+            await db.rollback()
+            progress.fail(f"ENGINE_ERROR: {exc}")
+
+
 @router.post("/generate", summary="Execute Any Generative Pipeline Tool")
 async def generate_tool(
     request: ToolGenerationRequest,
     db: AsyncSession = Depends(get_db),
     owner: Optional[User] = Depends(get_optional_user),
-) -> Dict[str, Any]:
+) -> Any:
     tool = (request.tool or "").strip()
     try:
         job_id = generation_progress.normalize_job_id(request.job_id)
@@ -529,8 +675,25 @@ async def generate_tool(
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
 
+    owner_id = str(owner.id) if owner else None
+    if request.async_mode:
+        task = asyncio.create_task(_run_generation_background(request, progress, owner_id))
+        _BACKGROUND_TASKS.add(task)
+        task.add_done_callback(_BACKGROUND_TASKS.discard)
+        return JSONResponse(
+            status_code=202,
+            content={
+                "generation_id": job_id,
+                "job_id": job_id,
+                "job_state": progress.state,
+                "status": "accepted",
+                "outputs": [],
+            },
+            headers={"X-Keystone-Job-Id": job_id},
+        )
+
     try:
-        result = await _run_generation(request, db, progress, str(owner.id) if owner else None)
+        result = await _run_generation(request, db, progress, owner_id)
     except HTTPException as exc:
         progress.fail(str(exc.detail))
         headers = dict(exc.headers or {})
@@ -541,6 +704,7 @@ async def generate_tool(
         raise
     result["job_id"] = job_id
     result["job_state"] = progress.state
+    progress.set_result(result)
     return result
 
 
@@ -804,8 +968,15 @@ async def _run_video_generation(
 
     from apps.api.src.services.gate import load_persona_reference_media
 
-    if canonical_tool in ("text_to_video", "image_to_video", "videogen", "video2video") and not prompt:
+    if canonical_tool in ("lipsync", "couplegen") and not comfy_client.is_configured():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=_no_engine_message(tool),
+        )
+
+    if canonical_tool in ("text_to_video", "image_to_video", "videogen", "video2video", "minimax_h3") and not prompt:
         detail_map = {
+            "minimax_h3": "minimax_h3 requires a prompt describing the video scene and motion",
             "text_to_video": "text_to_video requires a prompt",
             "image_to_video": "image_to_video requires a motion prompt",
             "videogen": "videogen requires a prompt describing the motion and scene",
@@ -833,6 +1004,10 @@ async def _run_video_generation(
         effective_prompt = "Continue the shot seamlessly with natural motion"
     elif not effective_prompt and canonical_tool == "video_upscaler":
         effective_prompt = "Neural ESRGAN video super-resolution upscale"
+    elif not effective_prompt and canonical_tool == "couplegen":
+        effective_prompt = "Two characters together in a cohesive cinematic shot with smooth natural motion"
+    elif not effective_prompt and canonical_tool == "lipsync":
+        effective_prompt = "Natural expressive speaking portrait synchronized to audio track"
 
     initial_primary_id = ref_ids[0] if ref_ids else None
     pre_compiled_prompt = compile_video_prompt(
@@ -900,10 +1075,15 @@ async def _run_video_generation(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="image_to_video requires a reference image asset",
         )
-    if canonical_tool == "videogen" and not loaded_refs:
+    if canonical_tool in ("videogen", "couplegen") and not loaded_refs:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="videogen requires a reference image. Upload or attach one before running.",
+            detail=f"{canonical_tool} requires a reference image. Upload or attach one before running.",
+        )
+    if canonical_tool == "lipsync" and (not image_refs or not audio_refs):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="lipsync requires both a portrait reference image and an audio asset.",
         )
     if canonical_tool == "video2video" and not video_refs:
         raise HTTPException(
@@ -915,6 +1095,13 @@ async def _run_video_generation(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"{canonical_tool} requires a source video asset",
         )
+    if canonical_tool == "minimax_h3":
+        if video_refs:
+            variant = "v2v"
+        elif image_refs or audio_refs:
+            variant = "ref2v"
+        else:
+            variant = "t2v"
 
     compiled_prompt = compile_video_prompt(
         receipt.compiled_prompt or effective_prompt,
@@ -1191,13 +1378,142 @@ async def _run_generation(
             "persona_version": receipt.persona_version,
         }
 
-    if canonical_tool not in VIDEO_TOOL_SPECS and canonical_tool not in IMAGE_TOOL_SPECS:
+    if (
+        canonical_tool not in VIDEO_TOOL_SPECS
+        and canonical_tool not in IMAGE_TOOL_SPECS
+        and canonical_tool not in VIDEO_POST_TOOLS
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=_no_engine_message(tool),
+        )
+
+    if (
+        canonical_tool in ("lipsync", "couplegen", "faceswap", "photoshoot", "facegen", "carousel", "collaber")
+        and not comfy_client.is_configured()
+    ):
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=_no_engine_message(tool),
         )
 
     effective_user_id = owner_id or await _ensure_studio_user(db)
+
+    if canonical_tool == "video_merger":
+        from services.comfy.src.video_ops import convert_video_bytes_fps
+        from services.harness.src.evaluators.deterministic import validate_asset_bytes
+
+        ref_ids = _collect_ref_ids(tool_input)
+        if len(ref_ids) < 2:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="video_merger requires at least 2 video clips attached.",
+            )
+        clip_blobs: List[Tuple[str, Asset, bytes]] = []
+        for cid in ref_ids:
+            loaded_clip = await _load_asset_with_bytes(db, cid, effective_user_id)
+            if loaded_clip is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Clip asset '{cid}' was not found in studio storage",
+                )
+            c_asset, _c_fname, c_mime, c_bytes = loaded_clip
+            if c_asset.asset_type != "video" and not c_mime.startswith("video/"):
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"Asset '{cid}' is not a video clip.",
+                )
+            clip_blobs.append((cid, c_asset, c_bytes))
+
+        raw_fps = (
+            tool_input.get("fps")
+            or tool_input.get("frame_rate")
+            or tool_input.get("framerate")
+            or (tool_input.get("output_prefs") or {}).get("framerate")
+        )
+        target_fps = resolve_target_fps(raw_fps, default=VIDEO_DEFAULT_FPS)
+        started_at = datetime.now(timezone.utc)
+        gate_args = _build_gate_arguments(tool_input, "video.i2v", ref_ids[0], "16:9", 5.0, 2)
+        receipt = await _authorize_through_gate(
+            db,
+            effective_user_id,
+            intent="animate",
+            prompt_text=prompt or "Multi-clip timeline sequence merge",
+            capability_id="video.i2v",
+            arguments=gate_args,
+            input_asset_ids=ref_ids,
+            project_id=tool_input.get("project_id"),
+            session_id=tool_input.get("session_id"),
+            persona_id=tool_input.get("as") or tool_input.get("persona_id"),
+            playbook=tool_input.get("playbook_id"),
+        )
+        await _dispatch(progress, playbook_ctx, "FFmpeg Video Sequencer")
+        with tempfile.TemporaryDirectory(prefix="ks_merge_") as tmpdir:
+            tmp_root = Path(tmpdir)
+            seg_paths: List[Path] = []
+            for idx, (_cid, _ca, cbytes) in enumerate(clip_blobs):
+                seg = tmp_root / f"clip_{idx:03d}.mp4"
+                seg.write_bytes(cbytes)
+                seg_paths.append(seg)
+            merged_out = tmp_root / "merged.mp4"
+            await asyncio.to_thread(stitch_video_segments, seg_paths, merged_out, target_fps=target_fps)
+            merged_bytes = merged_out.read_bytes()
+            if target_fps:
+                merged_bytes = await asyncio.to_thread(convert_video_bytes_fps, merged_bytes, target_fps)
+            probed = probe_video_metadata(merged_out)
+
+        progress.advance("VALIDATING_OUTPUT", "Running Tier-A deterministic video validation")
+        harness_res = validate_asset_bytes(merged_bytes, "video", "video/mp4")
+        effective_mature = bool(
+            receipt.mature
+            or receipt.persona_mature
+            or any(getattr(item[1], "mature", False) for item in clip_blobs)
+        )
+        stored = await _persist_bytes(
+            db,
+            merged_bytes,
+            "video/mp4",
+            f"merged_{gen_id[:8]}.mp4",
+            "video",
+            metadata={
+                "source": "ffmpeg_video_merger",
+                "tool": tool,
+                "fps": float(probed.get("fps") or target_fps),
+                "clips": ref_ids,
+                "envelope_id": receipt.envelope.envelope_id,
+            },
+            owner_id=effective_user_id,
+            project_id=tool_input.get("project_id"),
+            width=int(probed.get("width") or 1280),
+            height=int(probed.get("height") or 720),
+            duration_seconds=float(probed.get("duration") or 5.0),
+            mature=effective_mature,
+        )
+        await _persist_gate_audit_rows(
+            db,
+            receipt=receipt,
+            effective_user_id=effective_user_id,
+            project_id=tool_input.get("project_id"),
+            capability_id="video.i2v",
+            workflow_name="video_merger",
+            compiled_prompt=receipt.compiled_prompt or (prompt or "Multi-clip sequence"),
+            output_asset_id=stored["asset_id"],
+            harness_res=harness_res,
+            parent_asset_ids=ref_ids,
+            relationship_type="sequence",
+            started_at=started_at,
+            mature=effective_mature,
+        )
+        progress.advance("COMPLETED", "Merged sequence stored")
+        return {
+            "generation_id": gen_id,
+            "status": "succeeded",
+            "tool": tool,
+            "input": tool_input,
+            "outputs": [stored],
+            "envelope_id": receipt.envelope.envelope_id,
+            "mature": effective_mature,
+        }
 
     if canonical_tool in VIDEO_TOOL_SPECS:
         return await _run_video_generation(
@@ -1230,7 +1546,24 @@ async def _run_generation(
             ref_asset_obj, ref_filename, _ref_mime, ref_bytes = loaded_ref_asset
             ref_mature = bool(getattr(ref_asset_obj, "mature", False))
 
-        if canonical_tool in ("image_editor", "upscaler") and not ref_bytes:
+        if canonical_tool == "facegen":
+            dna_bits = [
+                f"{k}: {tool_input[k]}"
+                for k in ("gender", "age", "origin", "body_type", "eye_color", "hair_color", "hair_style", "makeup")
+                if tool_input.get(k)
+            ]
+            dna_summary = ", ".join(dna_bits)
+            prompt = f"Portrait identity sheet ({dna_summary}). {prompt}".strip()
+        elif canonical_tool == "photoshoot" and not prompt:
+            prompt = f"Editorial studio portrait session ({tool_input.get('category_id', 'studio_editorial')}), natural lighting and sharp detail"
+        elif canonical_tool == "carousel" and not prompt:
+            prompt = "Consistent multi-angle turnaround view preserving exact subject identity, clothing, and lighting"
+        elif canonical_tool == "faceswap" and not prompt:
+            prompt = "Preserve facial likeness and identity seamlessly matched to scene lighting and camera angle"
+        elif canonical_tool == "collaber" and not prompt:
+            prompt = "Two character personas composed naturally into one cohesive scene with preserved likeness"
+
+        if canonical_tool in ("image_editor", "upscaler", "faceswap", "carousel") and not ref_bytes:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=f"{canonical_tool} requires a source image asset",
@@ -1325,6 +1658,9 @@ async def _run_generation(
         )
         out_w, out_h = resolve_aspect_dimensions(aspect_ratio, tool_input.get("width"), tool_input.get("height"))
 
+        selected_ckpt = str(tool_input.get("checkpoint") or tool_input.get("model") or tool_input.get("selected_model") or "").strip()
+        explicit_safetensor = selected_ckpt if selected_ckpt.endswith((".safetensors", ".ckpt", ".pth")) else None
+
         try:
             exec_res = await asyncio.to_thread(
                 comfy_client.execute_workflow,
@@ -1335,6 +1671,8 @@ async def _run_generation(
                     "prompt": compiled_image_prompt,
                     "negative_prompt": tool_input.get("negative_prompt"),
                     "image_name": uploaded_name,
+                    "checkpoint": explicit_safetensor,
+                    "model_name": explicit_safetensor if effective_wf == "esrgan_upscale" else None,
                     "width": out_w,
                     "height": out_h,
                     "steps": tool_input.get("steps"),

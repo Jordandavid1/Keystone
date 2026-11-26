@@ -533,7 +533,7 @@ def test_as_persona_cross_modal_and_depicts_lineage(db_session, tmp_path, monkey
 
         # B) Video generation (`t2v`) with `as=persona_id`
         vid_resp = client.post(
-            "/v1/zencreator/generate",
+            "/v1/studio/generate",
             json={
                 "tool": "t2v",
                 "input": {
@@ -664,7 +664,7 @@ def test_as_persona_cross_modal_and_depicts_lineage(db_session, tmp_path, monkey
 
         # Generate video in unrestricted mode -> mature=True propagates to Asset and depicts edge
         m_vid = client.post(
-            "/v1/zencreator/generate",
+            "/v1/studio/generate",
             json={
                 "tool": "t2v",
                 "input": {

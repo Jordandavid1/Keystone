@@ -3407,12 +3407,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-  /v1/zencreator/tools:
+  /v1/studio/tools:
     get:
       tags:
-      - ZenCreator Generative Pipeline
+      - Studio Generative Pipeline
       summary: List All 17 Generative Pipeline Tools
-      operationId: list_tools_v1_zencreator_tools_get
+      operationId: list_tools_v1_studio_tools_get
       responses:
         '200':
           description: Successful Response
@@ -3421,13 +3421,13 @@ paths:
               schema:
                 additionalProperties: true
                 type: object
-                title: Response List Tools V1 Zencreator Tools Get
-  /v1/zencreator/playbooks:
+                title: Response List Tools V1 Studio Tools Get
+  /v1/studio/playbooks:
     get:
       tags:
-      - ZenCreator Generative Pipeline
+      - Studio Generative Pipeline
       summary: List canonical prompt-engine playbooks
-      operationId: list_playbooks_v1_zencreator_playbooks_get
+      operationId: list_playbooks_v1_studio_playbooks_get
       responses:
         '200':
           description: Successful Response
@@ -3436,13 +3436,13 @@ paths:
               schema:
                 additionalProperties: true
                 type: object
-                title: Response List Playbooks V1 Zencreator Playbooks Get
-  /v1/zencreator/engine:
+                title: Response List Playbooks V1 Studio Playbooks Get
+  /v1/studio/engine:
     get:
       tags:
-      - ZenCreator Generative Pipeline
-      summary: Describe the configured Colab generation engine
-      operationId: engine_status_v1_zencreator_engine_get
+      - Studio Generative Pipeline
+      summary: Describe the configured ComfyUI, MiniMax-H3, and Cognition engines
+      operationId: engine_status_v1_studio_engine_get
       responses:
         '200':
           description: Successful Response
@@ -3451,13 +3451,13 @@ paths:
               schema:
                 additionalProperties: true
                 type: object
-                title: Response Engine Status V1 Zencreator Engine Get
-  /v1/zencreator/balance:
+                title: Response Engine Status V1 Studio Engine Get
+  /v1/studio/engine/status:
     get:
       tags:
-      - ZenCreator Generative Pipeline
-      summary: Get Credit Balance
-      operationId: get_balance_v1_zencreator_balance_get
+      - Studio Generative Pipeline
+      summary: Live ComfyUI, MiniMax-H3, and Cognition Runtime Telemetry
+      operationId: detailed_engine_status_v1_studio_engine_status_get
       responses:
         '200':
           description: Successful Response
@@ -3466,13 +3466,102 @@ paths:
               schema:
                 additionalProperties: true
                 type: object
-                title: Response Get Balance V1 Zencreator Balance Get
-  /v1/zencreator/upload:
+                title: Response Detailed Engine Status V1 Studio Engine Status
+                  Get
+  /v1/studio/engine/configure:
     post:
       tags:
-      - ZenCreator Generative Pipeline
+      - Studio Generative Pipeline
+      summary: Configure Studio ComfyUI & Open-Weight Cognition Endpoints
+      operationId: configure_studio_engine_v1_studio_engine_configure_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StudioEngineConfigureRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Configure Studio Engine V1 Studio Engine Configure
+                  Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /v1/studio/engine/launch:
+    post:
+      tags:
+      - Studio Generative Pipeline
+      summary: Launch & Wire Local ComfyUI Server with MiniMax-H3 Capabilities
+      operationId: launch_studio_comfy_v1_studio_engine_launch_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StudioComfyLaunchRequest'
+              default:
+                host: 127.0.0.1
+                port: 8188
+                wait_seconds: 45.0
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Launch Studio Comfy V1 Studio Engine Launch Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /v1/studio/engine/stop:
+    post:
+      tags:
+      - Studio Generative Pipeline
+      summary: Stop Managed Local ComfyUI Subprocess
+      operationId: stop_studio_comfy_v1_studio_engine_stop_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Stop Studio Comfy V1 Studio Engine Stop Post
+  /v1/studio/balance:
+    get:
+      tags:
+      - Studio Generative Pipeline
+      summary: Get Credit Balance
+      operationId: get_balance_v1_studio_balance_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Get Balance V1 Studio Balance Get
+  /v1/studio/upload:
+    post:
+      tags:
+      - Studio Generative Pipeline
       summary: Upload Media Asset (Image, Video, Audio)
-      operationId: upload_asset_v1_zencreator_upload_post
+      operationId: upload_asset_v1_studio_upload_post
       parameters:
       - name: Authorization
         in: header
@@ -3495,7 +3584,7 @@ paths:
         content:
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/Body_upload_asset_v1_zencreator_upload_post'
+              $ref: '#/components/schemas/Body_upload_asset_v1_studio_upload_post'
       responses:
         '200':
           description: Successful Response
@@ -3504,19 +3593,19 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
-                title: Response Upload Asset V1 Zencreator Upload Post
+                title: Response Upload Asset V1 Studio Upload Post
         '422':
           description: Validation Error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-  /v1/zencreator/jobs/{job_id}:
+  /v1/studio/jobs/{job_id}:
     get:
       tags:
-      - ZenCreator Generative Pipeline
+      - Studio Generative Pipeline
       summary: Live progress for a studio generation
-      operationId: generation_job_v1_zencreator_jobs__job_id__get
+      operationId: generation_job_v1_studio_jobs__job_id__get
       parameters:
       - name: job_id
         in: path
@@ -3532,19 +3621,19 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
-                title: Response Generation Job V1 Zencreator Jobs  Job Id  Get
+                title: Response Generation Job V1 Studio Jobs  Job Id  Get
         '422':
           description: Validation Error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-  /v1/zencreator/generate:
+  /v1/studio/generate:
     post:
       tags:
-      - ZenCreator Generative Pipeline
+      - Studio Generative Pipeline
       summary: Execute Any Generative Pipeline Tool
-      operationId: generate_tool_v1_zencreator_generate_post
+      operationId: generate_tool_v1_studio_generate_post
       parameters:
       - name: Authorization
         in: header
@@ -3576,7 +3665,7 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
-                title: Response Generate Tool V1 Zencreator Generate Post
+                title: Response Generate Tool V1 Studio Generate Post
         '422':
           description: Validation Error
           content:
@@ -4711,7 +4800,7 @@ components:
       required:
       - file
       title: Body_upload_asset_file_v1_assets_upload_file_post
-    Body_upload_asset_v1_zencreator_upload_post:
+    Body_upload_asset_v1_studio_upload_post:
       properties:
         file:
           type: string
@@ -4720,7 +4809,7 @@ components:
       type: object
       required:
       - file
-      title: Body_upload_asset_v1_zencreator_upload_post
+      title: Body_upload_asset_v1_studio_upload_post
     CapabilitiesResponse:
       properties:
         capabilities:
@@ -6430,6 +6519,64 @@ components:
       - pii_redacted
       - tokens_generated
       title: SanitizeResponse
+    StudioComfyLaunchRequest:
+      properties:
+        host:
+          type: string
+          title: Host
+          description: Bind host for local ComfyUI server
+          default: 127.0.0.1
+        port:
+          type: integer
+          maximum: 65535.0
+          minimum: 1024.0
+          title: Port
+          description: Bind port for local ComfyUI server
+          default: 8188
+        wait_seconds:
+          type: number
+          maximum: 180.0
+          minimum: 5.0
+          title: Wait Seconds
+          description: Startup readiness timeout in seconds
+          default: 45.0
+      type: object
+      title: StudioComfyLaunchRequest
+    StudioEngineConfigureRequest:
+      properties:
+        comfy_base_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Comfy Base Url
+          description: ComfyUI server or GPU worker URL (e.g. http://127.0.0.1:8188)
+        comfy_api_key:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Comfy Api Key
+          description: Optional Bearer token / API key for ComfyUI
+        openai_base_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Openai Base Url
+          description: OpenAI-compatible LLM endpoint (Together.ai, Fireworks.ai,
+            HuggingFace, llama.cpp)
+        openai_api_key:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Openai Api Key
+          description: API key for OpenAI-compatible cognition provider
+        openai_model:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Openai Model
+          description: Served open-weight model identifier
+      type: object
+      title: StudioEngineConfigureRequest
     StyleRuleCreate:
       properties:
         rule_text:
@@ -6549,7 +6696,7 @@ components:
           - type: string
           - type: 'null'
           title: Job Id
-          description: Optional client-chosen UUID. Poll GET /v1/zencreator/jobs/{job_id}
+          description: Optional client-chosen UUID. Poll GET /v1/studio/jobs/{job_id}
             for live progress while this request runs.
       type: object
       required:

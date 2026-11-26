@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Check, Edit3, Mic, Trash2, Users, Volume2, X } from 'lucide-react';
+import { Check, Edit3, Mic, Trash2, Upload, Users, Volume2, X } from 'lucide-react';
 import {
   apiRequest,
   createPersona,
@@ -11,6 +11,7 @@ import {
   speakAsPersona,
   synthesizeSpeech,
   updatePersona,
+  uploadMediaFile,
 } from '../../lib/api';
 import { useStudio } from '../../lib/studio/store';
 import { Persona, StudioAsset } from '../../lib/types';
@@ -50,7 +51,10 @@ export const PersonasModal: React.FC<PersonasModalProps> = ({ open, onClose, onP
   const [voiceId, setVoiceId] = useState('');
   const voiceIdRef = useRef('');
   voiceIdRef.current = voiceId;
+  const [identityAdapter, setIdentityAdapter] = useState<'reference_set' | 'ip'>('reference_set');
   const [referenceAssetIds, setReferenceAssetIds] = useState<string[]>([]);
+  const [uploadingRefs, setUploadingRefs] = useState(false);
+  const uploadInputRef = useRef<HTMLInputElement>(null);
 
   // TTS / Speak state
   const [ttsText, setTtsText] = useState('');
@@ -75,13 +79,14 @@ export const PersonasModal: React.FC<PersonasModalProps> = ({ open, onClose, onP
     try {
       const list = await fetchPersonas({ projectId, contentMode });
       setPersonas(list);
+      dispatch({ type: 'SYSTEM', patch: { personas: list, personasError: null } });
       onPersonasLoaded?.(list);
     } catch (err: any) {
       setPersonas([]);
       onPersonasLoaded?.([]);
       setError((prev) => prev || err?.message || 'Personas API requires a signed-in account.');
     }
-  }, [contentMode, onPersonasLoaded, projectId]);
+  }, [contentMode, dispatch, onPersonasLoaded, projectId]);
 
   useEffect(() => {
     if (!open) return;
@@ -114,6 +119,29 @@ export const PersonasModal: React.FC<PersonasModalProps> = ({ open, onClose, onP
 
   const selectedVoice = voices.find((v) => v.voice_id === voiceId);
 
+  const handleDirectRefUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setUploadingRefs(true);
+    setError(null);
+    try {
+      const added: StudioAsset[] = [];
+      for (const file of Array.from(files)) {
+        if (!file.type.startsWith('image/')) continue;
+        const asset = await uploadMediaFile(file, projectId);
+        added.push(asset);
+      }
+      if (added.length > 0) {
+        dispatch({ type: 'ASSETS_ADDED', assets: added, select: false });
+        setReferenceAssetIds((prev) => Array.from(new Set([...prev, ...added.map((a) => a.id)])));
+        setNotice(`Uploaded and attached ${added.length} reference anchor photo${added.length > 1 ? 's' : ''}.`);
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Could not upload reference image.');
+    } finally {
+      setUploadingRefs(false);
+    }
+  };
+
   const handleSavePersona = async () => {
     if (!name.trim()) {
       setError('A persona name is required.');
@@ -128,6 +156,7 @@ export const PersonasModal: React.FC<PersonasModalProps> = ({ open, onClose, onP
         description: description.trim() || null,
         project_id: projectId,
         avatar_asset_id: referenceAssetIds[0] || null,
+        identity_adapter: identityAdapter,
         voice_id: voiceId || null,
         voice_name: selectedVoice?.name || null,
         voice_settings: { stability, similarity_boost: clarity },
@@ -139,14 +168,17 @@ export const PersonasModal: React.FC<PersonasModalProps> = ({ open, onClose, onP
         const updated = await updatePersona(editingId, payload);
         const next = personas.map((p) => (p.id === editingId ? updated : p));
         setPersonas(next);
+        dispatch({ type: 'SYSTEM', patch: { personas: next } });
         onPersonasLoaded?.(next);
         setNotice(`Saved ${updated.name} (v${updated.version ?? 1}).`);
       } else {
         const created = await createPersona(payload);
         const next = [created, ...personas];
         setPersonas(next);
+        dispatch({ type: 'SYSTEM', patch: { personas: next } });
+        dispatch({ type: 'SET_PERSONA', personaId: created.id });
         onPersonasLoaded?.(next);
-        setNotice(`Created ${created.name} (v${created.version ?? 1}).`);
+        setNotice(`Created ${created.name} (v${created.version ?? 1}) and cast into active composer.`);
       }
       resetForm();
     } catch (err: any) {
@@ -372,17 +404,52 @@ export const PersonasModal: React.FC<PersonasModalProps> = ({ open, onClose, onP
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
               />
-              <input
-                className="command-input"
-                style={{ marginBottom: 8 }}
-                placeholder="Dedicated system / style prompt instructions (optional)"
-                value={systemPrompt}
-                onChange={(e) => setSystemPrompt(e.target.value)}
-              />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                <input
+                  className="command-input"
+                  placeholder="Dedicated system / style prompt instructions (optional)"
+                  value={systemPrompt}
+                  onChange={(e) => setSystemPrompt(e.target.value)}
+                />
+                <select
+                  aria-label="Identity conditioning adapter"
+                  className="command-input"
+                  value={identityAdapter}
+                  onChange={(e) => setIdentityAdapter(e.target.value as 'reference_set' | 'ip')}
+                  style={{ background: 'var(--bg-surface-3)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '6px 10px' }}
+                >
+                  <option value="reference_set">Multi-Angle Reference Sheet Lock (H3 + Studio)</option>
+                  <option value="ip">Deep Face / IP-Adapter Identity Lock</option>
+                </select>
+              </div>
 
-              {imageAssets.length > 0 && (
-                <div style={{ marginBottom: 10 }}>
-                  <div className="control-label" style={{ marginBottom: 4 }}>Reference images (optional)</div>
+              <div style={{ marginBottom: 12, padding: 12, borderRadius: 8, border: '1px dashed var(--border-subtle)', background: 'rgba(255,255,255,0.02)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <span className="control-label">
+                    Multi-Angle Identity Reference Photos ({referenceAssetIds.length} selected — front face, profile, body)
+                  </span>
+                  <button
+                    type="button"
+                    disabled={uploadingRefs}
+                    onClick={() => uploadInputRef.current?.click()}
+                    className="icon-btn"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6, borderColor: '#6366f1', color: '#c7d2fe' }}
+                  >
+                    <Upload size={12} /> {uploadingRefs ? 'Uploading...' : 'Upload Reference Photos'}
+                  </button>
+                </div>
+                <input
+                  ref={uploadInputRef}
+                  type="file"
+                  hidden
+                  multiple
+                  accept="image/*"
+                  onChange={(e) => {
+                    void handleDirectRefUpload(e.target.files);
+                    e.target.value = '';
+                  }}
+                />
+                {imageAssets.length > 0 ? (
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                     {imageAssets.map((a) => {
                       const picked = referenceAssetIds.includes(a.id);
@@ -402,13 +469,17 @@ export const PersonasModal: React.FC<PersonasModalProps> = ({ open, onClose, onP
                           }}
                           title={a.title}
                         >
-                          <img src={a.previewUrl || a.url} alt={a.title} style={{ width: 34, height: 34, objectFit: 'cover', borderRadius: 4 }} />
+                          <img src={a.previewUrl || a.url} alt={a.title} style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 4 }} />
                         </button>
                       );
                     })}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <div style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>
+                    Upload 1–4 character reference photos directly using the button above to lock facial likeness and physique across generations.
+                  </div>
+                )}
+              </div>
 
               <div style={{ margin: '10px 0' }}>
                 <div className="control-label" style={{ marginBottom: 6 }}>Bind Voice</div>

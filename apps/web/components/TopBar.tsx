@@ -39,8 +39,17 @@ export function TopBar() {
   const { engine, engineError, ledger, projects, projectId, projectsError, session, contentMode, ageVerified } = state.system;
   const project = projects.find((p) => p.id === projectId) || null;
 
+  const comfyReady = Boolean(engine?.comfy_online || engine?.comfy?.reachable || engine?.comfy?.configured);
   const engineTone = engineError ? 'deny' : engine?.online ? 'verified' : 'hold';
-  const engineLabel = engineError ? 'Studio API unreachable' : engine?.online ? 'Engine ready' : engine ? 'Engine offline' : 'Checking engine';
+  const engineLabel = engineError
+    ? 'Studio API unreachable'
+    : comfyReady
+      ? 'ComfyUI + H3 Ready'
+      : engine?.online
+        ? 'Engine ready'
+        : engine
+          ? 'Connect ComfyUI'
+          : 'Checking engine';
 
   const billingOff = ledger && ledger.balance == null;
   const open = (modal: Modal) => dispatch({ type: 'OPEN_MODAL', modal });
@@ -172,6 +181,10 @@ export function TopBar() {
             </>
           )}
         </button>
+
+        <IconButton label="Personas & Identity Studio" onClick={() => open('personas')} className="max-sm:hidden">
+          <Users />
+        </IconButton>
 
         <IconButton label="Talk to KEYSTONE" onClick={() => open('agent')} className="max-sm:hidden">
           <MessageSquare />

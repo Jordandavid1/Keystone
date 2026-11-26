@@ -37,7 +37,13 @@ function formatApiError(status: number, payload: any, fallback: string): string 
     const msg = detail.message || detail.code || JSON.stringify(detail);
     return `API Error [${status}]: ${msg}`;
   }
-  return `API Error [${status}]: ${fallback}`;
+  const safeFallback =
+    fallback && fallback.trim()
+      ? fallback.trim()
+      : status === 502 || status === 504
+        ? 'Upstream gateway timeout or proxy error'
+        : 'Request failed';
+  return `API Error [${status}]: ${safeFallback}`;
 }
 
 /** An API failure that keeps the HTTP status and any job id the server attached. */
@@ -149,10 +155,38 @@ export async function executeGenerativeTool(
   job_id?: string | null;
   job_state?: string | null;
 }> {
-  const res = await apiRequest('/v1/zencreator/generate', {
+  const accepted = await apiRequest('/v1/studio/generate', {
     method: 'POST',
-    body: JSON.stringify({ tool, input, async_mode: false, ...(jobId ? { job_id: jobId } : {}) }),
+    body: JSON.stringify({ tool, input, async_mode: true, ...(jobId ? { job_id: jobId } : {}) }),
   });
+
+  let res = accepted;
+  if (
+    accepted?.status === 'accepted' ||
+    (accepted?.job_id && !accepted?.outputs?.length && !accepted?.text)
+  ) {
+    const activeJobId = accepted?.job_id || jobId || null;
+    if (!activeJobId) {
+      throw new ApiError('API Error [502]: Generation accepted without job id', 502, null);
+    }
+    let job: GenerationJob;
+    while (true) {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      job = await fetchGenerationJob(activeJobId);
+      if (job.terminal) break;
+    }
+    if (job.current_state !== 'COMPLETED') {
+      throw new ApiError(
+        job.error || `API Error [500]: Generation ended as ${(job.current_state || 'failed').toLowerCase()}`,
+        500,
+        activeJobId,
+      );
+    }
+    if (!job.result) {
+      throw new ApiError('API Error [502]: Generation completed without result payload', 502, activeJobId);
+    }
+    res = job.result;
+  }
 
   const outputs: StudioAsset[] = (res.outputs || []).map((out: any, idx: number) => ({
     id: out.asset_id || out.id || `out_${Date.now()}_${idx}`,
@@ -197,7 +231,7 @@ export async function uploadMediaFile(file: File, projectId?: string | null): Pr
     formData.append('project_id', projectId);
   }
 
-  const res = await apiRequest(useAssetsUpload ? '/v1/assets/upload-file' : '/v1/zencreator/upload', {
+  const res = await apiRequest(useAssetsUpload ? '/v1/assets/upload-file' : '/v1/studio/upload', {
     method: 'POST',
     body: formData,
   });
@@ -223,19 +257,50 @@ export async function uploadMediaFile(file: File, projectId?: string | null): Pr
 }
 
 export async function fetchCreditBalance(): Promise<number | null> {
-  const data = await apiRequest('/v1/zencreator/balance');
+  const data = await apiRequest('/v1/studio/balance');
   if (data == null || data.balance == null) return null;
   const value = Number(data.balance);
   return Number.isFinite(value) ? value : null;
 }
 
 export async function fetchPlaybooks(): Promise<CanonicalPlaybook[]> {
-  const data = await apiRequest('/v1/zencreator/playbooks');
+  const data = await apiRequest('/v1/studio/playbooks');
   return data.playbooks || [];
 }
 
 export async function fetchEngineStatus(): Promise<EngineStatus> {
-  return apiRequest('/v1/zencreator/engine');
+  return apiRequest('/v1/studio/engine');
+}
+
+export async function configureStudioEngine(payload: {
+  comfy_base_url?: string;
+  comfy_api_key?: string;
+  openai_base_url?: string;
+  openai_api_key?: string;
+  openai_model?: string;
+}): Promise<EngineStatus> {
+  return apiRequest('/v1/studio/engine/configure', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function launchLocalComfyEngine(payload?: {
+  host?: string;
+  port?: number;
+  wait_seconds?: number;
+}): Promise<EngineStatus & { launch_ok?: boolean; launch_message?: string }> {
+  return apiRequest('/v1/studio/engine/launch', {
+    method: 'POST',
+    body: JSON.stringify(payload || { host: '127.0.0.1', port: 8188, wait_seconds: 60 }),
+  });
+}
+
+export async function stopLocalComfyEngine(): Promise<EngineStatus & { stopped?: boolean; stop_message?: string }> {
+  return apiRequest('/v1/studio/engine/stop', {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
 }
 
 export async function scrapeWebUrl(url: string): Promise<any> {
@@ -254,7 +319,7 @@ export async function fetchCreditLedger(): Promise<{
   total?: number | null;
   events?: { timestamp?: string; action?: string; amount?: number | string; reason?: string }[];
 }> {
-  return apiRequest('/v1/zencreator/balance');
+  return apiRequest('/v1/studio/balance');
 }
 
 export async function fetchCognitionStatus(): Promise<any> {
@@ -501,12 +566,15 @@ export async function createPersona(payload: {
   project_id?: string | null;
   avatar_asset_id?: string | null;
   reference_assets?: string[];
-  identity_adapter?: string;
+  identity_adapter?: 'reference_set' | 'ip' | string;
   voice_id?: string | null;
   voice_name?: string | null;
   voice_settings?: Record<string, any>;
   personality_traits?: string[];
+  traits?: Record<string, any> | string[];
+  backstory?: string | null;
   system_prompt?: string | null;
+  metadata?: Record<string, any>;
   mature?: boolean;
 }): Promise<Persona> {
   const res = await apiRequest<any>('/v1/personas', {
@@ -523,12 +591,15 @@ export async function updatePersona(
     description?: string | null;
     avatar_asset_id?: string | null;
     reference_assets?: string[];
-    identity_adapter?: string;
+    identity_adapter?: 'reference_set' | 'ip' | string;
     voice_id?: string | null;
     voice_name?: string | null;
     voice_settings?: Record<string, any>;
     personality_traits?: string[];
+    traits?: Record<string, any> | string[];
+    backstory?: string | null;
     system_prompt?: string | null;
+    metadata?: Record<string, any>;
   },
 ): Promise<Persona> {
   const res = await apiRequest<any>('/v1/personas/' + encodeURIComponent(personaId), {
@@ -678,6 +749,7 @@ export interface GenerationJob {
   current_state: string;
   terminal: boolean;
   error: string | null;
+  result?: any | null;
   created_at: number;
   updated_at: number;
   events: GenerationJobEvent[];
@@ -685,7 +757,7 @@ export interface GenerationJob {
 
 /** Live progress of a studio generation, by the job id sent with /generate. */
 export async function fetchGenerationJob(jobId: string): Promise<GenerationJob> {
-  return apiRequest('/v1/zencreator/jobs/' + encodeURIComponent(jobId));
+  return apiRequest('/v1/studio/jobs/' + encodeURIComponent(jobId));
 }
 
 export async function fetchJobEvents(jobId: string): Promise<{ current_state: string; events: { state: string; reason?: string }[] }> {

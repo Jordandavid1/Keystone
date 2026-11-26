@@ -9,6 +9,7 @@ import type { WebContext } from '../intents';
 import type { AuthMode, CurrentUser } from '../api';
 import type { AuthVia } from '../auth';
 import type { LineageEdge } from '../lineage';
+import { TOOLS_CATALOG } from '../toolsCatalog';
 import {
   AccountInfo,
   CanonicalPlaybook,
@@ -16,6 +17,7 @@ import {
   ContentMode,
   EngineStatus,
   Generation,
+  GenerativeToolId,
   Intent,
   LedgerState,
   Persona,
@@ -122,6 +124,8 @@ export function saveStoredPreferences(prefs: StudioPreferences): void {
 export interface StudioState {
   composer: {
     intent: Intent;
+    explicitTool: GenerativeToolId | null;
+    selectedModel: string | null;
     prompt: string;
     references: StudioAsset[];
     playbook: CanonicalPlaybook | null;
@@ -149,8 +153,8 @@ export interface StudioState {
     modal: Modal;
     notice: { tone: 'error' | 'info'; text: string } | null;
     analysisRunId: string | null;
-    /** Tab the settings modal opens on; 'account' jumps straight to sign-in and API key. */
-    settingsTab: 'account' | 'content' | null;
+    /** Tab the settings modal opens on; 'account', 'content', or 'engine'. */
+    settingsTab: 'account' | 'content' | 'engine' | null;
     fps: number;
     guides: boolean;
     matte: 'none' | 'scope' | 'flat' | 'tv' | 'reel';
@@ -206,7 +210,17 @@ export const DEFAULT_CONTROLS: StudioControls = {
 };
 
 export const initialState: StudioState = {
-  composer: { intent: 'create', prompt: '', references: [], playbook: null, useCase: null, web: null, personaId: null },
+  composer: {
+    intent: 'create',
+    explicitTool: null,
+    selectedModel: null,
+    prompt: '',
+    references: [],
+    playbook: null,
+    useCase: null,
+    web: null,
+    personaId: null,
+  },
   controls: DEFAULT_CONTROLS,
   library: { assets: [], selectedId: null, compareId: null, favorites: [], loaded: false, loadError: null, lineageEdges: [] },
   runs: [],
@@ -254,6 +268,8 @@ export const initialState: StudioState = {
 
 export type Action =
   | { type: 'SET_INTENT'; intent: Intent }
+  | { type: 'SET_TOOL'; tool: GenerativeToolId | null }
+  | { type: 'SET_MODEL'; model: string | null }
   | { type: 'SET_PROMPT'; prompt: string }
   | { type: 'SET_PERSONA'; personaId: string | null }
   | { type: 'ADD_REFERENCE'; asset: StudioAsset }
@@ -305,10 +321,44 @@ function uniqueEdges(edges: LineageEdge[]): LineageEdge[] {
   return Array.from(map.values());
 }
 
+function intentForTool(tool: GenerativeToolId): Intent {
+  const cat = TOOLS_CATALOG[tool]?.category || 'Image Generation';
+  if (cat.startsWith('Video')) return 'animate';
+  if (cat === 'Image Modification') return 'edit';
+  if (cat === 'Cognition & Audio') return 'analyze';
+  return 'create';
+}
+
 export function reducer(state: StudioState, action: Action): StudioState {
   switch (action.type) {
     case 'SET_INTENT':
-      return { ...state, composer: { ...state.composer, intent: action.intent } };
+      return {
+        ...state,
+        composer: {
+          ...state.composer,
+          intent: action.intent,
+          explicitTool: null,
+          selectedModel: null,
+        },
+      };
+    case 'SET_TOOL': {
+      if (!action.tool) {
+        return { ...state, composer: { ...state.composer, explicitTool: null, selectedModel: null } };
+      }
+      const def = TOOLS_CATALOG[action.tool];
+      const nextIntent = intentForTool(action.tool);
+      return {
+        ...state,
+        composer: {
+          ...state.composer,
+          intent: nextIntent,
+          explicitTool: action.tool,
+          selectedModel: def?.defaultModel || null,
+        },
+      };
+    }
+    case 'SET_MODEL':
+      return { ...state, composer: { ...state.composer, selectedModel: action.model } };
     case 'SET_PROMPT':
       return { ...state, composer: { ...state.composer, prompt: action.prompt } };
     case 'SET_PERSONA':

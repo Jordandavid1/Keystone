@@ -570,7 +570,7 @@ def test_video_variants_and_extend_chain_through_gate(db_session, tmp_path, monk
 
         # 1) t2v (text_to_video)
         r_t2v = client.post(
-            "/v1/zencreator/generate",
+            "/v1/studio/generate",
             json={
                 "tool": "t2v",
                 "input": {
@@ -597,7 +597,7 @@ def test_video_variants_and_extend_chain_through_gate(db_session, tmp_path, monk
 
         # 2) i2v (image_to_video)
         r_i2v = client.post(
-            "/v1/zencreator/generate",
+            "/v1/studio/generate",
             json={
                 "tool": "i2v",
                 "input": {
@@ -621,7 +621,7 @@ def test_video_variants_and_extend_chain_through_gate(db_session, tmp_path, monk
 
         # 3) ref2v (videogen)
         r_ref2v = client.post(
-            "/v1/zencreator/generate",
+            "/v1/studio/generate",
             json={
                 "tool": "ref2v",
                 "input": {
@@ -644,7 +644,7 @@ def test_video_variants_and_extend_chain_through_gate(db_session, tmp_path, monk
 
         # 4) v2v (video2video)
         r_v2v = client.post(
-            "/v1/zencreator/generate",
+            "/v1/studio/generate",
             json={
                 "tool": "v2v",
                 "input": {
@@ -669,7 +669,7 @@ def test_video_variants_and_extend_chain_through_gate(db_session, tmp_path, monk
         # 5) extend (extract_last_frame -> i2v through Gate -> stitch_video_segments -> animation edge)
         uploads_before_extend = len(mock_state["uploads"])
         r_ext = client.post(
-            "/v1/zencreator/generate",
+            "/v1/studio/generate",
             json={
                 "tool": "extend",
                 "input": {
@@ -706,7 +706,7 @@ def test_video_variants_and_extend_chain_through_gate(db_session, tmp_path, monk
 
         # 6) video_upscaler (with non-neutral grade)
         r_vup = client.post(
-            "/v1/zencreator/generate",
+            "/v1/studio/generate",
             json={
                 "tool": "video_upscaler",
                 "input": {

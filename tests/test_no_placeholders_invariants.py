@@ -247,11 +247,20 @@ def test_gcs_storage_provider_never_silently_falls_back_to_local(monkeypatch):
         GoogleCloudStorageProvider()
 
 
-def test_zencreator_unwired_tool_returns_explicit_503_no_placeholder():
+def test_studio_unwired_tool_returns_explicit_503_no_placeholder(monkeypatch):
     from apps.api.src.server import app
+    from services.comfy.src import client as comfy_client_mod
+    from services.harness.src.worker_bridge import worker_bridge
+
+    monkeypatch.setattr(comfy_client_mod, "_load_repo_env", lambda: None)
+    monkeypatch.delenv("COMFY_BASE_URL", raising=False)
+    monkeypatch.delenv("KEYSTONE_COMFY_URL", raising=False)
+    monkeypatch.delenv("KAGGLE_COMFYUI_TUNNEL", raising=False)
+    monkeypatch.setattr(worker_bridge, "route_for_capability", lambda _cap: [])
+    monkeypatch.setattr(worker_bridge, "list_workers", lambda active_only=True: [])
 
     client = TestClient(app)
-    res = client.post("/v1/zencreator/generate", json={"tool": "lipsync", "input": {"prompt": "test"}})
+    res = client.post("/v1/studio/generate", json={"tool": "lipsync", "input": {"prompt": "test"}})
     assert res.status_code == 503
     assert "NO_ENGINE_CONFIGURED" in res.text
 

@@ -11,7 +11,7 @@ import { INTENT_BY_ID, LOOK_LABELS, compilePrompt, estimateCredits, routeIntent 
 import { selectActiveRun, selectAsset, selectSelected, useStudio } from '@/lib/studio/store';
 import { useGeneration } from '@/lib/studio/useGeneration';
 import { TOOLS_CATALOG } from '@/lib/toolsCatalog';
-import { AspectRatio, QualityTier, VIDEO_FPS_PRESETS } from '@/lib/types';
+import { AspectRatio, GenerativeToolId, QualityTier, VIDEO_FPS_PRESETS } from '@/lib/types';
 import { Field, Section, Segmented } from './inspector/Section';
 import { MotionPad } from './inspector/MotionPad';
 
@@ -53,12 +53,14 @@ export function RightInspector({ overlay = false }: { overlay?: boolean }) {
   const { run: executeRun, upscale } = useGeneration();
   const selected = selectSelected(state);
   const activeRun = selectActiveRun(state);
-  const { intent, prompt, references, personaId } = state.composer;
+  const { intent, explicitTool, selectedModel, prompt, references, personaId } = state.composer;
   const c = state.controls;
   const run = selected ? state.runs.find((r) => r.outputIds.includes(selected.id)) : null;
   const parent = selectAsset(state, selected?.parentId);
   const depictedPersona = selected?.personaId ? state.system.personas.find((p) => p.id === selected.personaId) : null;
-  const routed = routeIntent({ intent, prompt, references, engine: state.system.engine });
+  const routed = routeIntent({ intent, explicitTool, prompt, references, engine: state.system.engine });
+  const activeToolDef = TOOLS_CATALOG[routed.capability];
+  const activeModelValue = selectedModel || activeToolDef?.defaultModel || activeToolDef?.models?.[0] || '';
   const [hash, setHash] = useState<string | null>(null);
   const [c2paInfo, setC2paInfo] = useState<Record<string, any> | null>(null);
   const [replayingId, setReplayingId] = useState<string | null>(null);
@@ -250,9 +252,47 @@ export function RightInspector({ overlay = false }: { overlay?: boolean }) {
           )}
         </Section>
 
-        {/* Controls — customer-level only, per intent */}
-        <Section title="Controls" hint={INTENT_BY_ID[intent].label}>
-          {intent === 'analyze' ? (
+        {/* Controls — Job, Model, and Generation Parameters */}
+        <Section title="Controls" hint={explicitTool ? activeToolDef.name : INTENT_BY_ID[intent].label}>
+          <Field label="Creative Job / Pipeline Tool">
+            <select
+              aria-label="Creative pipeline tool"
+              value={explicitTool || ''}
+              onChange={(e) =>
+                dispatch({
+                  type: 'SET_TOOL',
+                  tool: e.target.value ? (e.target.value as GenerativeToolId) : null,
+                })
+              }
+              className="h-8 w-full rounded-control border border-ks-line-strong bg-ks-abyss px-2 text-meta text-ks-ink"
+            >
+              <option value="">Auto-route ({TOOLS_CATALOG[routed.capability].name})</option>
+              {Object.values(TOOLS_CATALOG).map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name} [{t.category}]
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          {activeToolDef?.models && activeToolDef.models.length > 0 && (
+            <Field label="Model / Checkpoint">
+              <select
+                aria-label="Active model checkpoint"
+                value={activeModelValue}
+                onChange={(e) => dispatch({ type: 'SET_MODEL', model: e.target.value })}
+                className="h-8 w-full rounded-control border border-ks-line-strong bg-ks-abyss px-2 font-mono text-micro text-ks-ink"
+              >
+                {activeToolDef.models.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
+
+          {intent === 'analyze' && explicitTool !== 'run_any_llm' ? (
             <p className="text-meta text-ks-ink-3">Analyze inspects the selected asset and answers your question.</p>
           ) : (
             <>

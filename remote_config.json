@@ -1,10 +1,10 @@
 {
   "parameters": {
-    "enable_zencreator_node_graph": {
+    "enable_studio_node_graph": {
       "defaultValue": {
         "value": "true"
       },
-      "description": "Enables ZenCreator Pro visual node workflow canvas"
+      "description": "Enables KEYSTONE Studio visual node workflow canvas"
     },
     "enable_cursor_floating_composer": {
       "defaultValue": {
@@ -40,7 +40,7 @@
       "defaultValue": {
         "value": "3"
       },
-      "description": "ZenCreator 2-phase credit reservation"
+      "description": "KEYSTONE Studio 2-phase credit reservation"
     }
   },
   "conditions": []

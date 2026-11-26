@@ -1,9 +1,10 @@
 /**
  * Canonical Types for KEYSTONE Studio Next.js Creative Workspace
- * Supports the complete 17-tool generative pipeline from .firecrawl (ZenCreator & ComfyUI).
+ * Supports the complete 17-tool generative pipeline (KEYSTONE Studio & ComfyUI).
  */
 
 export type GenerativeToolId =
+  | 'minimax_h3'       // Flagship MiniMax-H3 / PinkCherry v1.8 Ref2VA
   | 'by_prompt'        // Text-to-Image
   | 'by_ref'           // Reference-to-Image / Img2Img
   | 'image_editor'     // Inpainting / Composition / Selective Edit
@@ -238,7 +239,7 @@ export interface Generation {
   estimatedCredits: number;
   /** Original request, kept so "Try again" re-sends exactly the same thing. */
   request: { tool: GenerativeToolId; input: Record<string, any> };
-  /** Job id sent with /generate; progress is read from GET /v1/zencreator/jobs/{jobId}. */
+  /** Job id sent with /generate; progress is read from GET /v1/studio/jobs/{jobId}. */
   jobId?: string | null;
   /** 'live' once the server has reported a state for this job; 'unavailable' if it never did. */
   progress?: 'pending' | 'live' | 'unavailable';
@@ -250,8 +251,20 @@ export interface Generation {
 
 export interface EngineStatus {
   online: boolean;
-  llm?: { configured?: boolean; endpoint_present?: boolean; model?: string | null };
+  comfy_online?: boolean;
+  comfy_base_url?: string | null;
+  cognition_endpoint?: string | null;
+  local_comfy_available?: boolean;
+  local_comfy_path?: string | null;
+  boot_error?: string | null;
+  llm?: { configured?: boolean; endpoint_present?: boolean; endpoint?: string | null; model?: string | null };
   comfy?: Record<string, any>;
+  h3?: Record<string, any>;
+  h3_health?: Record<string, any>;
+  system_stats?: Record<string, any> | null;
+  adapters?: string[];
+  workflows?: Record<string, string>;
+  supported_video_fps?: number[];
   wired_tools?: string[];
   unwired_tools?: string[];
 }
@@ -298,4 +311,4 @@ export interface StudioControls {
   look: LookState;
 }
 
-export type SidebarPanel = 'create' | 'assets' | 'history' | 'favorites';
+export type SidebarPanel = 'create' | 'personas' | 'assets' | 'history' | 'favorites';

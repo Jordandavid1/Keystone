@@ -1,10 +1,11 @@
 """
-Live progress for studio generations (/v1/zencreator/generate).
+Live progress for studio generations (/v1/studio/generate).
 
-The generate call runs synchronously, so the studio passes a job id with the
-request and polls GET /v1/zencreator/jobs/{job_id} while it is in flight. Each
-state below is recorded at the moment the router actually reaches that step,
-and every move is checked against the canonical job state machine (Bible §19).
+The generate call runs synchronously (or in async background mode), so the studio
+passes a job id with the request and polls GET /v1/studio/jobs/{job_id} while it
+is in flight. Each state below is recorded at the moment the router actually
+reaches that step, and every move is checked against the canonical job state
+machine (Bible §19).
 
 Backed by Redis when REDIS_URL is configured (and the redis client is installed),
 with a thread-safe in-memory fallback store for single-process local/test runs
@@ -164,6 +165,28 @@ class RedisBackedProgressStore:
             rec["updated_at"] = _now()
             rec["events"].append({"state": "FAILED", "at": rec["updated_at"], "reason": detail})
 
+    def set_result(self, job_id: str, result: Dict[str, Any]) -> None:
+        client = self._get_redis()
+        if client is not None:
+            raw = client.get(self._key(job_id))
+            if not raw:
+                return
+            if isinstance(raw, bytes):
+                raw = raw.decode("utf-8")
+            rec = json.loads(raw)
+            rec["result"] = result
+            rec["updated_at"] = _now()
+            ttl = _FINISHED_TTL_SECONDS if rec["state"] in TERMINAL_STATES else _ACTIVE_TTL_SECONDS
+            client.set(self._key(job_id), json.dumps(rec), ex=ttl)
+            return
+
+        with self._lock:
+            rec = self._fallback_records.get(job_id)
+            if rec is None:
+                return
+            rec["result"] = result
+            rec["updated_at"] = _now()
+
 
 _progress_store = RedisBackedProgressStore()
 
@@ -190,6 +213,7 @@ class GenerationProgress:
             "created_at": now,
             "updated_at": now,
             "error": None,
+            "result": None,
             "events": [{"state": "CREATED", "at": now, "reason": f"Generation request received for {tool}"}],
         }
         _progress_store.create(job_id, record)
@@ -208,6 +232,9 @@ class GenerationProgress:
     def fail(self, detail: str) -> None:
         _progress_store.mark_failed(self.job_id, detail)
 
+    def set_result(self, result: Dict[str, Any]) -> None:
+        _progress_store.set_result(self.job_id, result)
+
 
 def snapshot(job_id: str) -> Optional[Dict[str, Any]]:
     rec = _progress_store.get(job_id)
@@ -219,6 +246,7 @@ def snapshot(job_id: str) -> Optional[Dict[str, Any]]:
         "current_state": rec["state"],
         "terminal": rec["state"] in TERMINAL_STATES,
         "error": rec["error"],
+        "result": rec.get("result"),
         "created_at": rec["created_at"],
         "updated_at": rec["updated_at"],
         "events": [dict(e) for e in rec["events"]],

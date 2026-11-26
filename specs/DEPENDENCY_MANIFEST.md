@@ -20,7 +20,7 @@
 | **Voice / Speech** | ElevenLabs API + POSIX-compatible local TTS fallback | Replaces Windows-only PowerShell SAPI fallback so Linux/Cloud Run containers work |
 | **Content Credentials** | C2PA signing library (`c2pa-python`) + dedicated env-held signing key | Stamps every generated asset at persist time (§43); signing key separate from `KEYSTONE_ENVELOPE_SECRET` |
 | **Payments & Age Gate (M2/M3)** | Stripe (SFW tier ONLY) + Adult-friendly processor (CCBill/Epoch-class) or crypto rails (UNRESTRICTED tier ONLY) + Age verification (stage 1 attestation → stage 2 card/Yoti/Veriff-class) | Processor provenance written on every `credit_ledger` row (§27, §40.9) |
-| **GPU Compute Workers** | Modal A100 / Colab Pro / dedicated GPU hosts (Tier 0 → Tier 1 → Tier 2) | Hardware specifics live in `docs/runbooks/`, not Bible canon (§24) |
+| **GPU Compute Workers** | Colab Pro / dedicated GPU hosts (Tier 0 → Tier 1 → Tier 2) | Hardware specifics live in `docs/runbooks/`, not Bible canon (§24) |
 
 ---
 

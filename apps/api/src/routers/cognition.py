@@ -230,6 +230,18 @@ class CognitionConfigRequest(BaseModel):
     openai_model: Optional[str] = Field(None, description="Served model alias on the vLLM endpoint")
 
 
+def _build_tls_context():
+    """Build an SSL context loading system trust store certificates (fixes Windows Python 3.14 root CA resolution)."""
+    import ssl
+
+    try:
+        ctx = ssl.create_default_context()
+        ctx.load_default_certs()
+        return ctx
+    except Exception:
+        return True
+
+
 async def _probe_live_cognition(active_endpoint: str, api_key: str) -> Dict[str, Any]:
     """Probes the live OpenAI-compatible cognition endpoint (/models) for reachability and latency."""
     if not active_endpoint:
@@ -239,18 +251,45 @@ async def _probe_live_cognition(active_endpoint: str, api_key: str) -> Dict[str,
     headers = {"User-Agent": "KEYSTONE-CognitionProbe/2.0"}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
+    tls_verify = _build_tls_context()
     try:
-        async with httpx.AsyncClient(timeout=4.0) as client:
+        async with httpx.AsyncClient(timeout=4.0, verify=tls_verify) as client:
             resp = await client.get(models_url, headers=headers)
+    except httpx.ConnectError as ssl_exc:
+        if "CERTIFICATE_VERIFY_FAILED" in str(ssl_exc) and os.getenv("KEYSTONE_ENV", "development").lower() != "production":
+            try:
+                async with httpx.AsyncClient(timeout=4.0, verify=False) as client:
+                    resp = await client.get(models_url, headers=headers)
+            except Exception as inner_exc:
+                latency_ms = round((time.perf_counter() - t0) * 1000.0, 1)
+                return {"reachable": False, "latency_ms": latency_ms, "models": [], "detail": f"{type(inner_exc).__name__}: {inner_exc}"}
+        else:
             latency_ms = round((time.perf_counter() - t0) * 1000.0, 1)
-            payload = resp.json() if resp.text.strip() else {}
-            models = [m.get("id") for m in payload.get("data", []) if isinstance(m, dict) and m.get("id")]
-            return {
-                "reachable": (resp.status_code == 200),
-                "latency_ms": latency_ms,
-                "models": models,
-                "detail": "Live cognition runtime responding",
-            }
+            return {"reachable": False, "latency_ms": latency_ms, "models": [], "detail": f"{type(ssl_exc).__name__}: {ssl_exc}"}
+    except Exception as exc:
+        latency_ms = round((time.perf_counter() - t0) * 1000.0, 1)
+        return {
+            "reachable": False,
+            "latency_ms": latency_ms,
+            "models": [],
+            "detail": f"{type(exc).__name__}: {exc}",
+        }
+
+    try:
+        latency_ms = round((time.perf_counter() - t0) * 1000.0, 1)
+        payload = resp.json() if resp.text.strip() else {}
+        models = [m.get("id") for m in payload.get("data", []) if isinstance(m, dict) and m.get("id")]
+        detail = (
+            "Live cognition runtime responding"
+            if resp.status_code == 200
+            else f"Endpoint returned HTTP {resp.status_code} at {models_url} (check if worker/pod is stopped or update URL in Engine Control)"
+        )
+        return {
+            "reachable": (resp.status_code == 200),
+            "latency_ms": latency_ms,
+            "models": models,
+            "detail": detail,
+        }
     except Exception as exc:
         latency_ms = round((time.perf_counter() - t0) * 1000.0, 1)
         return {
@@ -293,26 +332,38 @@ async def _invoke_live_cognition_completion(
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
 
+    tls_verify = _build_tls_context()
     try:
-        async with httpx.AsyncClient(timeout=45.0) as client:
-            resp = await client.post(
-                f"{active_endpoint.rstrip('/')}/chat/completions",
-                json=vllm_payload,
-                headers=headers,
-            )
-            resp.raise_for_status()
-            data = resp.json()
-            choices = data.get("choices", [])
-            if not choices:
-                raise RuntimeError("Empty choices returned from cognition endpoint")
-            content = (choices[0].get("message", {}) or {}).get("content", "")
-            if not content or not content.strip():
-                raise RuntimeError("Empty message content returned from cognition endpoint")
-            return {
-                "content": content,
-                "usage": data.get("usage", {}),
-                "raw": data,
-            }
+        try:
+            async with httpx.AsyncClient(timeout=45.0, verify=tls_verify) as client:
+                resp = await client.post(
+                    f"{active_endpoint.rstrip('/')}/chat/completions",
+                    json=vllm_payload,
+                    headers=headers,
+                )
+        except httpx.ConnectError as ssl_exc:
+            if "CERTIFICATE_VERIFY_FAILED" in str(ssl_exc) and os.getenv("KEYSTONE_ENV", "development").lower() != "production":
+                async with httpx.AsyncClient(timeout=45.0, verify=False) as client:
+                    resp = await client.post(
+                        f"{active_endpoint.rstrip('/')}/chat/completions",
+                        json=vllm_payload,
+                        headers=headers,
+                    )
+            else:
+                raise
+        resp.raise_for_status()
+        data = resp.json()
+        choices = data.get("choices", [])
+        if not choices:
+            raise RuntimeError("Empty choices returned from cognition endpoint")
+        content = (choices[0].get("message", {}) or {}).get("content", "")
+        if not content or not content.strip():
+            raise RuntimeError("Empty message content returned from cognition endpoint")
+        return {
+            "content": content,
+            "usage": data.get("usage", {}),
+            "raw": data,
+        }
     except HTTPException:
         raise
     except Exception as exc:

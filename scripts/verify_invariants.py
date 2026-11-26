@@ -285,13 +285,27 @@ def verify_banned_strings(root_dir: Path, run_behavioral_suite: bool = True) -> 
     behavioral_summary = "skipped"
 
     if run_behavioral_suite:
-        proc = subprocess.run(
-            [sys.executable, "-m", "pytest", str(root_dir / "tests" / "test_no_placeholders_invariants.py"), "-v"],
-            cwd=str(root_dir),
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
+        import shutil as _shutil
+
+        inv_tmp = root_dir / ".pytest_tmp_inv"
+        _shutil.rmtree(inv_tmp, ignore_errors=True)
+        try:
+            proc = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "pytest",
+                    "--basetemp=.pytest_tmp_inv",
+                    str(root_dir / "tests" / "test_no_placeholders_invariants.py"),
+                    "-v",
+                ],
+                cwd=str(root_dir),
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
+        finally:
+            _shutil.rmtree(inv_tmp, ignore_errors=True)
         behavioral_passed = proc.returncode == 0
         out = proc.stdout + proc.stderr
         behavioral_summary = "\n".join(out.splitlines()[-8:])

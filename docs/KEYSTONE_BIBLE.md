@@ -44,7 +44,7 @@ The platform may use cognitive and creative models, workflow engines, adapters, 
 4. **One Gate.** All generation and cognition-execution routes pass through the Gate (§40.7). No route talks to models except through it.
 5. **Provider Abstraction.** The cognition core is specified by architecture (permissive, multimodal-capable, behind `CognitiveProvider`), not checkpoint name. Substitution is operator configuration disclosed in the CapabilityManifest.
 6. **Quantization Approved.** GGUF/int8/fp8-class inference is sanctioned where hardware demands; quality parity is an evaluator question (§13), not a doctrine question.
-7. **Fabric Swappability.** Models are engine parts behind the CapabilityManifest; customers never see model names (§25). Adding or replacing a model is operator configuration, never a code change or Bible edit.
+7. **Fabric Swappability.** Models are engine parts behind the CapabilityManifest; operators and workspace users may inspect and select active fabric models, creative tools, and checkpoints directly (§25). Adding or replacing a model is operator configuration, never a code change or Bible edit.
 8. **Evaluation Before Acceptance.** An asset is not done until evaluated (§13). Un-evaluated output may not enter lineage as final.
 9. **Memory Is Advisory.** The compiler may retrieve recipes/context from project memory (§42); memory never overrides compile authority or mode filtering.
 10. **Durable State.** PostgreSQL (+pgvector) and Redis are the system of record. No critical state lives in process RAM.
@@ -1088,7 +1088,7 @@ Persona-bearing assets record the persona and version they depict. `mature=true`
 
 ### 23.1 Principle
 
-The customer expresses intents; KEYSTONE compiles them; workers execute them. Models are engine parts — swappable fabric behind the CapabilityManifest — and the customer UI never names them (§25). Adding or replacing a model is an operator configuration event, never a code change and never a Bible edit.
+The customer expresses intents or selects explicit creative tools and models; KEYSTONE compiles them; workers execute them. Models are swappable fabric behind the CapabilityManifest and may be inspected and selected directly in the workspace UI (§25). Adding or replacing a model is an operator configuration event, never a code change and never a Bible edit.
 
 ### 23.2 The fabric (v1 registry)
 
@@ -1139,7 +1139,7 @@ Every fabric model carries a recorded license and provenance in the manifest bef
 > procedures moved to `docs/runbooks/` as operator configuration.
 
 ```text
-Tier 0: bootstrap GPU infrastructure (Kaggle / Colab / Modal as available)
+Tier 0: open-weight GPU runtime infrastructure (Together.ai / Fireworks.ai / Hugging Face / RunPod)
 Tier 1: dedicated GPU host — stable workers and storage
 Tier 2: distributed KEYSTONE — dedicated pools, autoscaling, queue isolation
 ```
@@ -1194,9 +1194,9 @@ Bottom composer
 
 - The creative asset is visually primary.
 - Conversation supports the canvas.
-- Ordinary users see intents, not providers.
-- Advanced controls are collapsible.
-- Developer mode may expose provider details separately.
+- Users can work via quick intents or select explicit creative tools, jobs, and fabric models directly.
+- Live ComfyUI, MiniMax-H3 / PinkCherry, and cognition engine controls are active and configurable from the workspace.
+- Advanced and developer telemetry controls are collapsible.
 - Progress reflects actual job stages.
 - Automatic retries appear as refinement, with advanced evidence available on demand.
 - Image comparison supports split views.
@@ -1865,7 +1865,7 @@ Assets produced under UNRESTRICTED mode are flagged `mature=true` and filterable
 
 ### 40.10 Operator experience
 
-Mode is a single workspace setting, not a per-model or per-tool toggle. No model names are ever exposed (§25). The mode switch is visible, deliberate, and remembered.
+Mode is a single workspace setting, while full creative tools and fabric models remain selectable in the workspace (§25). The mode switch is visible, deliberate, and remembered.
 
 ### 40.11 Cognition core prompting
 

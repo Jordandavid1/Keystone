@@ -1,6 +1,6 @@
 /**
  * KEYSTONE Premium Creative Workspace — Design System & Stylesheet (Bible §25)
- * Informed by 6-Target Live Benchmark Research (Adobe Firefly, Higgsfield, ZenCreator Pro, Venice AI, Hugging Face, Grok)
+ * Informed by 6-Target Live Benchmark Research (Adobe Firefly, Higgsfield, KEYSTONE Studio, Venice AI, Hugging Face, Grok)
  */
 
 :root {
@@ -2101,7 +2101,7 @@ html, body {
   box-shadow: 0 0 6px #10b981;
 }
 
-/* ZenCreator 2-Phase Credit Ledger Pill */
+/* KEYSTONE Studio 2-Phase Credit Ledger Pill */
 .credit-ledger-pill {
   background: rgba(245, 158, 11, 0.12);
   border: 1px solid rgba(245, 158, 11, 0.3);
@@ -2264,7 +2264,7 @@ html, body {
   transform: perspective(1000px) rotateX(16deg) rotateZ(-4deg) scale(1.08);
 }
 
-/* ZenCreator Visual Node Editor Grid & Cards */
+/* KEYSTONE Studio Visual Node Editor Grid & Cards */
 .zen-node-canvas {
   width: 100%;
   height: 100%;

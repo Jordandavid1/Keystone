@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Clock, FolderKanban, Heart, Images, MessageSquare, Settings, Sparkles } from 'lucide-react';
+import { Clock, FolderKanban, Heart, Images, MessageSquare, Settings, Sparkles, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio/store';
 import { SidebarPanel } from '@/lib/types';
@@ -9,6 +9,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 
 const PANELS: { id: SidebarPanel; label: string; icon: React.ElementType }[] = [
   { id: 'create', label: 'Create', icon: Sparkles },
+  { id: 'personas', label: 'Personas', icon: Users },
   { id: 'assets', label: 'Assets', icon: Images },
   { id: 'history', label: 'History', icon: Clock },
   { id: 'favorites', label: 'Favorites', icon: Heart },
@@ -58,6 +59,7 @@ export function ActivityBar() {
   const { state, dispatch } = useStudio();
   const { panel, panelOpen } = state.ui;
   const running = state.runs.filter((r) => r.status === 'queued' || r.status === 'processing').length;
+  const personaCount = state.system.personas.length;
 
   const select = (id: SidebarPanel) => {
     if (panel === id && panelOpen) dispatch({ type: 'TOGGLE_PANEL', open: false });
@@ -76,7 +78,7 @@ export function ActivityBar() {
           icon={p.icon}
           active={panelOpen && panel === p.id}
           onClick={() => select(p.id)}
-          badge={p.id === 'history' ? running : undefined}
+          badge={p.id === 'history' ? running : p.id === 'personas' && personaCount > 0 ? personaCount : undefined}
         />
       ))}
       <div className="my-2 h-px w-6 bg-ks-line" aria-hidden="true" />

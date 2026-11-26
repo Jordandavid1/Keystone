@@ -1,7 +1,8 @@
 """
-KEYSTONE Cognition Client & vLLM Connector (Python Implementation)
+KEYSTONE Cognition Client & Open-Weight Runtime Connector (Python Implementation)
 Implements client interface to the locked abliterated cognition checkpoint
-(OBLITERATUS/Qwen3.8-27B-OBLITERATED) running on Modal A100 / Kaggle 2x NVIDIA T4.
+(OBLITERATUS/Qwen3.8-27B-OBLITERATED) running on open-weight inference runtimes
+(Together.ai, Fireworks.ai, Hugging Face, RunPod, or dedicated llama.cpp).
 Enforces invariant checkpoint pinning, prohibits model substitution, validates structured
 ProposedAction JSON output, and collects latency and token usage telemetry
 per Bible §2 Invariant 6, 10, §10, §11, §24, §37 (ADR-003).
@@ -100,15 +101,17 @@ class CognitionConnector:
     def resolve_served_model(self) -> str:
         load_keystone_dotenv()
         env_model = os.getenv("OPENAI_MODEL", "").strip()
-        if env_model and env_model in ALLOWED_SERVED_ALIASES:
+        if env_model and "huihui" in env_model.lower():
+            return self.PINNED_CHECKPOINT
+        if env_model:
             return env_model
         return self.PINNED_CHECKPOINT
 
     def resolve_active_endpoint(self) -> str:
         """
-        Dynamically resolves the live vLLM endpoint URL in priority order:
+        Dynamically resolves the live open-weight LLM endpoint URL in priority order:
         1. Explicit constructor base_url (if passed by caller)
-        2. Active ephemeral Kaggle/Colab worker registered in WorkerBridge
+        2. Active cognition worker registered in WorkerBridge
         3. COGNITION_BASE_URL or OPENAI_BASE_URL environment variable
         Returns empty string when no cognition engine is configured.
         """
