@@ -1,7 +1,7 @@
 # KEYSTONE Tier 0 GPU Bootstrap Runbook (Kaggle / Colab)
 
 **Migrated from:** KEYSTONE Bible v1 §24 (`bible-v1-final`) per Bible v2 §24 & ADR-004  
-**Scope:** Operator configuration and bootstrap deployment procedures. Hardware specifics, serving stacks (`llama.cpp` / `vLLM`), and sanctioned quantization profiles (`Q8_0.gguf`, `int8`, `fp8`) live here and in `CapabilityManifest` disclosures — never hardcoded in Bible canon.
+**Scope:** Operator configuration and bootstrap deployment procedures. Hardware specifics, serving stacks (`llama.cpp` / `vLLM`), and sanctioned quantization profiles (`Q16_0.gguf`, `Q8_0.gguf`, `int8`, `fp8`) live here and in `CapabilityManifest` disclosures — never hardcoded in Bible canon.
 
 ---
 
